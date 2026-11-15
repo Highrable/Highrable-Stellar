@@ -1,6 +1,8 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
+import type { Id } from "../_generated/dataModel";
+
 import { query } from "../_generated/server";
 import { participant, verifyToken } from "./auth";
 import { author, card } from "./helpers";
@@ -90,17 +92,110 @@ export const media = query({
     };
   },
 });
+export const activeStories = query({
+  args: { token: v.optional(v.string()) },
+  handler: async (ctx, { token }) => {
+    const viewer = token ? await participant(ctx, token).catch(() => null) : null;
+    const rows = await ctx.db
+      .query("socialStories")
+      .withIndex("by_expiry", (q) => q.gt("expiresAt", Date.now()))
+      .order("desc")
+      .take(100);
+    const active = rows.filter((story) => story.status === "published");
+    type ActiveStory = {
+      _id: Id<"socialStories">;
+      publishedAt?: number;
+      expiresAt: number;
+      mediaCount: number;
+      reactionCount: number;
+      reactionCounts: Record<
+        "Like" | "Celebrate" | "Support" | "Love" | "Insightful" | "Funny",
+        number
+      >;
+      viewerReaction: string | null;
+      media: Array<{ _id: Id<"socialMedia">; name: string; mime: string; size: number }>;
+    };
+    const groups = new Map<
+      string,
+      { author: Awaited<ReturnType<typeof author>>; stories: ActiveStory[] }
+    >();
+    for (const story of active) {
+      const [storyAuthor, media, reaction] = await Promise.all([
+        author(ctx, story.authorId),
+        ctx.db
+          .query("socialMedia")
+          .withIndex("by_story", (q) =>
+            q.eq("storyId", story._id).eq("removed", false).eq("complete", true),
+          )
+          .order("asc")
+          .take(1),
+        viewer
+          ? ctx.db
+              .query("socialStoryReactions")
+              .withIndex("by_story_author", (q) =>
+                q.eq("storyId", story._id).eq("authorId", viewer._id),
+              )
+              .unique()
+          : null,
+      ]);
+      const group = groups.get(story.authorId);
+      const item: ActiveStory = {
+        _id: story._id,
+        publishedAt: story.publishedAt,
+        expiresAt: story.expiresAt,
+        mediaCount: story.mediaCount,
+        reactionCount: story.reactionCount,
+        reactionCounts: {
+          Like: story.likeCount,
+          Celebrate: story.celebrateCount,
+          Support: story.supportCount,
+          Love: story.loveCount,
+          Insightful: story.insightfulCount,
+          Funny: story.funnyCount,
+        },
+        viewerReaction: reaction?.kind ?? null,
+        media: media.map(({ _id, name, mime, size }) => ({ _id, name, mime, size })),
+      };
+      if (group) group.stories.push(item);
+      else groups.set(story.authorId, { author: storyAuthor, stories: [item] });
+    }
+    return Array.from(groups.values());
+  },
+});
+export const storyMedia = query({
+  args: { storyId: v.id("socialStories"), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const story = await ctx.db.get(args.storyId);
+    if (!story || story.status !== "published" || story.expiresAt <= Date.now())
+      return { page: [], isDone: true, continueCursor: "" };
+    const rows = await ctx.db
+      .query("socialMedia")
+      .withIndex("by_story", (q) =>
+        q.eq("storyId", args.storyId).eq("removed", false).eq("complete", true),
+      )
+      .order("asc")
+      .filter((q) => q.neq(q.field("mime"), "text/plain"))
+      .paginate({ ...args.paginationOpts, numItems: Math.min(args.paginationOpts.numItems, 20) });
+    return {
+      ...rows,
+      page: rows.page.map(({ _id, name, mime, size }) => ({ _id, name, mime, size })),
+    };
+  },
+});
 export const chunks = query({
   args: { mediaId: v.id("socialMedia"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
     const m = await ctx.db.get(args.mediaId);
-    const p = m ? await ctx.db.get(m.postId) : null;
+    const p = m?.postId ? await ctx.db.get(m.postId) : null;
+    const story = m?.storyId ? await ctx.db.get(m.storyId) : null;
     if (
       !m ||
       m.removed ||
       !m.complete ||
-      p?.status !== "published" ||
-      (m.mime === "text/plain" && p.bodyId !== m._id)
+      (!p && !story) ||
+      (p && p.status !== "published") ||
+      (story && (story.status !== "published" || story.expiresAt <= Date.now())) ||
+      (m.mime === "text/plain" && (!p || p.bodyId !== m._id))
     )
       throw new Error("Media unavailable.");
     const result = await ctx.db

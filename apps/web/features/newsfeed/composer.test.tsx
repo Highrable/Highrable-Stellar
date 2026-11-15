@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
   viewer: { _id: "user-1" } as object | null,
 }));
+function openComposer() {
+  fireEvent.click(screen.getByRole("button", { name: "Open post composer" }));
+}
 vi.mock("convex/react", () => ({ useConvex: () => ({ mutation: mocks.mutation }) }));
 vi.mock("./session", () => ({
   useSocialSession: () => ({ token: "verified-session", viewer: mocks.viewer }),
@@ -37,6 +40,7 @@ it("retains text after publication failure and retries the same post without dup
     return "post-1";
   });
   render(<Composer />);
+  openComposer();
   fireEvent.change(screen.getByRole("textbox", { name: "Share an update" }), {
     target: { value: "An intact draft 🌏" },
   });
@@ -44,7 +48,7 @@ it("retains text after publication failure and retries the same post without dup
   await screen.findByRole("alert");
   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("An intact draft 🌏");
   fireEvent.click(screen.getByRole("button", { name: "Retry publishing" }));
-  await waitFor(() => expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(""));
+  await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
   expect(mocks.upload).toHaveBeenCalledTimes(1);
   const begins = mocks.mutation.mock.calls.filter(([ref]) =>
     getFunctionName(ref).endsWith(":beginPost"),
@@ -59,6 +63,7 @@ it("does not expose publishing controls to an unverified participant", () => {
 it("retains text after an upload failure and does not publish broken media", async () => {
   mocks.upload.mockRejectedValue(new Error("Upload failed"));
   render(<Composer />);
+  openComposer();
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "Keep this content" } });
   fireEvent.click(screen.getByRole("button", { name: "Publish" }));
   await screen.findByRole("alert");

@@ -1,7 +1,11 @@
 "use client";
 import { api, type TConvexId } from "@repo/convex-client";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
+import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
+import { MessageCircle, MoreHorizontal, Share2, ThumbsUp } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -14,10 +18,20 @@ import { useSocialSession } from "./session";
 const Composer = dynamic(() => import("./composer").then((module) => module.Composer));
 type Post = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.post>>;
 const reactions = ["Like", "Celebrate", "Support", "Love", "Insightful", "Funny"] as const;
+const reactionEmoji: Record<(typeof reactions)[number], string> = {
+  Like: "👍",
+  Celebrate: "🎉",
+  Support: "🙌",
+  Love: "❤️",
+  Insightful: "💡",
+  Funny: "😂",
+};
+type Media = { _id: TConvexId<"socialMedia">; name: string; mime: string; size: number };
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
-function MediaItem({ media }: { media: Post["media"][number] }) {
+export function MediaItem({ media, auto = false }: { media: Media; auto?: boolean }) {
   const client = useConvex();
+  const container = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +42,7 @@ function MediaItem({ media }: { media: Post["media"][number] }) {
     [url],
   );
   async function load() {
+    if (busy || url) return;
     setBusy(true);
     setError("");
     try {
@@ -38,35 +53,64 @@ function MediaItem({ media }: { media: Post["media"][number] }) {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (!auto || !media.mime.startsWith("image/") || !container.current) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          void load();
+        }
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [auto, media._id]);
   return (
-    <div className="min-w-0 rounded-lg border border-border/80 bg-muted/20 p-2">
+    <div ref={container} className="relative min-w-0 overflow-hidden rounded-xl bg-muted/30">
       {url ? (
         media.mime.startsWith("image/") ? (
           <img
             src={url}
             alt={media.name}
-            loading="lazy"
-            className="max-h-96 w-full object-contain"
+            className="max-h-[min(70vh,42rem)] w-full object-contain"
           />
         ) : (
-          <video controls preload="metadata" src={url} className="w-full">
+          <video controls preload="none" src={url} className="max-h-[min(70vh,42rem)] w-full">
             <track kind="captions" />
             Your browser does not support video playback.
           </video>
         )
       ) : (
-        <Button
-          variant="ghost"
-          onClick={load}
-          disabled={busy}
-          className="h-auto w-full py-8 break-words whitespace-normal"
-        >
-          {busy
-            ? "Loading media…"
-            : `Load ${media.name} (${(media.size / 1024 / 1024).toFixed(1)} MB)`}
-        </Button>
+        <div className="flex min-h-52 items-center justify-center p-5 text-center">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">{media.name}</p>
+            {media.mime.startsWith("video/") || error ? (
+              <Button variant="outline" onClick={() => void load()} disabled={busy}>
+                {busy ? "Loading media…" : error ? "Retry loading media" : "Load video"}
+              </Button>
+            ) : busy ? (
+              <p role="status" className="text-sm">
+                Loading photo…
+              </p>
+            ) : (
+              <Button variant="outline" onClick={() => void load()}>
+                Load photo
+              </Button>
+            )}
+          </div>
+        </div>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="absolute inset-x-2 bottom-2 rounded-md bg-background/95 p-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -77,14 +121,13 @@ function AdditionalMedia({ post }: { post: Pick<Post, "_id" | "media"> }) {
     { initialNumItems: 8 },
   );
   const initialIds = new Set(post.media.map((media) => media._id));
+  const additional = results.filter((media) => !initialIds.has(media._id));
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {results
-          .filter((media) => !initialIds.has(media._id))
-          .map((media) => (
-            <MediaItem key={media._id} media={media} />
-          ))}
+      <div className={`grid gap-3 ${additional.length > 1 ? "sm:grid-cols-2" : ""}`}>
+        {additional.map((media) => (
+          <MediaItem key={media._id} media={media} auto />
+        ))}
       </div>
       {status === "LoadingFirstPage" && <p role="status">Loading media…</p>}
       {status === "CanLoadMore" && (
@@ -99,9 +142,9 @@ function Gallery({ post }: { post: Pick<Post, "_id" | "media" | "mediaCount"> })
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-3 ${post.media.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {post.media.map((m) => (
-          <MediaItem key={m._id} media={m} />
+          <MediaItem key={m._id} media={m} auto />
         ))}
       </div>
       {post.mediaCount > post.media.length && !expanded && (
@@ -150,18 +193,13 @@ function Author({ author }: { author: Post["author"] }) {
   return (
     <Link
       href={`/${author.role === "client" ? "clients" : "freelancers"}/${encodeURIComponent(author.walletAddress)}`}
-      className="flex items-center gap-2 font-semibold"
+      className="flex min-w-0 items-center gap-3 font-semibold"
     >
-      {author.avatarUrl && (
-        <img
-          src={author.avatarUrl}
-          alt=""
-          width={36}
-          height={36}
-          className="size-9 rounded-full object-cover"
-        />
-      )}
-      {author.name}
+      <Avatar className="size-11">
+        <AvatarImage src={author.avatarUrl ?? undefined} alt="" />
+        <AvatarFallback>{author.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <span className="truncate">{author.name}</span>
     </Link>
   );
 }
@@ -191,21 +229,23 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
     }
   }
   return (
-    <section aria-label="Comments" className="space-y-3 border-t pt-3">
+    <section id={`comments-${postId}`} aria-label="Comments" className="space-y-3 border-t pt-3">
       {results.map((c) => (
-        <div key={c._id} className="space-y-2 rounded bg-muted/40 p-3">
+        <div key={c._id} className="space-y-2 rounded-xl bg-muted/40 p-3">
           <Author author={c.author} />
           {editing === c._id ? (
             <>
-              <label className="block">
-                Edit comment
-                <textarea
-                  className="w-full border p-2"
+              <div className="block">
+                <label htmlFor={`edit-comment-${c._id}`}>Edit comment</label>
+                <Textarea
+                  id={`edit-comment-${c._id}`}
+                  className="mt-2"
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
                 />
-              </label>
-              <button
+              </div>
+              <Button
+                size="sm"
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
@@ -220,17 +260,19 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
                 }
               >
                 Save comment
-              </button>
-              <button onClick={() => setEditing(null)} className="ml-3">
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setEditing(null)} className="ml-2">
                 Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <p className="break-words whitespace-pre-wrap">{c.body}</p>
           )}
           {viewer?._id === c.authorId && (
             <div className="flex gap-3 text-sm">
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 disabled={busy}
                 onClick={() => {
                   setEditing(c._id);
@@ -238,8 +280,10 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
                 }}
               >
                 Edit
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 disabled={busy}
                 onClick={() =>
                   run(() =>
@@ -252,11 +296,13 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
                 }
               >
                 Delete
-              </button>
+              </Button>
             </div>
           )}
           {viewer && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={busy}
               className="text-sm underline"
               onClick={() => {
@@ -272,12 +318,16 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
               }}
             >
               Report comment
-            </button>
+            </Button>
           )}
         </div>
       ))}
       {status === "LoadingFirstPage" && <p role="status">Loading comments…</p>}
-      {status === "CanLoadMore" && <button onClick={() => loadMore(10)}>Load more comments</button>}
+      {status === "CanLoadMore" && (
+        <Button variant="outline" size="sm" onClick={() => loadMore(10)}>
+          Load more comments
+        </Button>
+      )}
       {viewer && (
         <form
           onSubmit={(e) => {
@@ -294,18 +344,19 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
             });
           }}
         >
-          <label className="block">
-            Add a comment
-            <textarea
-              className="w-full rounded border p-2"
+          <div className="block">
+            <label htmlFor={`new-comment-${postId}`}>Add a comment</label>
+            <Textarea
+              id={`new-comment-${postId}`}
+              className="mt-2"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               disabled={busy}
             />
-          </label>
-          <button className="underline" disabled={busy || !body.trim()}>
+          </div>
+          <Button className="mt-2" size="sm" disabled={busy || !body.trim()}>
             Comment
-          </button>
+          </Button>
         </form>
       )}
       {error && <p role="alert">{error}</p>}
@@ -322,7 +373,14 @@ export function PostCard({ post }: { post: Post }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState("");
-  const [pendingReaction, setPendingReaction] = useState<Post["viewerReaction"] | undefined>();
+  const [reactionState, setReactionState] = useState({
+    server: post.viewerReaction,
+    confirmed: post.viewerReaction,
+    selected: post.viewerReaction,
+  });
+  const stateMatchesServer = reactionState.server === post.viewerReaction;
+  const confirmedReaction = stateMatchesServer ? reactionState.confirmed : post.viewerReaction;
+  const selectedReaction = stateMatchesServer ? reactionState.selected : post.viewerReaction;
   const react = useMutation(api.newsfeed.mutations.react);
   async function run(fn: () => Promise<unknown>) {
     setError("");
@@ -344,129 +402,220 @@ export function PostCard({ post }: { post: Post }) {
       setNotice("Link copied.");
     }
   }
+  async function chooseReaction(kind: Post["viewerReaction"]) {
+    if (!token) return;
+    setError("");
+    setBusy(true);
+    setReactionState({ server: post.viewerReaction, confirmed: confirmedReaction, selected: kind });
+    try {
+      await react({ token, postId: post._id, kind });
+      setReactionState({ server: post.viewerReaction, confirmed: kind, selected: kind });
+    } catch (e) {
+      setReactionState({
+        server: post.viewerReaction,
+        confirmed: confirmedReaction,
+        selected: confirmedReaction,
+      });
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const published = post.publishedAt ?? post._creationTime;
   return (
-    <article className="hr-card-surface space-y-4 p-4 sm:p-6">
-      <header>
+    <article className="hr-card-surface overflow-hidden rounded-2xl p-4 sm:p-5">
+      <header className="flex items-start justify-between gap-3">
         <Author author={post.author} />
-        <Link className="text-xs text-muted-foreground" href={`/newsfeed/${post._id}`}>
-          <time dateTime={new Date(post.publishedAt ?? post._creationTime).toISOString()}>
-            {new Date(post.publishedAt ?? post._creationTime).toLocaleString()}
-          </time>
-        </Link>
-      </header>
-      <PostText key={post.bodyId ?? "empty"} post={post} />
-      {post.mediaCount > 0 && <Gallery post={post} />}
-      {post.originalId &&
-        (post.original ? (
-          <blockquote className="space-y-3 border-l-2 pl-4">
-            <Author author={post.original.author} />
-            <PostText key={post.original.bodyId ?? "empty"} post={post.original} />
-            {post.original.mediaCount > 0 && <Gallery post={post.original} />}
-            <Link href={`/newsfeed/${post.original._id}`} className="text-sm underline">
-              View original post
-            </Link>
-          </blockquote>
-        ) : (
-          <p className="rounded bg-muted p-4">Original post unavailable.</p>
-        ))}
-      <p className="text-sm">
-        {post.reactionCount} reactions · {post.commentCount} comments
-      </p>
-      <div className="flex flex-wrap gap-3 text-sm">
-        {viewer && (
-          <label>
-            Reaction{" "}
-            <select
-              className="rounded border p-1"
-              aria-label="Choose a reaction"
-              disabled={busy}
-              value={
-                pendingReaction === undefined
-                  ? (post.viewerReaction ?? "")
-                  : (pendingReaction ?? "")
-              }
-              onChange={(e) =>
-                run(async () => {
-                  const kind = e.target.value
-                    ? (e.target.value as (typeof reactions)[number])
-                    : null;
-                  setPendingReaction(kind);
-                  try {
-                    await react({ token, postId: post._id, kind });
-                    setPendingReaction(undefined);
-                  } catch (error) {
-                    setPendingReaction(undefined);
-                    throw error;
-                  }
-                })
-              }
-            >
-              <option value="">None</option>
-              {reactions.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button aria-expanded={comments} onClick={() => setComments(!comments)}>
-          Comments
-        </button>
-        {viewer && (
-          <button aria-expanded={repost} onClick={() => setRepost(!repost)}>
-            Repost
-          </button>
-        )}
-        <button onClick={() => run(() => share(false))}>Copy link</button>
-        <button onClick={() => run(() => share(true))}>Share</button>
-        {viewer?._id === post.authorId && (
-          <>
-            <button
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  setBody(
-                    post.bodyId
-                      ? await (await readMedia(client, post.bodyId, "text/plain")).text()
-                      : "",
-                  );
-                  setEditing(true);
-                })
-              }
-            >
-              Edit post
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm("Delete this post?"))
-                  void run(() =>
-                    client.mutation(api.newsfeed.mutations.deletePost, { token, postId: post._id }),
-                  );
-              }}
-            >
-              Delete post
-            </button>
-          </>
-        )}
-        {viewer && (
-          <button
-            disabled={busy}
-            onClick={() => {
-              const reason = window.prompt("Why are you reporting this post?");
-              if (reason?.trim())
-                void run(async () => {
-                  await client.mutation(api.newsfeed.mutations.report, {
-                    token,
-                    postId: post._id,
-                    reason,
-                  });
-                  setNotice("Report submitted.");
-                });
-            }}
+        <div className="flex shrink-0 items-center gap-1">
+          <Link
+            className="text-xs text-muted-foreground hover:underline"
+            href={`/newsfeed/${post._id}`}
           >
-            Report
-          </button>
+            <time dateTime={new Date(published).toISOString()}>
+              {new Date(published).toLocaleString()}
+            </time>
+          </Link>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Post options">
+                <MoreHorizontal aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="flex w-44 flex-col gap-1 p-2">
+              {viewer?._id === post.authorId && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        setBody(
+                          post.bodyId
+                            ? await (await readMedia(client, post.bodyId, "text/plain")).text()
+                            : "",
+                        );
+                        setEditing(true);
+                      })
+                    }
+                  >
+                    Edit post
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start text-destructive"
+                    disabled={busy}
+                    onClick={() => {
+                      if (window.confirm("Delete this post?"))
+                        void run(() =>
+                          client.mutation(api.newsfeed.mutations.deletePost, {
+                            token,
+                            postId: post._id,
+                          }),
+                        );
+                    }}
+                  >
+                    Delete post
+                  </Button>
+                </>
+              )}
+              {viewer && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="justify-start"
+                  disabled={busy}
+                  onClick={() => {
+                    const reason = window.prompt("Why are you reporting this post?");
+                    if (reason?.trim())
+                      void run(async () => {
+                        await client.mutation(api.newsfeed.mutations.report, {
+                          token,
+                          postId: post._id,
+                          reason,
+                        });
+                        setNotice("Report submitted.");
+                      });
+                  }}
+                >
+                  Report post
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+      </header>
+      <div className="space-y-4 py-4">
+        <div className="text-base leading-7 sm:text-lg">
+          <PostText key={post.bodyId ?? "empty"} post={post} />
+        </div>
+        {post.mediaCount > 0 && <Gallery post={post} />}
+        {post.originalId &&
+          (post.original ? (
+            <blockquote className="space-y-3 rounded-xl border-l-2 bg-muted/20 p-4 pl-4">
+              <Author author={post.original.author} />
+              <PostText key={post.original.bodyId ?? "empty"} post={post.original} />
+              {post.original.mediaCount > 0 && <Gallery post={post.original} />}
+              <Link href={`/newsfeed/${post.original._id}`} className="text-sm underline">
+                View original post
+              </Link>
+            </blockquote>
+          ) : (
+            <p className="rounded-xl bg-muted p-4">Original post unavailable.</p>
+          ))}
+      </div>
+      <div className="flex items-center justify-between border-b py-2 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          {post.reactionCount > 0 && (
+            <span className="text-base" aria-hidden="true">
+              👍❤️
+            </span>
+          )}
+          <span>{post.reactionCount} reactions</span>
+        </span>
+        <button type="button" className="hover:underline" onClick={() => setComments(true)}>
+          {post.commentCount} comments
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-1 border-b py-1">
+        {viewer && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" className="h-10 w-full">
+                <span className="text-lg" aria-hidden="true">
+                  {selectedReaction ? (
+                    reactionEmoji[selectedReaction as (typeof reactions)[number]]
+                  ) : (
+                    <ThumbsUp className="size-4" />
+                  )}
+                </span>
+                <span>{selectedReaction ?? "Like"}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" aria-label="Choose a reaction">
+              <div role="group" aria-label="Reactions" className="flex gap-1">
+                {reactions.map((kind) => (
+                  <Button
+                    key={kind}
+                    variant="ghost"
+                    size="icon"
+                    disabled={busy}
+                    aria-label={`React ${kind}`}
+                    aria-pressed={selectedReaction === kind}
+                    title={kind}
+                    className="text-xl"
+                    onClick={() => void chooseReaction(kind)}
+                  >
+                    {reactionEmoji[kind]}
+                  </Button>
+                ))}
+                {selectedReaction && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void chooseReaction(null)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
+        <Button
+          variant="ghost"
+          className="h-10"
+          aria-expanded={comments}
+          onClick={() => setComments(!comments)}
+        >
+          <MessageCircle aria-hidden="true" className="size-4" /> Comment
+        </Button>
+        {viewer && (
+          <Button
+            variant="ghost"
+            className="h-10"
+            aria-expanded={repost}
+            onClick={() => setRepost(!repost)}
+          >
+            <Share2 aria-hidden="true" className="size-4" /> Repost
+          </Button>
+        )}
+        {!viewer && (
+          <Button variant="ghost" className="h-10" onClick={() => void run(() => share(false))}>
+            Copy link
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2 pt-2">
+        <Button variant="ghost" size="sm" onClick={() => void run(() => share(false))}>
+          Copy link
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => void run(() => share(true))}>
+          Share
+        </Button>
       </div>
       {editing && (
         <form
@@ -490,18 +639,19 @@ export function PostCard({ post }: { post: Post }) {
             });
           }}
         >
-          <label className="block">
-            Edit post text
-            <textarea
-              className="w-full border p-2"
+          <div className="block">
+            <label htmlFor={`edit-post-${post._id}`}>Edit post text</label>
+            <Textarea
+              id={`edit-post-${post._id}`}
+              className="mt-2"
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
-          </label>
-          <button disabled={busy || !body.trim()}>Save changes</button>
-          <button type="button" className="ml-3" onClick={() => setEditing(false)}>
+          </div>
+          <Button disabled={busy || !body.trim()}>Save changes</Button>
+          <Button type="button" variant="ghost" className="ml-3" onClick={() => setEditing(false)}>
             Cancel
-          </button>
+          </Button>
         </form>
       )}
       {repost && <Composer originalId={post._id} onDone={() => setRepost(false)} />}

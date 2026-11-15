@@ -32,7 +32,8 @@ export const socialTables = {
     .index("by_request", ["authorId", "requestId"]),
   socialMedia: defineTable({
     authorId: v.id("users"),
-    postId: v.id("socialPosts"),
+    postId: v.optional(v.id("socialPosts")),
+    storyId: v.optional(v.id("socialStories")),
     requestId: v.string(),
     name: v.string(),
     mime: v.string(),
@@ -44,6 +45,7 @@ export const socialTables = {
     expiresAt: v.number(),
   })
     .index("by_post", ["postId", "removed", "complete"])
+    .index("by_story", ["storyId", "removed", "complete"])
     .index("by_request", ["authorId", "requestId"])
     .index("by_expiry", ["expiresAt"]),
   socialChunks: defineTable({
@@ -51,6 +53,32 @@ export const socialTables = {
     index: v.number(),
     storageId: v.id("_storage"),
   }).index("by_media", ["mediaId", "index"]),
+  socialStories: defineTable({
+    authorId: v.id("users"),
+    requestId: v.string(),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("deleted")),
+    mediaCount: v.number(),
+    pendingMedia: v.number(),
+    reactionCount: v.number(),
+    likeCount: v.number(),
+    celebrateCount: v.number(),
+    supportCount: v.number(),
+    loveCount: v.number(),
+    insightfulCount: v.number(),
+    funnyCount: v.number(),
+    updatedAt: v.number(),
+    publishedAt: v.optional(v.number()),
+    expiresAt: v.number(),
+  })
+    .index("by_expiry", ["expiresAt"])
+    .index("by_author_request", ["authorId", "requestId"]),
+  socialStoryReactions: defineTable({
+    storyId: v.id("socialStories"),
+    authorId: v.id("users"),
+    kind: reactionKind,
+  })
+    .index("by_story_author", ["storyId", "authorId"])
+    .index("by_story", ["storyId"]),
   socialReactions: defineTable({
     postId: v.id("socialPosts"),
     authorId: v.id("users"),

@@ -8,6 +8,7 @@ import { Composer } from "./composer";
 import { Feed, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
 import { SocialSession, useSocialSession } from "./session";
+import { Stories } from "./stories";
 
 function Permalink({ id }: { id: string }) {
   const { token } = useSocialSession();
@@ -25,7 +26,7 @@ function Permalink({ id }: { id: string }) {
 }
 export function NewsfeedPage({ postId }: { postId?: string }) {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <ProductPageHero
         title={<Link href="/newsfeed">Highrable Newsfeed</Link>}
         description="Work, ideas, and updates from the Highrable community."
@@ -38,6 +39,7 @@ export function NewsfeedPage({ postId }: { postId?: string }) {
           ) : (
             <>
               <Composer />
+              <Stories />
               <Feed />
             </>
           )}

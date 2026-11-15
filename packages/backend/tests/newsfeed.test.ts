@@ -440,6 +440,144 @@ it("includes the viewer reaction and first media page in each card", async () =>
   expect(remaining.page.every((media) => media.mime === "image/png")).toBe(true);
 });
 
+it("publishes public stories with author groups, media, reactions, and author-only deletion", async () => {
+  const f = await setup();
+  const storyId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
+    token: f.auth,
+    requestId: "story-1",
+  });
+  const mediaId = await f.t.mutation(api.newsfeed.media.begin, {
+    token: f.auth,
+    storyId,
+    requestId: "story-image-1",
+    name: "story.png",
+    mime: "image/png",
+    size: 8,
+  });
+  const storageId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])])),
+  );
+  await f.t.mutation(internal.newsfeed.media.acceptChunk, {
+    token: f.auth,
+    mediaId,
+    storageId,
+    index: 0,
+    size: 8,
+  });
+  await f.t.mutation(api.newsfeed.mutations.publishStory, { token: f.auth, storyId });
+
+  const stories = await f.t.query(api.newsfeed.queries.activeStories, {});
+  expect(stories).toHaveLength(1);
+  expect(stories[0]).toMatchObject({
+    author: { name: "Ada" },
+    stories: [{ _id: storyId, mediaCount: 1, media: [{ _id: mediaId, mime: "image/png" }] }],
+  });
+  const mediaPage = await f.t.query(api.newsfeed.queries.storyMedia, {
+    storyId,
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(mediaPage.page.map((item) => item._id)).toEqual([mediaId]);
+  const chunks = await f.t.query(api.newsfeed.queries.chunks, {
+    mediaId,
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(chunks.page[0]?.url).toBeTruthy();
+
+  await f.t.mutation(api.newsfeed.mutations.reactToStory, { token: f.auth, storyId, kind: "Love" });
+  await f.t.mutation(api.newsfeed.mutations.reactToStory, {
+    token: f.auth,
+    storyId,
+    kind: "Funny",
+  });
+  expect(
+    (await f.t.query(api.newsfeed.queries.activeStories, { token: f.auth }))[0]?.stories[0],
+  ).toMatchObject({
+    reactionCount: 1,
+    reactionCounts: { Love: 0, Funny: 1 },
+    viewerReaction: "Funny",
+  });
+  await f.t.mutation(api.newsfeed.mutations.reactToStory, { token: f.auth, storyId, kind: null });
+  expect(
+    (await f.t.query(api.newsfeed.queries.activeStories, {}))[0]?.stories[0]?.reactionCount,
+  ).toBe(0);
+
+  const otherAddress = wallet("G", "B");
+  await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: otherAddress,
+      name: "Bob",
+      role: "client",
+      onboardingCompletedAt: Date.now(),
+      createdAt: Date.now(),
+    }),
+  );
+  const otherToken = await token(otherAddress);
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.deleteStory, { token: otherToken, storyId }),
+  ).rejects.toThrow(/author/);
+  await f.t.mutation(api.newsfeed.mutations.deleteStory, { token: f.auth, storyId });
+  expect(await f.t.query(api.newsfeed.queries.activeStories, {})).toEqual([]);
+  await expect(
+    f.t.query(api.newsfeed.queries.chunks, {
+      mediaId,
+      paginationOpts: { cursor: null, numItems: 10 },
+    }),
+  ).rejects.toThrow(/unavailable/);
+  await f.t.mutation(internal.newsfeed.media.cleanup, {});
+  expect(await f.t.run((ctx) => ctx.db.get(mediaId))).toBeNull();
+  expect(await f.t.run((ctx) => ctx.db.get(storyId))).toBeNull();
+});
+
+it("expires stories at 24 hours and denies reactions and media reads after expiry", async () => {
+  const f = await setup();
+  const storyId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
+    token: f.auth,
+    requestId: "story-expiry",
+  });
+  const mediaId = await f.t.mutation(api.newsfeed.media.begin, {
+    token: f.auth,
+    storyId,
+    requestId: "story-expiry-media",
+    name: "story.png",
+    mime: "image/png",
+    size: 8,
+  });
+  const storageId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])])),
+  );
+  await f.t.mutation(internal.newsfeed.media.acceptChunk, {
+    token: f.auth,
+    mediaId,
+    storageId,
+    index: 0,
+    size: 8,
+  });
+  await f.t.mutation(api.newsfeed.mutations.publishStory, { token: f.auth, storyId });
+  vi.setSystemTime(Date.now() + 24 * 60 * 60_000 + 1);
+  expect(await f.t.query(api.newsfeed.queries.activeStories, {})).toEqual([]);
+  expect(
+    (
+      await f.t.query(api.newsfeed.queries.storyMedia, {
+        storyId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      })
+    ).page,
+  ).toEqual([]);
+  const renewed = await token(wallet());
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.reactToStory, { token: renewed, storyId, kind: "Like" }),
+  ).rejects.toThrow(/unavailable/);
+  await expect(
+    f.t.query(api.newsfeed.queries.chunks, {
+      mediaId,
+      paginationOpts: { cursor: null, numItems: 10 },
+    }),
+  ).rejects.toThrow(/unavailable/);
+  await f.t.mutation(internal.newsfeed.media.cleanup, {});
+  expect(await f.t.run((ctx) => ctx.db.get(mediaId))).toBeNull();
+  expect(await f.t.run((ctx) => ctx.db.get(storyId))).toBeNull();
+});
+
 it("allows any signed-in wallet without onboarding, a role, or a completed name", async () => {
   const t = convexTest(schema, modules);
   const auth = await token(wallet("C", "E"));

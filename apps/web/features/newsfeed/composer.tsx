@@ -1,9 +1,18 @@
 "use client";
 import { api, type TConvexId } from "@repo/convex-client";
+import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
 import { Input } from "@repo/ui/components/ui/input";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useConvex } from "convex/react";
+import { ImagePlus, Smile, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { uploadMedia } from "./media-client";
@@ -25,6 +34,7 @@ export function Composer({
 }) {
   const { token, viewer } = useSocialSession();
   const client = useConvex();
+  const [open, setOpen] = useState(Boolean(originalId));
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<DraftFile[]>([]);
   const [busy, setBusy] = useState(false);
@@ -36,6 +46,7 @@ export function Composer({
     null,
   );
   const previews = useRef(new Set<string>());
+  const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const urls = previews.current;
     return () => {
@@ -47,7 +58,6 @@ export function Composer({
   async function remove(file: DraftFile) {
     try {
       if (postId.current) {
-        // Obtain the same upload record even when a previous upload failed before returning its ID.
         const id =
           file.id ??
           (await client.query(api.newsfeed.queries.uploadByRequest, { token, requestId: file.key }))
@@ -60,6 +70,15 @@ export function Composer({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not remove upload.");
     }
+  }
+  function addFiles(list: FileList | null) {
+    const added = Array.from(list ?? []).map((file) => {
+      const preview = URL.createObjectURL(file);
+      previews.current.add(preview);
+      return { key: crypto.randomUUID(), file, preview, progress: 0 };
+    });
+    setFiles((current) => [...current, ...added]);
+    if (fileInput.current) fileInput.current.value = "";
   }
   async function publish() {
     if (busy) return;
@@ -130,6 +149,7 @@ export function Composer({
       postId.current = null;
       textUpload.current = null;
       request.current = crypto.randomUUID();
+      setOpen(false);
       onDone?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not publish. Your draft is retained.");
@@ -137,57 +157,89 @@ export function Composer({
       setBusy(false);
     }
   }
-  return (
-    <section
-      aria-label={originalId ? "Repost composer" : "Create a post"}
-      className="hr-card-surface space-y-4 p-4 sm:p-5"
-    >
+  const displayName = viewer.name?.trim() || "your community";
+  const form = (
+    <div className="space-y-4">
       <label className="block font-medium">
         {originalId ? "Add your perspective" : "Share an update"}
         <Textarea
-          className="mt-2 min-h-28 resize-y"
+          id="newsfeed-post-text"
+          className="mt-2 min-h-32 resize-y"
           value={body}
           disabled={busy}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="What are you working on?"
+          placeholder={originalId ? "What do you think about this?" : "What are you working on?"}
         />
       </label>
-      <label htmlFor="newsfeed-media-upload" className="block text-sm">
-        Photos or videos
+      <div className="rounded-xl border border-border p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">Add to your post</p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+            >
+              <ImagePlus aria-hidden="true" className="mr-1.5 size-4 text-emerald-600" /> Photo
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+            >
+              <Video aria-hidden="true" className="mr-1.5 size-4 text-rose-600" /> Video
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => document.getElementById("newsfeed-post-text")?.focus()}
+            >
+              <Smile aria-hidden="true" className="mr-1.5 size-4 text-amber-600" /> Feeling
+            </Button>
+          </div>
+        </div>
         <Input
+          ref={fileInput}
           id="newsfeed-media-upload"
-          className="mt-1 h-auto py-2"
+          aria-label="Choose post photos or videos"
+          className="sr-only"
           type="file"
           multiple
           accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
           disabled={busy}
-          onChange={(e) => {
-            const added = Array.from(e.target.files ?? []).map((file) => {
-              const preview = URL.createObjectURL(file);
-              previews.current.add(preview);
-              return { key: crypto.randomUUID(), file, preview, progress: 0 };
-            });
-            setFiles((current) => [...current, ...added]);
-            e.target.value = "";
-          }}
+          onChange={(e) => addFiles(e.target.files)}
         />
-      </label>
-      <ul className="grid grid-cols-2 gap-3">
+      </div>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {files.map((file) => (
-          <li key={file.key} className="min-w-0 rounded border p-2">
+          <li key={file.key} className="min-w-0 rounded-xl border bg-muted/20 p-2">
             {file.file.type.startsWith("image/") ? (
-              <img src={file.preview} alt={file.file.name} className="max-h-36 object-contain" />
+              <img
+                src={file.preview}
+                alt={file.file.name}
+                className="h-32 w-full rounded-md object-cover"
+              />
             ) : (
-              <video src={file.preview} controls preload="metadata" className="max-h-36">
+              <video
+                src={file.preview}
+                controls
+                preload="metadata"
+                className="h-32 w-full object-contain"
+              >
                 <track kind="captions" />
               </video>
             )}
-            <p className="text-sm break-words">{file.file.name}</p>
+            <p className="mt-2 truncate text-xs" title={file.file.name}>
+              {file.file.name}
+            </p>
             <progress
               aria-label={`Uploading ${file.file.name}`}
               max={100}
               value={file.progress}
-              className="w-full"
+              className="mt-2 w-full"
             />
             <Button
               type="button"
@@ -195,7 +247,7 @@ export function Composer({
               size="sm"
               disabled={busy}
               onClick={() => void remove(file)}
-              className="px-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+              className="mt-1 h-7 px-1 text-xs text-muted-foreground"
             >
               Remove
             </Button>
@@ -203,33 +255,92 @@ export function Composer({
         ))}
       </ul>
       {error && (
-        <p role="alert" className="text-red-700">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Uploads can be retried. Very large media may exceed your browser’s memory when viewed. Draft
-        uploads expire after 24 hours.
+        Failed uploads can be retried. Your draft stays here if you close this window.
       </p>
-      <Button
-        className="hr-v2-button-primary px-4 disabled:opacity-50"
-        type="button"
-        disabled={busy || (!body.trim() && !files.length && !originalId)}
-        onClick={publish}
-      >
-        {busy ? "Publishing…" : error ? "Retry publishing" : originalId ? "Repost" : "Publish"}
-      </Button>
-      {busy && (
+      <div className="flex items-center justify-end gap-2">
+        {busy && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => abort.current?.abort()}>
+            Cancel upload
+          </Button>
+        )}
         <Button
+          className="hr-v2-button-primary px-5 disabled:opacity-50"
           type="button"
-          variant="ghost"
-          size="sm"
-          className="ml-2"
-          onClick={() => abort.current?.abort()}
+          disabled={busy || (!body.trim() && !files.length && !originalId)}
+          onClick={() => void publish()}
         >
-          Cancel upload
+          {busy ? "Publishing…" : error ? "Retry publishing" : originalId ? "Repost" : "Publish"}
         </Button>
+      </div>
+    </div>
+  );
+  return (
+    <>
+      {!originalId && (
+        <section aria-label="Create a post" className="hr-card-surface p-3 sm:p-4">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex w-full items-center gap-3 text-left"
+            aria-label="Open post composer"
+          >
+            <Avatar className="size-11">
+              <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
+              <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <span className="flex-1 rounded-full bg-muted px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/80">
+              What’s on your mind, {displayName.split(" ")[0]}?
+            </span>
+          </button>
+          <div className="mt-3 flex border-t pt-3">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1"
+              onClick={() => {
+                setOpen(true);
+                setTimeout(() => fileInput.current?.click(), 100);
+              }}
+            >
+              <Video className="mr-2 size-4 text-rose-600" /> Video
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1"
+              onClick={() => {
+                setOpen(true);
+                setTimeout(() => fileInput.current?.click(), 100);
+              }}
+            >
+              <ImagePlus className="mr-2 size-4 text-emerald-600" /> Photo
+            </Button>
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setOpen(true)}>
+              <Smile className="mr-2 size-4 text-amber-600" /> Feeling
+            </Button>
+          </div>
+        </section>
       )}
-    </section>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next && originalId) onDone?.();
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{originalId ? "Repost" : "Create post"}</DialogTitle>
+            <DialogDescription>Share an update with the Highrable community.</DialogDescription>
+          </DialogHeader>
+          {form}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

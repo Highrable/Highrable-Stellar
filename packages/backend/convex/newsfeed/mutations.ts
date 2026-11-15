@@ -117,6 +117,144 @@ export const react = mutation({
     }
   },
 });
+export const beginStory = mutation({
+  args: { token: v.string(), requestId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    requestKey(args.requestId);
+    const prior = await ctx.db
+      .query("socialStories")
+      .withIndex("by_author_request", (q) =>
+        q.eq("authorId", user._id).eq("requestId", args.requestId),
+      )
+      .unique();
+    if (prior) return prior._id;
+    const now = Date.now();
+    return ctx.db.insert("socialStories", {
+      authorId: user._id,
+      requestId: args.requestId,
+      status: "draft",
+      mediaCount: 0,
+      pendingMedia: 0,
+      reactionCount: 0,
+      likeCount: 0,
+      celebrateCount: 0,
+      supportCount: 0,
+      loveCount: 0,
+      insightfulCount: 0,
+      funnyCount: 0,
+      updatedAt: now,
+      expiresAt: now + 24 * 60 * 60_000,
+    });
+  },
+});
+export const publishStory = mutation({
+  args: { token: v.string(), storyId: v.id("socialStories") },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    const story = await ctx.db.get(args.storyId);
+    if (!story || story.authorId !== user._id)
+      throw new Error("Only the author can publish this story.");
+    if (story.status === "published" && story.expiresAt > Date.now()) return story._id;
+    if (story.status !== "draft" || story.pendingMedia !== 0 || story.mediaCount === 0)
+      throw new Error("Finish your uploads and add at least one photo or video.");
+    const publishedAt = Date.now();
+    const expiresAt = publishedAt + 24 * 60 * 60_000;
+    await ctx.db.patch(story._id, {
+      status: "published",
+      publishedAt,
+      expiresAt,
+      updatedAt: publishedAt,
+    });
+    const media = await ctx.db
+      .query("socialMedia")
+      .withIndex("by_story", (q) =>
+        q.eq("storyId", story._id).eq("removed", false).eq("complete", true),
+      )
+      .take(50);
+    for (const item of media) await ctx.db.patch(item._id, { expiresAt });
+    return story._id;
+  },
+});
+export const deleteStory = mutation({
+  args: { token: v.string(), storyId: v.id("socialStories") },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    const story = await ctx.db.get(args.storyId);
+    if (!story || story.authorId !== user._id)
+      throw new Error("Only the author can delete this story.");
+    if (story.status === "deleted") return;
+    const now = Date.now();
+    await ctx.db.patch(story._id, { status: "deleted", expiresAt: now, updatedAt: now });
+    const media = await ctx.db
+      .query("socialMedia")
+      .withIndex("by_story", (q) => q.eq("storyId", story._id))
+      .take(50);
+    for (const item of media) await ctx.db.patch(item._id, { expiresAt: now });
+  },
+});
+export const reactToStory = mutation({
+  args: {
+    token: v.string(),
+    storyId: v.id("socialStories"),
+    kind: v.union(reactionKind, v.null()),
+  },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    const story = await ctx.db.get(args.storyId);
+    if (!story || story.status !== "published" || story.expiresAt <= Date.now())
+      throw new Error("Story unavailable.");
+    const prior = await ctx.db
+      .query("socialStoryReactions")
+      .withIndex("by_story_author", (q) => q.eq("storyId", story._id).eq("authorId", user._id))
+      .unique();
+    if (prior?.kind === args.kind) return;
+    const counts = {
+      likeCount: story.likeCount,
+      celebrateCount: story.celebrateCount,
+      supportCount: story.supportCount,
+      loveCount: story.loveCount,
+      insightfulCount: story.insightfulCount,
+      funnyCount: story.funnyCount,
+    };
+    const adjust = (kind: string, delta: number) => {
+      switch (kind) {
+        case "Like":
+          counts.likeCount += delta;
+          break;
+        case "Celebrate":
+          counts.celebrateCount += delta;
+          break;
+        case "Support":
+          counts.supportCount += delta;
+          break;
+        case "Love":
+          counts.loveCount += delta;
+          break;
+        case "Insightful":
+          counts.insightfulCount += delta;
+          break;
+        case "Funny":
+          counts.funnyCount += delta;
+      }
+    };
+    if (prior) adjust(prior.kind, -1);
+    if (args.kind) adjust(args.kind, 1);
+    if (args.kind && prior) await ctx.db.patch(prior._id, { kind: args.kind });
+    else if (args.kind)
+      await ctx.db.insert("socialStoryReactions", {
+        storyId: story._id,
+        authorId: user._id,
+        kind: args.kind,
+      });
+    else if (prior) await ctx.db.delete(prior._id);
+    await ctx.db.patch(story._id, {
+      reactionCount:
+        story.reactionCount + (prior ? 0 : args.kind ? 1 : 0) - (prior && !args.kind ? 1 : 0),
+      ...counts,
+    });
+  },
+});
 export const comment = mutation({
   args: { token: v.string(), postId: v.id("socialPosts"), requestId: v.string(), body: v.string() },
   handler: async (ctx, args) => {

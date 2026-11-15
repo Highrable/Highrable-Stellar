@@ -1,13 +1,13 @@
 import { api } from "@repo/convex-client";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import type { FunctionReturnType } from "convex/server";
 
-import { Feed, PostCard } from "./feed";
-const mock = vi.hoisted(() => ({ mutate: vi.fn(), paginated: vi.fn() }));
+import { Feed, MediaItem, PostCard } from "./feed";
+const mock = vi.hoisted(() => ({ mutate: vi.fn(), paginated: vi.fn(), readMedia: vi.fn() }));
 vi.mock("./session", () => ({
   useSocialSession: () => ({ token: "verified", viewer: { _id: "viewer" } }),
 }));
@@ -18,6 +18,7 @@ vi.mock("convex/react", () => ({
   useQuery: () => null,
   usePaginatedQuery: mock.paginated,
 }));
+vi.mock("./media-client", () => ({ readMedia: mock.readMedia, uploadMedia: vi.fn() }));
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -49,12 +50,21 @@ const post = {
 } as unknown as NonNullable<FunctionReturnType<typeof api.newsfeed.queries.post>>;
 beforeEach(() => {
   vi.stubGlobal("React", React);
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:media"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
   mock.mutate.mockReset();
   mock.paginated.mockReset();
+  mock.readMedia.mockReset();
+  mock.readMedia.mockResolvedValue(new Blob(["media"]));
   mock.paginated.mockReturnValue({ results: [post], status: "Exhausted", loadMore: vi.fn() });
 });
 afterEach(() => {
   cleanup();
+  Reflect.deleteProperty(URL, "createObjectURL");
+  Reflect.deleteProperty(URL, "revokeObjectURL");
   vi.unstubAllGlobals();
 });
 it("renders participant names, safe text, and unavailable originals", () => {
@@ -68,11 +78,10 @@ it("renders participant names, safe text, and unavailable originals", () => {
 it("shows failed reaction feedback while retaining the last confirmed value", async () => {
   mock.mutate.mockRejectedValue(new Error("Session expired"));
   render(<PostCard post={post} />);
-  fireEvent.change(screen.getByRole("combobox", { name: "Choose a reaction" }), {
-    target: { value: "Love" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Like" }));
+  fireEvent.click(await screen.findByRole("button", { name: "React Love" }));
   await screen.findByRole("alert");
-  expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("Like");
+  expect(screen.getByRole("button", { name: "Like" })).toBeTruthy();
 });
 it("uses the author-filtered feed for profile activity and renders the shared card", () => {
   render(<Feed authorId={post.authorId} />);
@@ -96,7 +105,8 @@ it("renders initial attachment metadata without a query per card", () => {
       }
     />,
   );
-  expect(screen.getByRole("button", { name: /Load photo.png/ })).toBeTruthy();
+  expect(screen.getByText("photo.png")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Load photo" })).toBeTruthy();
   expect(mock.paginated).not.toHaveBeenCalled();
 });
 it("starts media pagination only after opening more attachments", () => {
@@ -124,4 +134,50 @@ it("starts media pagination only after opening more attachments", () => {
     { postId: post._id },
     { initialNumItems: 8 },
   );
+});
+it("automatically loads nearby photos and offers retry after a failed read", async () => {
+  class ImmediateIntersectionObserver {
+    constructor(private callback: IntersectionObserverCallback) {}
+    observe(target: Element) {
+      this.callback(
+        [{ target, isIntersecting: true } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    }
+    disconnect() {}
+    unobserve() {}
+    takeRecords() {
+      return [];
+    }
+    readonly root = null;
+    readonly rootMargin = "300px 0px";
+    readonly thresholds = [0];
+  }
+  vi.stubGlobal("IntersectionObserver", ImmediateIntersectionObserver);
+  mock.readMedia.mockRejectedValueOnce(new Error("Media read failed"));
+  render(
+    <MediaItem
+      media={{ _id: "media-1" as never, name: "photo.png", mime: "image/png", size: 10 }}
+      auto
+    />,
+  );
+  await screen.findByRole("alert");
+  expect(mock.readMedia).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Retry loading media" }));
+  await waitFor(() => expect(mock.readMedia).toHaveBeenCalledTimes(2));
+});
+it("keeps video on demand and uses inline controls after loading", async () => {
+  render(
+    <MediaItem
+      media={{ _id: "video-1" as never, name: "clip.mp4", mime: "video/mp4", size: 10 }}
+      auto
+    />,
+  );
+  expect(mock.readMedia).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Load video" }));
+  await waitFor(() => expect(document.querySelector("video")).toBeTruthy());
+  const video = document.querySelector("video")!;
+  expect(video.getAttribute("controls")).not.toBeNull();
+  expect(video.getAttribute("preload")).toBe("none");
+  expect(mock.readMedia).toHaveBeenCalledTimes(1);
 });

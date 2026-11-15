@@ -2,10 +2,11 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AppModeProvider, ModeBanner, useAppMode } from "@/features/mode";
+import { SidebarInset, SidebarProvider } from "@repo/ui/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { Footer } from "./footer";
+import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 
 function isAdminPath(pathname: string) {
@@ -73,16 +74,17 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
   }, [activeMode]);
 
   return (
-    <div
-      data-mode={activeMode}
-      className="flex min-h-screen flex-col bg-[var(--mode-page)] text-foreground"
-    >
-      <Header />
-      {isAdminRoute ? null : <ModeBanner />}
-      <main className="hr-app-main mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
-        {children}
-      </main>
-      <Footer />
+    <div data-mode={activeMode} className="min-h-screen bg-[var(--mode-page)] text-foreground">
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset className="min-w-0 bg-muted/60">
+          <Header />
+          {isAdminRoute ? null : <ModeBanner />}
+          <div className="hr-app-main mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }

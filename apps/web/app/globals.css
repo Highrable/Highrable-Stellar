@@ -172,8 +172,6 @@ body {
   filter: brightness(0.96);
 }
 
-[data-mode] button:not(:disabled):hover,
-[data-mode] [data-slot="button"]:not(:disabled):hover,
 [data-mode] .hr-button-hover-shadow:hover,
 [data-mode] .hr-v2-button-primary:hover,
 [data-mode] .hr-v2-button-secondary:hover,

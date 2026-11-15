@@ -7,7 +7,10 @@ configuration remain authoritative.
 ## Preservation rules
 
 - Keep all App Router routes, redirects, metadata, and route fallbacks.
-- Keep mode-dependent navigation and visibility (`freelancer`, `client`, and verified `admin`).
+- Keep mode-dependent navigation and visibility (`freelancer`, `client`, and verified `admin`). The
+  shared shell now presents these links in a collapsible shadcn sidebar with a mobile Sheet; the
+  top bar no longer repeats navigation tabs or the mode switch. The marketing footer remains on
+  the landing page only.
 - Keep Convex queries and mutations, wallet/passkey providers, Soroban transaction execution,
   transaction recovery, attachment uploads, and generated Convex files unchanged by visual work.
 - Keep existing form schemas, validation, loading/error states, and success/error toasts.
@@ -62,6 +65,8 @@ Every redesigned surface should be checked in these states before handoff:
 
 ## Review log
 
-| Date       | Area                                                           | Result | Notes                                                    |
-| ---------- | -------------------------------------------------------------- | ------ | -------------------------------------------------------- |
-| 2026-11-15 | Shared shell, route surfaces, and staged newsfeed presentation | Passed | Visual-only changes; wallet/mode/data contracts retained |
+| Date       | Area                                                           | Result                | Notes                                                                                                                                      |
+| ---------- | -------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-11-15 | Shared shell, route surfaces, and staged newsfeed presentation | Passed                | Visual-only changes; wallet/mode/data contracts retained                                                                                   |
+| 2026-11-15 | Shared role-aware sidebar navigation                           | Passed                | Freelancer, client, admin filtering, profile route, mobile close behavior, and mode-switch ownership retained                              |
+| 2026-11-15 | Shadcn sidebar and token alignment                             | Pending visual review | Sidebar uses semantic neutral surfaces, route breadcrumbs, mobile wallet access, and standard button variants; footer remains landing-only |

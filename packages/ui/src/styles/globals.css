@@ -281,17 +281,12 @@
     transition-duration: 0.2s;
     transition-timing-function: ease;
   }
-  button:not(:disabled):hover,
-  [data-slot="button"]:not(:disabled):hover,
   .hr-button-hover-shadow:hover,
   .hr-v2-button-primary:hover,
   .hr-v2-button-secondary:hover,
   .hr-v2-button-light:hover,
   .hr-v2-button-inverse:hover {
     box-shadow: var(--highrable-shadow-hard-strong);
-  }
-  [data-slot="button"][data-variant="outline"]:not(:disabled):hover {
-    background-color: transparent;
   }
   .hr-v2-button-primary:hover {
     filter: brightness(1.04);

@@ -30,7 +30,19 @@ Use these existing components before creating route-specific equivalents:
 - `RouteCallout` for warning, danger, success, and neutral notices.
 - `RouteEmptyState` and existing loading components for empty and pending states.
 - shadcn `Button`, `Sheet`, `Dialog`, `Tabs`, `Select`, `Input`, `Textarea`, `Table`, `Badge`,
-  `Skeleton`, and Lucide icons for application-owned controls.
+  `Skeleton`, `Sidebar`, and Lucide icons for application-owned controls.
+
+The authenticated application shell adapts the installed shadcn `sidebar-07` primitives to the
+real freelancer, client, and admin routes. Its collapsible sidebar owns navigation and the connected
+account menu. The top bar uses shadcn breadcrumbs, a sidebar toggle, wallet connection, and theme
+control. Role switching stays
+on the person's own profile card, where its effect is explained before the selection changes. The
+marketing footer is owned by the landing page; authenticated app routes keep the shell focused on
+the working surface.
+
+Standard shadcn button variants use semantic `primary`, `secondary`, `accent`, and `destructive`
+tokens. Highrable's gradient is an explicit variant for branded calls to action. Shared component
+hover and focus styles should not be replaced by global button selectors.
 
 ## Validation notes
 

@@ -3,7 +3,7 @@
 import { Moon, Sun } from "lucide-react";
 
 import { useThemeMode } from "../../hooks/use-theme-mode";
-import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
 
 interface IThemeToggleProps {
   readonly className?: string;
@@ -15,15 +15,15 @@ export function ThemeToggle({ className }: IThemeToggleProps) {
   const label = isDarkMode ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="icon"
       onClick={() => setDarkMode(!isDarkMode)}
       aria-label={label}
       title={label}
-      className={cn(
-        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted",
-        className,
-      )}
+      aria-pressed={isMounted ? isDarkMode : undefined}
+      className={className}
     >
       {/* Icons wait for mount so server and client markup match. */}
       {isMounted ? (
@@ -35,6 +35,6 @@ export function ThemeToggle({ className }: IThemeToggleProps) {
       ) : (
         <span className="h-4 w-4" aria-hidden="true" />
       )}
-    </button>
+    </Button>
   );
 }

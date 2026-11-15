@@ -28,6 +28,8 @@ Full post text uses the same chunked storage, with a 600-character card preview.
 
 The feed is indexed by publication time, with separate author/status pagination. Media pages are small and actual bytes load only when requested. The browser assembles a file Blob from paginated chunks before displaying it; video has standard controls. This avoids one gigantic Convex document/response but is **not streaming playback or resumable disk download**. Viewing very large files can exceed browser memory, especially on mobile. Browser memory, HTTP execution limits, storage/egress quotas and database limits remain infrastructure constraints. There is no invented 10 MB image or 25 MB video policy.
 
+Feed and permalink card queries return the viewer's reaction when a valid social token is present, plus metadata for the first four attachments. This avoids starting reaction and media subscriptions for every visible card. Additional attachment metadata is paginated only after “Show more media”; file bytes still load on demand. The optional token does not gate public reads. Convex allows only one paginated query per function execution, so card attachment metadata uses a bounded indexed read while the feed itself remains paginated. The moderation route imports its error boundary independently of the feed, and profile activity loads the composer only when a repost is opened.
+
 The current local Convex SDK exposes file `store/get` in actions, not mutations. Unlike current online examples for newer capabilities, storage writes here cannot be made atomic with document insertion. Normal action errors delete the just-written chunk; a hard process crash between storage creation and reference insertion can leave an unindexed storage orphan. Operators must review such candidates; do not globally purge `_storage` because protected marketplace attachments share it.
 
 Sources consulted for feasibility: [Convex upload limits](https://docs.convex.dev/file-storage/upload-files), [database/platform limits](https://docs.convex.dev/production/state/limits), and [file URL security](https://docs.convex.dev/file-storage/overview). Local installed SDK types remain authoritative for available APIs.
@@ -67,9 +69,9 @@ Investigate failed chunks by media ID and index, retry with the same request ID,
 
 ## Verification record
 
-- Backend suite: 552 tests passed, including new social authorization, retries/concurrency, long text, cleanup, canonical reposts and moderation checks.
-- Web suite: 602 tests passed with `NODE_OPTIONS=--no-experimental-webstorage pnpm --filter web test`. The default host Node runtime exposes unusable experimental `localStorage`, causing nine existing wallet-client tests to fail without this flag.
+- Backend suite: 553 tests passed, including social authorization, retries/concurrency, long text, cleanup, canonical reposts, moderation and card pagination checks.
+- Web suite: 610 tests passed with `NODE_OPTIONS=--no-experimental-webstorage pnpm --filter web test`. The default host Node runtime exposes unusable experimental `localStorage`, causing nine existing wallet-client tests to fail without this flag.
 - Backend and web typechecks passed. Stale `.next/types` referring to absent routes were regenerated.
 - Backend and web lint checks passed; unrelated existing web warnings remain.
-- Production web build passed. Final post-format typechecks and lint checks passed; the new newsfeed files have no lint warnings.
+- Production web build passed. Final post-format typechecks and lint checks passed; the newsfeed files have no lint warnings. The build compiled in 10.8 seconds in this environment; no comparable pre-refactor timing was available.
 - Real-wallet/passkey device workflows, screen-reader/mobile QA and large-media soak checks have **not** been performed. The release gate remains pending. The repository is implemented for review, not certified production-ready.

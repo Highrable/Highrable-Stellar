@@ -1,52 +1,22 @@
 "use client";
-import { ProductPageHero } from "@/features/common/components/layout/product-page-hero";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
-import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Component, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FunctionReturnType } from "convex/server";
 
-import { Composer } from "./composer";
 import { readMedia, uploadMedia } from "./media-client";
-import { SocialSession, useSocialSession } from "./session";
+import { useSocialSession } from "./session";
 
+const Composer = dynamic(() => import("./composer").then((module) => module.Composer));
 type Post = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.post>>;
 const reactions = ["Like", "Celebrate", "Support", "Love", "Insightful", "Funny"] as const;
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
-export class FeedBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? (
-      <div
-        role="alert"
-        className="rounded-xl border border-red-300 bg-red-50/60 p-4 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-200"
-      >
-        Newsfeed could not be loaded.{" "}
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto px-0 text-inherit"
-          onClick={() => this.setState({ failed: false })}
-        >
-          Retry
-        </Button>
-      </div>
-    ) : (
-      this.props.children
-    );
-  }
-}
-function MediaItem({
-  media,
-}: {
-  media: FunctionReturnType<typeof api.newsfeed.queries.media>["page"][number];
-}) {
+function MediaItem({ media }: { media: Post["media"][number] }) {
   const client = useConvex();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -100,24 +70,46 @@ function MediaItem({
     </div>
   );
 }
-function Gallery({ postId }: { postId: TConvexId<"socialPosts"> }) {
+function AdditionalMedia({ post }: { post: Pick<Post, "_id" | "media"> }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.media,
-    { postId },
-    { initialNumItems: 4 },
+    { postId: post._id },
+    { initialNumItems: 8 },
   );
+  const initialIds = new Set(post.media.map((media) => media._id));
   return (
-    <div className="space-y-3">
+    <>
       <div className="grid gap-3 sm:grid-cols-2">
-        {results.map((m) => (
-          <MediaItem key={m._id} media={m} />
-        ))}
+        {results
+          .filter((media) => !initialIds.has(media._id))
+          .map((media) => (
+            <MediaItem key={media._id} media={media} />
+          ))}
       </div>
+      {status === "LoadingFirstPage" && <p role="status">Loading media…</p>}
       {status === "CanLoadMore" && (
-        <Button variant="link" size="sm" className="h-auto px-0" onClick={() => loadMore(4)}>
+        <Button variant="link" size="sm" className="h-auto px-0" onClick={() => loadMore(12)}>
           Load more media
         </Button>
       )}
+    </>
+  );
+}
+function Gallery({ post }: { post: Pick<Post, "_id" | "media" | "mediaCount"> }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {post.media.map((m) => (
+          <MediaItem key={m._id} media={m} />
+        ))}
+      </div>
+      {post.mediaCount > post.media.length && !expanded && (
+        <Button variant="link" size="sm" className="h-auto px-0" onClick={() => setExpanded(true)}>
+          Show more media
+        </Button>
+      )}
+      {expanded && <AdditionalMedia post={post} />}
     </div>
   );
 }
@@ -330,21 +322,8 @@ export function PostCard({ post }: { post: Post }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState("");
-  const current = useQuery(
-    api.newsfeed.queries.reaction,
-    token ? { token, postId: post._id } : "skip",
-  );
-  const react = useMutation(api.newsfeed.mutations.react).withOptimisticUpdate((store, args) => {
-    const previous = store.getQuery(api.newsfeed.queries.reaction, { token, postId: post._id });
-    if (previous && args.kind)
-      store.setQuery(
-        api.newsfeed.queries.reaction,
-        { token, postId: post._id },
-        { ...previous, kind: args.kind },
-      );
-    if (args.kind === null)
-      store.setQuery(api.newsfeed.queries.reaction, { token, postId: post._id }, null);
-  });
+  const [pendingReaction, setPendingReaction] = useState<Post["viewerReaction"] | undefined>();
+  const react = useMutation(api.newsfeed.mutations.react);
   async function run(fn: () => Promise<unknown>) {
     setError("");
     setBusy(true);
@@ -376,13 +355,13 @@ export function PostCard({ post }: { post: Post }) {
         </Link>
       </header>
       <PostText key={post.bodyId ?? "empty"} post={post} />
-      {post.mediaCount > 0 && <Gallery postId={post._id} />}
+      {post.mediaCount > 0 && <Gallery post={post} />}
       {post.originalId &&
         (post.original ? (
           <blockquote className="space-y-3 border-l-2 pl-4">
             <Author author={post.original.author} />
             <PostText key={post.original.bodyId ?? "empty"} post={post.original} />
-            {post.original.mediaCount > 0 && <Gallery postId={post.original._id} />}
+            {post.original.mediaCount > 0 && <Gallery post={post.original} />}
             <Link href={`/newsfeed/${post.original._id}`} className="text-sm underline">
               View original post
             </Link>
@@ -401,15 +380,25 @@ export function PostCard({ post }: { post: Post }) {
               className="rounded border p-1"
               aria-label="Choose a reaction"
               disabled={busy}
-              value={current?.kind ?? ""}
+              value={
+                pendingReaction === undefined
+                  ? (post.viewerReaction ?? "")
+                  : (pendingReaction ?? "")
+              }
               onChange={(e) =>
-                run(() =>
-                  react({
-                    token,
-                    postId: post._id,
-                    kind: e.target.value ? (e.target.value as (typeof reactions)[number]) : null,
-                  }),
-                )
+                run(async () => {
+                  const kind = e.target.value
+                    ? (e.target.value as (typeof reactions)[number])
+                    : null;
+                  setPendingReaction(kind);
+                  try {
+                    await react({ token, postId: post._id, kind });
+                    setPendingReaction(undefined);
+                  } catch (error) {
+                    setPendingReaction(undefined);
+                    throw error;
+                  }
+                })
               }
             >
               <option value="">None</option>
@@ -527,9 +516,10 @@ export function PostCard({ post }: { post: Post }) {
   );
 }
 export function Feed({ authorId }: { authorId?: TConvexId<"users"> }) {
+  const { token } = useSocialSession();
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.feed,
-    authorId ? { authorId } : {},
+    { ...(authorId ? { authorId } : {}), ...(token ? { token } : {}) },
     { initialNumItems: 10 },
   );
   return (
@@ -547,39 +537,6 @@ export function Feed({ authorId }: { authorId?: TConvexId<"users"> }) {
         </Button>
       )}
       {status === "LoadingMore" && <p role="status">Loading more posts…</p>}
-    </div>
-  );
-}
-function Permalink({ id }: { id: string }) {
-  const post = useQuery(api.newsfeed.queries.post, { id: id as TConvexId<"socialPosts"> });
-  return post === undefined ? (
-    <p role="status">Loading post…</p>
-  ) : post ? (
-    <PostCard post={post} />
-  ) : (
-    <p>This post is unavailable.</p>
-  );
-}
-export function NewsfeedPage({ postId }: { postId?: string }) {
-  return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
-      <ProductPageHero
-        title={<Link href="/newsfeed">Highrable Newsfeed</Link>}
-        description="Work, ideas, and updates from the Highrable community."
-        meta={postId ? "Community post" : "Community"}
-      />
-      <FeedBoundary>
-        <SocialSession>
-          {postId ? (
-            <Permalink id={postId} />
-          ) : (
-            <>
-              <Composer />
-              <Feed />
-            </>
-          )}
-        </SocialSession>
-      </FeedBoundary>
     </div>
   );
 }

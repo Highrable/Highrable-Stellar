@@ -5,7 +5,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { useMutation, usePaginatedQuery } from "convex/react";
 import { useState } from "react";
 
-import { FeedBoundary } from "./feed";
+import { FeedBoundary } from "./feed-boundary";
 import { SocialSession, useSocialSession } from "./session";
 function Queue() {
   const { token } = useSocialSession();

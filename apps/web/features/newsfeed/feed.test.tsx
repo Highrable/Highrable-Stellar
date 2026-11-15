@@ -14,8 +14,8 @@ vi.mock("./session", () => ({
 vi.mock("./composer", () => ({ Composer: () => null }));
 vi.mock("convex/react", () => ({
   useConvex: () => ({}),
-  useMutation: () => ({ withOptimisticUpdate: () => mock.mutate }),
-  useQuery: () => ({ kind: "Like" }),
+  useMutation: () => mock.mutate,
+  useQuery: () => null,
   usePaginatedQuery: mock.paginated,
 }));
 vi.mock("next/link", () => ({
@@ -36,6 +36,8 @@ const post = {
   updatedAt: 1,
   preview: "<script>not executable</script>",
   bodySize: 0,
+  media: [],
+  viewerReaction: "Like",
   original: null,
   author: {
     id: "author",
@@ -76,9 +78,50 @@ it("uses the author-filtered feed for profile activity and renders the shared ca
   render(<Feed authorId={post.authorId} />);
   expect(mock.paginated).toHaveBeenCalledWith(
     api.newsfeed.queries.feed,
-    { authorId: post.authorId },
+    { authorId: post.authorId, token: "verified" },
     { initialNumItems: 10 },
   );
   expect(screen.getByRole("article")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Copy link" })).toBeTruthy();
+});
+it("renders initial attachment metadata without a query per card", () => {
+  render(
+    <PostCard
+      post={
+        {
+          ...post,
+          mediaCount: 1,
+          media: [{ _id: "media-1", name: "photo.png", mime: "image/png", size: 1024 }],
+        } as typeof post
+      }
+    />,
+  );
+  expect(screen.getByRole("button", { name: /Load photo.png/ })).toBeTruthy();
+  expect(mock.paginated).not.toHaveBeenCalled();
+});
+it("starts media pagination only after opening more attachments", () => {
+  mock.paginated.mockReturnValue({ results: [], status: "Exhausted", loadMore: vi.fn() });
+  render(
+    <PostCard
+      post={
+        {
+          ...post,
+          mediaCount: 5,
+          media: [1, 2, 3, 4].map((index) => ({
+            _id: `media-${index}`,
+            name: `photo-${index}.png`,
+            mime: "image/png",
+            size: 1024,
+          })),
+        } as typeof post
+      }
+    />,
+  );
+  expect(mock.paginated).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Show more media" }));
+  expect(mock.paginated).toHaveBeenCalledWith(
+    api.newsfeed.queries.media,
+    { postId: post._id },
+    { initialNumItems: 8 },
+  );
 });

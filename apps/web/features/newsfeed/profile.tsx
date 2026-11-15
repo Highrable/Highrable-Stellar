@@ -4,7 +4,8 @@ import { api } from "@repo/convex-client";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 
-import { Feed, FeedBoundary } from "./feed";
+import { Feed } from "./feed";
+import { FeedBoundary } from "./feed-boundary";
 import { SocialSession, useSocialSession } from "./session";
 function ProfileContent({ walletAddress }: { walletAddress: string }) {
   const profile = useQuery(api.newsfeed.queries.profile, { walletAddress });

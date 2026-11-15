@@ -394,6 +394,52 @@ it("orders by publication rather than the time a draft was started", async () =>
   expect(feed.page.map((p) => p._id)).toEqual([f.postId, second]);
 });
 
+it("includes the viewer reaction and first media page in each card", async () => {
+  const f = await setup();
+  const bodyId = await text(f);
+  await f.t.mutation(api.newsfeed.mutations.publish, { token: f.auth, postId: f.postId, bodyId });
+  await f.t.mutation(api.newsfeed.mutations.react, {
+    token: f.auth,
+    postId: f.postId,
+    kind: "Love",
+  });
+  await f.t.run(async (ctx) => {
+    for (let index = 0; index < 6; index++) {
+      await ctx.db.insert("socialMedia", {
+        authorId: f.authorId,
+        postId: f.postId,
+        requestId: `image-${index}`,
+        name: `image-${index}.png`,
+        mime: "image/png",
+        size: 100,
+        received: 100,
+        complete: true,
+        removed: false,
+        expiresAt: Date.now() + 60_000,
+      });
+    }
+    await ctx.db.patch(f.postId, { mediaCount: 6 });
+  });
+  const publicPost = await f.t.query(api.newsfeed.queries.post, { id: f.postId });
+  expect(publicPost?.viewerReaction).toBeNull();
+  expect(publicPost?.media).toHaveLength(4);
+  const feed = await f.t.query(api.newsfeed.queries.feed, {
+    token: f.auth,
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(feed.page[0]?.viewerReaction).toBe("Love");
+  const first = await f.t.query(api.newsfeed.queries.media, {
+    postId: f.postId,
+    paginationOpts: { cursor: null, numItems: 4 },
+  });
+  const remaining = await f.t.query(api.newsfeed.queries.media, {
+    postId: f.postId,
+    paginationOpts: { cursor: first.continueCursor, numItems: 12 },
+  });
+  expect(remaining.page).toHaveLength(2);
+  expect(remaining.page.every((media) => media.mime === "image/png")).toBe(true);
+});
+
 it("allows any signed-in wallet without onboarding, a role, or a completed name", async () => {
   const t = convexTest(schema, modules);
   const auth = await token(wallet("C", "E"));

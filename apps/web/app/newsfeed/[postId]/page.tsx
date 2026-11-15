@@ -1,4 +1,4 @@
-import { NewsfeedPage } from "@/features/newsfeed/feed";
+import { NewsfeedPage } from "@/features/newsfeed/newsfeed-page";
 export const metadata = { title: "Community Post | Highrable" };
 export default async function Page({ params }: { params: Promise<{ postId: string }> }) {
   const { postId } = await params;

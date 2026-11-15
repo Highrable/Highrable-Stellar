@@ -20,8 +20,13 @@ export const viewer = query({
   },
 });
 export const feed = query({
-  args: { authorId: v.optional(v.id("users")), paginationOpts: paginationOptsValidator },
+  args: {
+    authorId: v.optional(v.id("users")),
+    token: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
+    const viewer = args.token ? await participant(ctx, args.token).catch(() => null) : null;
     const rows = await (
       args.authorId
         ? ctx.db
@@ -33,14 +38,16 @@ export const feed = query({
     )
       .order("desc")
       .paginate({ ...args.paginationOpts, numItems: Math.min(args.paginationOpts.numItems, 20) });
-    return { ...rows, page: await Promise.all(rows.page.map((p) => card(ctx, p))) };
+    return { ...rows, page: await Promise.all(rows.page.map((p) => card(ctx, p, viewer?._id))) };
   },
 });
 export const post = query({
-  args: { id: v.id("socialPosts") },
-  handler: async (ctx, { id }) => {
+  args: { id: v.id("socialPosts"), token: v.optional(v.string()) },
+  handler: async (ctx, { id, token }) => {
     const p = await ctx.db.get(id);
-    return p?.status === "published" ? card(ctx, p) : null;
+    if (p?.status !== "published") return null;
+    const viewer = token ? await participant(ctx, token).catch(() => null) : null;
+    return card(ctx, p, viewer?._id);
   },
 });
 export const comments = query({
@@ -63,20 +70,6 @@ export const comments = query({
     };
   },
 });
-export const reaction = query({
-  args: { postId: v.id("socialPosts"), token: v.string() },
-  handler: async (ctx, args) => {
-    try {
-      const user = await participant(ctx, args.token);
-      return await ctx.db
-        .query("socialReactions")
-        .withIndex("by_post_author", (q) => q.eq("postId", args.postId).eq("authorId", user._id))
-        .unique();
-    } catch {
-      return null;
-    }
-  },
-});
 export const media = query({
   args: { postId: v.id("socialPosts"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
@@ -86,11 +79,14 @@ export const media = query({
       .withIndex("by_post", (q) =>
         q.eq("postId", args.postId).eq("removed", false).eq("complete", true),
       )
+      .filter((q) => q.neq(q.field("mime"), "text/plain"))
       .paginate({ ...args.paginationOpts, numItems: Math.min(args.paginationOpts.numItems, 12) });
     return {
       ...result,
       page:
-        parent?.status === "published" ? result.page.filter((m) => m.mime !== "text/plain") : [],
+        parent?.status === "published"
+          ? result.page.map(({ _id, name, mime, size }) => ({ _id, name, mime, size }))
+          : [],
     };
   },
 });

@@ -3,7 +3,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { api } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
-import { useQuery } from "convex/react";
+import { useConvex, useQuery } from "convex/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import type { TConvexDoc } from "@repo/convex-client";
@@ -31,6 +31,7 @@ async function sessionRequest(body: object) {
 export function SocialSession({ children }: { children: React.ReactNode }) {
   const identity = useHighrableWalletIdentity();
   const { authenticateWallet } = useWallet();
+  const client = useConvex();
   const authenticate = useRef(authenticateWallet);
   useEffect(() => {
     authenticate.current = authenticateWallet;
@@ -47,9 +48,28 @@ export function SocialSession({ children }: { children: React.ReactNode }) {
     key: string;
     promise: Promise<{ token: string; expiresAt: number; address: string }>;
   } | null>(null);
+  const profileSetup = useRef<{ key: string; promise: Promise<unknown> } | null>(null);
   const token =
     identity.isConnected && session?.address === identity.walletAddress ? session.token : "";
   const viewer = useQuery(api.newsfeed.queries.viewer, token ? { token } : "skip");
+  useEffect(() => {
+    if (!token || viewer !== null) return;
+    const key = `${token}:${attempt}`;
+    if (profileSetup.current?.key !== key) {
+      profileSetup.current = {
+        key,
+        promise: client.mutation(api.newsfeed.auth.ensureParticipant, { token }),
+      };
+    }
+    let active = true;
+    void profileSetup.current.promise.catch((e) => {
+      if (active)
+        setError(e instanceof Error ? e.message : "Could not set up your newsfeed profile.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [client, token, viewer, attempt]);
   useEffect(() => {
     if (!session) return;
     const timer = setTimeout(
@@ -149,13 +169,16 @@ export function SocialSession({ children }: { children: React.ReactNode }) {
                 variant="link"
                 size="sm"
                 className="h-auto px-0"
-                onClick={() => setAttempt((value) => value + 1)}
+                onClick={() => {
+                  setError("");
+                  setAttempt((value) => value + 1);
+                }}
               >
                 Retry connection
               </Button>
             </>
           ) : viewer === null ? (
-            <p>Your newsfeed profile is unavailable. Reconnect your wallet to try again.</p>
+            <p role="status">Setting up your newsfeed profile…</p>
           ) : null}
         </aside>
       )}

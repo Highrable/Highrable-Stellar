@@ -1,5 +1,4 @@
 import { env } from "@/core/config/env";
-import { readDefaultContextRule } from "@/core/stellar/smart-account-context-rules";
 import { requireWalletRequestContext } from "@/core/wallet/server/request-auth";
 import {
   assertSocialOrigin,
@@ -10,13 +9,18 @@ import {
   verifyPasskeyProof,
   type PasskeyProof,
 } from "@/features/newsfeed/session-server";
-import { api } from "@repo/convex-client/server";
-import { Keypair, rpc } from "@stellar/stellar-sdk";
-import { ConvexHttpClient } from "convex/browser";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
+  const started = performance.now();
+  const timings: string[] = [];
+  const headers = () => ({
+    "Cache-Control": "no-store",
+    "Server-Timing": [...timings, `handler;dur=${(performance.now() - started).toFixed(1)}`].join(
+      ", ",
+    ),
+  });
   try {
     const origin = assertSocialOrigin(request);
     const input = (await request.json()) as {
@@ -35,21 +39,31 @@ export async function POST(request: NextRequest) {
     } else {
       if (input.action === "challenge")
         return NextResponse.json(createSocialChallenge(input.address), {
-          headers: { "Cache-Control": "no-store" },
+          headers: headers(),
         });
       if (!input.proof || !input.assertion) throw new Error("Passkey verification is required.");
       const challenge = readSocialChallenge(input.proof);
       if (challenge.sub !== input.address) throw new Error("Account mismatch.");
-      const rule = await readDefaultContextRule({
-        contractId: challenge.sub,
-        rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
-        networkPassphrase: env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
-        sourceAccount: Keypair.random().publicKey(),
-      });
+      const [{ readDefaultContextRule }, { Keypair, rpc }, { api }, { ConvexHttpClient }] =
+        await Promise.all([
+          import("@/core/stellar/smart-account-context-rules"),
+          import("@stellar/stellar-sdk"),
+          import("@repo/convex-client/server"),
+          import("convex/browser"),
+        ]);
+      const rpcStarted = performance.now();
+      const [rule, ledger] = await Promise.all([
+        readDefaultContextRule({
+          contractId: challenge.sub,
+          rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
+          networkPassphrase: env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
+          sourceAccount: Keypair.random().publicKey(),
+        }),
+        new rpc.Server(env.NEXT_PUBLIC_STELLAR_RPC_URL).getLatestLedger(),
+      ]).finally(() => timings.push(`rpc;dur=${(performance.now() - rpcStarted).toFixed(1)}`));
       // A single proof cannot satisfy a multi-signer or policy-constrained account.
       if (!rule || rule.policies.length || rule.signers.length !== 1)
         throw new Error("This account requires an unsupported multi-signer authorization policy.");
-      const ledger = await new rpc.Server(env.NEXT_PUBLIC_STELLAR_RPC_URL).getLatestLedger();
       if (
         rule.valid_until !== undefined &&
         rule.valid_until !== null &&
@@ -68,11 +82,14 @@ export async function POST(request: NextRequest) {
         throw new Error("Passkey does not belong to this account.");
       verifyPasskeyProof(input.assertion, keyData.subarray(0, 65), challenge.challenge, origin);
       const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
-      await convex.mutation(api.newsfeed.auth.consumeNonce, {
-        serverSecret: sessionSecret(),
-        nonce: challenge.nonce,
-        expiresAt: challenge.exp,
-      });
+      const nonceStarted = performance.now();
+      await convex
+        .mutation(api.newsfeed.auth.consumeNonce, {
+          serverSecret: sessionSecret(),
+          nonce: challenge.nonce,
+          expiresAt: challenge.exp,
+        })
+        .finally(() => timings.push(`nonce;dur=${(performance.now() - nonceStarted).toFixed(1)}`));
       address = challenge.sub;
     }
     const expiresAt = Date.now() + 15 * 60_000;
@@ -82,13 +99,11 @@ export async function POST(request: NextRequest) {
       aud: "highrable-social",
       origin,
     });
-    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
-    await convex.mutation(api.newsfeed.auth.ensureParticipant, { token });
-    return NextResponse.json({ token, expiresAt }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ token, expiresAt }, { headers: headers() });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Sign-in failed." },
-      { status: 401 },
+      { status: 401, headers: headers() },
     );
   }
 }

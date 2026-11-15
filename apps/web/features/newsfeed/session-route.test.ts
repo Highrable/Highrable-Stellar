@@ -65,10 +65,12 @@ it("mints a session only for the verified external subject and rejects developme
   mocks.wallet.mockReturnValue({ walletAddress: address });
   const result = await POST(request({ address, action: "session" }));
   expect(result.status).toBe(200);
+  expect(result.headers.get("Server-Timing")).toMatch(/^handler;dur=/);
   const data = await result.json();
   expect(JSON.parse(Buffer.from(data.token.split(".")[0], "base64url").toString()).sub).toBe(
     address,
   );
+  expect(mocks.mutate).not.toHaveBeenCalled();
   mocks.config.WALLET_SESSION_SECRET = "";
   expect((await POST(request({ address, action: "session" }))).status).toBe(401);
 });
@@ -109,10 +111,13 @@ it("binds a valid passkey assertion to the on-chain account signer and atomicall
     signers: [{ tag: "External", values: ["CVERIFIER", Buffer.concat([publicKey, credential])] }],
   });
   mocks.mutate.mockResolvedValue(null);
-  expect(
-    (await POST(request({ address, action: "session", proof: challenge.proof, assertion }))).status,
-  ).toBe(200);
-  expect(mocks.mutate).toHaveBeenCalledTimes(2);
+  const result = await POST(
+    request({ address, action: "session", proof: challenge.proof, assertion }),
+  );
+  expect(result.status).toBe(200);
+  expect(result.headers.get("Server-Timing")).toContain("rpc;dur=");
+  expect(result.headers.get("Server-Timing")).toContain("nonce;dur=");
+  expect(mocks.mutate).toHaveBeenCalledTimes(1);
   expect(
     (
       await POST(

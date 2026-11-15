@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   identity: { isConnected: true, walletAddress: "G-wallet", walletType: "external_wallet" },
   authenticate: vi.fn(),
   fetch: vi.fn(),
+  viewer: { _id: "viewer" } as { _id: string } | null | undefined,
+  client: { mutation: vi.fn() },
 }));
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => mocks.identity,
@@ -16,7 +18,10 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({ authenticateWallet: mocks.authenticate }),
 }));
-vi.mock("convex/react", () => ({ useQuery: () => ({ _id: "viewer" }) }));
+vi.mock("convex/react", () => ({
+  useConvex: () => mocks.client,
+  useQuery: () => mocks.viewer,
+}));
 function Consumer() {
   return <output data-testid="token">{useSocialSession().token}</output>;
 }
@@ -39,6 +44,8 @@ beforeEach(() => {
   mocks.identity = { isConnected: true, walletAddress: "G-wallet", walletType: "external_wallet" };
   mocks.fetch.mockReset().mockResolvedValue(response());
   mocks.authenticate.mockReset().mockResolvedValue(undefined);
+  mocks.viewer = { _id: "viewer" };
+  mocks.client.mutation.mockReset().mockResolvedValue("viewer");
 });
 afterEach(() => {
   cleanup();
@@ -88,4 +95,25 @@ it("clears the previous token when switching wallets", async () => {
   view.rerender(<App />);
   await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("second-wallet"));
   expect(JSON.parse(mocks.fetch.mock.calls[1]![1].body).address).toBe("G-other");
+});
+it("creates a missing profile once after the route returns a session", async () => {
+  mocks.viewer = null;
+  const view = render(<App />);
+  await waitFor(() => expect(mocks.client.mutation).toHaveBeenCalledTimes(1));
+  expect(screen.getByTestId("token").textContent).toBe("verified");
+  expect(screen.getByText("Setting up your newsfeed profile…")).toBeTruthy();
+  mocks.viewer = { _id: "viewer" };
+  view.rerender(<App />);
+  expect(screen.queryByText("Setting up your newsfeed profile…")).toBeNull();
+  expect(mocks.fetch).toHaveBeenCalledTimes(1);
+});
+it("retries profile creation without requesting another wallet session", async () => {
+  mocks.viewer = null;
+  mocks.client.mutation.mockRejectedValueOnce(new Error("Profile setup failed"));
+  render(<App />);
+  await screen.findByText("Profile setup failed");
+  mocks.client.mutation.mockResolvedValue("viewer");
+  fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+  await waitFor(() => expect(mocks.client.mutation).toHaveBeenCalledTimes(2));
+  expect(mocks.fetch).toHaveBeenCalledTimes(1);
 });

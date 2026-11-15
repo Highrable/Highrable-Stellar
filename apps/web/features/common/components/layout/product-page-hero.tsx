@@ -23,20 +23,24 @@ export function ProductPageHero({
   return (
     <header
       className={cn(
-        "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6",
+        "hr-product-page-hero flex flex-col gap-5 border-b border-border/80 pb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8",
         className,
       )}
     >
-      <div className="min-w-0 space-y-1">
-        {meta ? <div className="hr-text-muted font-mono text-xs">{meta}</div> : null}
-        <h1 className="hr-text-primary font-sans text-2xl leading-tight font-semibold tracking-tight">
+      <div className="min-w-0 space-y-2 border-l-4 border-(--mode-solid) pl-4">
+        {meta ? <div className="hr-text-accent font-mono text-xs">{meta}</div> : null}
+        <h1 className="hr-text-primary font-sans text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
           {title}
         </h1>
         {description ? (
-          <p className="hr-text-secondary max-w-2xl text-sm leading-relaxed">{description}</p>
+          <p className="hr-text-secondary max-w-2xl text-sm leading-relaxed sm:text-base">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
+      ) : null}
     </header>
   );
 }

@@ -36,9 +36,7 @@ const ROUTE_CALLOUT_CLASSES: Record<TRouteCalloutTone, string> = {
 };
 
 export function RoutePanel({ className, ...props }: IRoutePanelProps) {
-  return (
-    <Card className={cn("hr-panel gap-0 rounded-lg py-0 shadow-none", className)} {...props} />
-  );
+  return <Card className={cn("hr-panel gap-0 rounded-xl py-0", className)} {...props} />;
 }
 
 export function RoutePanelHeader({
@@ -52,7 +50,7 @@ export function RoutePanelHeader({
 }: IRoutePanelHeaderProps) {
   return (
     <CardHeader
-      className={cn("gap-3 border-b px-5 pt-4 pb-4 [.border-b]:pb-4", className)}
+      className={cn("gap-3 border-b px-5 pt-5 pb-5 [.border-b]:pb-5", className)}
       {...props}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -109,7 +107,7 @@ export function RouteEmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-1.5 rounded-lg border border-dashed border-border px-4 py-5 text-left",
+        "flex flex-col items-start gap-1.5 rounded-xl border border-dashed border-border px-4 py-6 text-left",
         className,
       )}
       {...props}

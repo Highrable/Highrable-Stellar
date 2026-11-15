@@ -3,7 +3,7 @@ html {
 }
 
 :root {
-  --font-geist-sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-geist-sans: "Inter", "DM Sans", "Segoe UI", system-ui, sans-serif;
   --font-geist-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
 }
 
@@ -12,53 +12,8 @@ body {
   font-family: var(--font-geist-sans);
 }
 
-/* Landing page: snap the viewport to one full-height section at a time. Scoped
-   with :has() so other routes keep normal scrolling. Sections taller than the
-   viewport still scroll freely inside before snapping. */
-html:has(.landing-v2-page) {
-  scroll-snap-type: y mandatory;
-  /* Every rem-based size (type, spacing, max-widths) grows with large displays
-     so content stays proportionate instead of floating in empty space. It is
-     limited by whichever of width or height is tighter (so ultrawide monitors
-     do not push sections past one screen) and never drops below the user's
-     default font size. */
-  font-size: clamp(1rem, min(0.8334vw, 1.48vh), 1.75rem);
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
-.landing-v2-page > main > section {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
-
-.landing-v2-page > footer {
-  scroll-snap-align: end;
-}
-
-/* Sections taller than the screen (phones, short laptops) would have their
-   lower part skipped by mandatory snapping. V2SnapGuard sets data-snap-overflow
-   whenever that happens; the media query covers phones before it runs. Snapping
-   relaxes so all content stays reachable and sections still settle when close. */
-html[data-snap-overflow]:has(.landing-v2-page) {
-  scroll-snap-type: y proximity;
-}
-
-html[data-snap-overflow] .landing-v2-page > main > section {
-  scroll-snap-stop: normal;
-}
-
-@media (max-width: 47.99rem), (max-height: 40rem) {
-  html:has(.landing-v2-page) {
-    scroll-snap-type: y proximity;
-  }
-
-  .landing-v2-page > main > section {
-    scroll-snap-stop: normal;
-  }
-}
-
-/* Never let the marketing page scroll sideways. */
+/* Marketing pages use natural scrolling so every section remains reachable on
+   small screens, zoomed layouts, and assistive technology. */
 .landing-v2-page {
   overflow-x: clip;
 }
@@ -66,6 +21,15 @@ html[data-snap-overflow] .landing-v2-page > main > section {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -84,7 +48,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
   --mode-soft-2: #ffe2c7;
   --mode-solid: #ff7003;
   --mode-on: #ffffff;
-  --mode-page: #ffffff;
+  --mode-page: var(--background);
   --mode-border: #e4b98c;
   --mode-gradient: linear-gradient(90deg, #ff8801, #ff7003);
   --primary: #e85d00;
@@ -94,7 +58,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
 [data-mode="admin"] {
   --mode-on: #2b1a00;
   --mode-gradient: linear-gradient(90deg, #ff7003, #fbbf24 70%, #facc15);
-  --mode-page: #ffffff;
+  --mode-page: var(--background);
   --mode-border: #e2c47f;
 }
 
@@ -104,7 +68,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
   --mode-soft-2: #fef08a;
   --mode-solid: #facc15;
   --mode-on: #3b2f00;
-  --mode-page: #ffffff;
+  --mode-page: var(--background);
   --mode-border: #dcc455;
   --mode-gradient: linear-gradient(90deg, #fde047, #facc15);
   --primary: #facc15;
@@ -156,9 +120,8 @@ html[data-snap-overflow] .landing-v2-page > main > section {
 
 /* ── Page + container separation ─────────────────────────────────────────
    Product routes (everything inside AppShell, which sets data-mode) sit on a
-   neutral page. Containers get a plain 1px neutral edge and no lift; hierarchy
-   comes from type and spacing, not decoration. The landing page never sets
-   data-mode, so none of this reaches it. */
+   neutral page. Containers get a quiet edge and a subtle lift; hierarchy still
+   comes from type and spacing. The landing page never sets data-mode. */
 [data-mode] body,
 body {
   background-color: var(--mode-page, var(--background));
@@ -167,12 +130,12 @@ body {
 [data-mode] main .bg-card.border,
 [data-mode] main [data-slot="card"] {
   border-color: var(--border);
-  box-shadow: none;
+  box-shadow: var(--highrable-shadow-card);
 }
 
 [data-mode] main [data-slot="card"],
 [data-mode] main .bg-card {
-  background-color: #ffffff;
+  background-color: var(--card);
 }
 
 [data-mode] .hr-mode-solid {
@@ -325,6 +288,57 @@ body {
 .hr-clickable-card:hover .hr-card-link {
   color: var(--mode-text, #d95500);
   font-weight: 700;
+}
+
+/* Shared product-route rhythm. Keeping these selectors scoped to the shell lets
+   the marketing surface retain its editorial treatment while every app route
+   gets the same readable controls and container hierarchy. */
+.hr-app-main {
+  min-height: 32rem;
+}
+
+.hr-app-main :is(input, textarea, select, [data-slot="select-trigger"]) {
+  border-radius: 0.5rem;
+}
+
+.hr-app-main :is(input, textarea, select):focus-visible,
+.hr-app-main [data-slot="select-trigger"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.hr-app-main :is(button, [role="button"]):focus-visible,
+.hr-app-main a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.hr-app-main table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hr-app-main th {
+  background: var(--muted);
+  color: var(--highrable-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 47.99rem) {
+  .hr-product-page-hero {
+    padding-bottom: 1.25rem;
+  }
+
+  .hr-product-page-hero > :last-child {
+    width: 100%;
+  }
+
+  .hr-product-page-hero > :last-child > * {
+    max-width: 100%;
+  }
 }
 
 /* ── Dark mode ─────────────────────────────────────────────────────────────

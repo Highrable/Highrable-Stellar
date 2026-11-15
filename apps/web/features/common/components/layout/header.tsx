@@ -3,12 +3,26 @@
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useIsVerifiedAdminOwner } from "@/features/admin/lib/admin-session-query";
-import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
+import {
+  MODE_COPY,
+  MODE_NAVIGATION,
+  ModeSwitch,
+  useAppMode,
+  type IModeNavItem,
+} from "@/features/mode";
 import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/ui/sheet";
 import { cn } from "@repo/ui/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,11 +51,11 @@ function isActivePath(pathname: string, href: string) {
 
 // The active page is marked with a short bar in the mode colour (gradient in admin).
 const NAV_LINK_BASE =
-  "relative flex items-center gap-2 px-3 py-2 font-sans text-sm transition-colors";
+  "relative flex items-center gap-2 rounded-md px-3 py-2 font-sans text-sm transition-colors";
 const NAV_LINK_INACTIVE = "text-muted-foreground hover:text-foreground";
 const NAV_LINK_ACTIVE =
-  "font-medium text-foreground after:absolute after:inset-x-3 after:-bottom-[14px] after:h-0.5 after:rounded-full after:bg-(image:--mode-gradient)";
-const NAV_LINK_ACTIVE_MOBILE = "font-medium text-foreground bg-muted";
+  "bg-(--mode-soft) font-medium text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-(image:--mode-gradient)";
+const NAV_LINK_ACTIVE_MOBILE = "bg-(--mode-soft) font-medium text-foreground";
 
 /** Renders the shared navigation and wallet controls for the Highrable app. */
 export function Header() {
@@ -55,10 +69,13 @@ export function Header() {
   const isVerifiedAdminOwner = useIsVerifiedAdminOwner({ enabled: isAdminRoute });
   const navigation = isAdminRoute
     ? ADMIN_NAVIGATION.filter((item) => !item.ownerOnly || isVerifiedAdminOwner)
-    : MODE_NAVIGATION[mode];
+    : [
+        ...MODE_NAVIGATION[mode],
+        { name: "Highrable Newsfeed", href: "/newsfeed", description: "Participant updates" },
+      ];
   const navLabel = isAdminRoute ? "Admin navigation" : `${MODE_COPY[mode].label} navigation`;
 
-  const walletActionClass = "hidden px-4 py-2 text-sm sm:block";
+  const walletActionClass = "hidden px-4 py-2 text-sm sm:inline-flex";
   const walletDrawerActionClass = "w-full px-4 py-2 text-sm";
 
   useEffect(() => {
@@ -106,67 +123,62 @@ export function Header() {
           ))}
         </div>
 
-        {/* Mode switch + wallet + theme + mobile toggle */}
+        {/* Mode switch + wallet + theme + mobile navigation */}
         <div className="flex items-center gap-3">
           {isAdminRoute ? null : <HeaderProfileLink />}
+          {isAdminRoute ? null : <ModeSwitch className="hidden sm:inline-flex" />}
           {!walletIdentity.isConnected ? (
             <WalletConnectTrigger className={walletActionClass} />
           ) : null}
           <ThemeToggle />
-          <button
-            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                aria-label="Open navigation menu"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[min(88vw,22rem)] p-0">
+              <SheetHeader className="border-b border-border/80 pr-12">
+                <SheetTitle>{isAdminRoute ? "Admin navigation" : "Highrable menu"}</SheetTitle>
+                <SheetDescription>{navLabel}</SheetDescription>
+              </SheetHeader>
+              <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4">
+                {isAdminRoute ? null : <ModeSwitch size="large" fullWidth />}
+                <nav className="flex flex-col gap-1" aria-label={navLabel}>
+                  {navigation.map(({ href, name, description }) => (
+                    <SheetClose key={name} asChild>
+                      <Link
+                        href={href}
+                        className={cn(
+                          NAV_LINK_BASE,
+                          "flex-col items-start gap-0.5 rounded-lg px-4 py-3",
+                          isActivePath(pathname, href) ? NAV_LINK_ACTIVE_MOBILE : NAV_LINK_INACTIVE,
+                        )}
+                      >
+                        <span>{name}</span>
+                        <span className="hr-text-muted text-xs font-normal">{description}</span>
+                      </Link>
+                    </SheetClose>
+                  ))}
+                </nav>
+                {isAdminRoute ? null : (
+                  <div className="border-t border-border/80 pt-4">
+                    <HeaderProfileLink showLabel className="w-full justify-start" />
+                  </div>
+                )}
+                {!walletIdentity.isConnected ? (
+                  <div className="border-t border-border/80 pt-4">
+                    <WalletConnectTrigger className={walletDrawerActionClass} />
+                  </div>
+                ) : null}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </nav>
-
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="absolute inset-x-0 top-16 overflow-hidden border-y border-border bg-background md:hidden"
-          >
-            <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-1 py-4")}>
-              {navigation.map(({ href, name, description }) => (
-                <Link
-                  key={name}
-                  href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    NAV_LINK_BASE,
-                    "flex-col items-start gap-0.5 rounded-md",
-                    isActivePath(pathname, href) ? NAV_LINK_ACTIVE_MOBILE : NAV_LINK_INACTIVE,
-                  )}
-                >
-                  <span>{name}</span>
-                  <span className="hr-text-muted text-xs font-normal">{description}</span>
-                </Link>
-              ))}
-              {isAdminRoute ? null : (
-                <div className="pt-2">
-                  <HeaderProfileLink
-                    showLabel
-                    className="w-full"
-                    onNavigate={() => setMobileMenuOpen(false)}
-                  />
-                </div>
-              )}
-              {!walletIdentity.isConnected ? (
-                <div className="border-t border-border pt-3">
-                  <WalletConnectTrigger className={walletDrawerActionClass} />
-                </div>
-              ) : null}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </header>
   );
 }

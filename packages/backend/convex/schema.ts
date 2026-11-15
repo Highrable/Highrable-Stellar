@@ -15,6 +15,7 @@ import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
+import { socialTables } from "./newsfeed/schema";
 import registryRegistrations from "./registry/schema";
 import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
@@ -29,6 +30,7 @@ import workAgreements, {
 import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
+  ...socialTables,
   attachments,
   attachmentAccessLogs,
   cancellationRequests,

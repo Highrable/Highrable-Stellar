@@ -35,7 +35,7 @@ export function ClientTrustProfileHeader({
   readonly canEdit: boolean;
   readonly onEdit: () => void;
 }) {
-  const displayName = profile.companyName || profile.name || "Unnamed Client";
+  const displayName = profile.name?.trim() || "Highrable participant";
   const walletTypeLabel =
     profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
 
@@ -94,14 +94,14 @@ export function ClientTrustProfileHeader({
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <div className="min-w-0 space-y-3">
             {profile.companyName && profile.name ? (
-              <p className="text-sm text-[#5f5f5f]">Contact name: {profile.name}</p>
+              <p className="hr-text-secondary text-sm">{profile.companyName}</p>
             ) : null}
-            <p className="max-w-3xl text-sm leading-relaxed text-[#5f5f5f]">
+            <p className="hr-text-secondary max-w-3xl text-sm leading-relaxed">
               {profile.bio || "This client has not added a profile bio yet."}
             </p>
             <div className="flex flex-wrap items-center gap-4 text-sm">
               {profile.location ? (
-                <span className="inline-flex items-center gap-1 text-[#5f5f5f]">
+                <span className="hr-text-secondary inline-flex items-center gap-1">
                   <MapPin className="h-4 w-4" aria-hidden="true" />
                   {profile.location}
                 </span>

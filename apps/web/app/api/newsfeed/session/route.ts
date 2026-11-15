@@ -1,0 +1,94 @@
+import { env } from "@/core/config/env";
+import { readDefaultContextRule } from "@/core/stellar/smart-account-context-rules";
+import { requireWalletRequestContext } from "@/core/wallet/server/request-auth";
+import {
+  assertSocialOrigin,
+  createSocialChallenge,
+  readSocialChallenge,
+  sessionSecret,
+  signSocialPayload,
+  verifyPasskeyProof,
+  type PasskeyProof,
+} from "@/features/newsfeed/session-server";
+import { api } from "@repo/convex-client/server";
+import { Keypair, rpc } from "@stellar/stellar-sdk";
+import { ConvexHttpClient } from "convex/browser";
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export async function POST(request: NextRequest) {
+  try {
+    const origin = assertSocialOrigin(request);
+    const input = (await request.json()) as {
+      address: string;
+      action: "challenge" | "session";
+      proof?: string;
+      assertion?: PasskeyProof;
+    };
+    let address: string;
+    if (input.address.startsWith("G")) {
+      if (!env.WALLET_SESSION_SECRET || env.WALLET_SESSION_SECRET.length < 32)
+        throw new Error("A strong wallet session secret is required for social sign-in.");
+      address = requireWalletRequestContext(request).walletAddress;
+      if (address !== input.address)
+        throw new Error("The connected wallet does not match the verified session.");
+    } else {
+      if (input.action === "challenge")
+        return NextResponse.json(createSocialChallenge(input.address), {
+          headers: { "Cache-Control": "no-store" },
+        });
+      if (!input.proof || !input.assertion) throw new Error("Passkey verification is required.");
+      const challenge = readSocialChallenge(input.proof);
+      if (challenge.sub !== input.address) throw new Error("Account mismatch.");
+      const rule = await readDefaultContextRule({
+        contractId: challenge.sub,
+        rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
+        networkPassphrase: env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
+        sourceAccount: Keypair.random().publicKey(),
+      });
+      // A single proof cannot satisfy a multi-signer or policy-constrained account.
+      if (!rule || rule.policies.length || rule.signers.length !== 1)
+        throw new Error("This account requires an unsupported multi-signer authorization policy.");
+      const ledger = await new rpc.Server(env.NEXT_PUBLIC_STELLAR_RPC_URL).getLatestLedger();
+      if (
+        rule.valid_until !== undefined &&
+        rule.valid_until !== null &&
+        rule.valid_until < ledger.sequence
+      )
+        throw new Error("Account signer has expired.");
+      const signer = rule.signers[0]!;
+      if (
+        signer.tag !== "External" ||
+        !env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID ||
+        signer.values[0] !== env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID
+      )
+        throw new Error("An authorized passkey signer was not found.");
+      const keyData = Buffer.from(signer.values[1]);
+      if (!keyData.subarray(65).equals(Buffer.from(input.assertion.credentialId, "base64url")))
+        throw new Error("Passkey does not belong to this account.");
+      verifyPasskeyProof(input.assertion, keyData.subarray(0, 65), challenge.challenge, origin);
+      const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
+      await convex.mutation(api.newsfeed.auth.consumeNonce, {
+        serverSecret: sessionSecret(),
+        nonce: challenge.nonce,
+        expiresAt: challenge.exp,
+      });
+      address = challenge.sub;
+    }
+    const expiresAt = Date.now() + 15 * 60_000;
+    const token = signSocialPayload({
+      sub: address,
+      exp: expiresAt,
+      aud: "highrable-social",
+      origin,
+    });
+    const convex = new ConvexHttpClient(env.NEXT_PUBLIC_CONVEX_URL);
+    await convex.mutation(api.newsfeed.auth.ensureParticipant, { token });
+    return NextResponse.json({ token, expiresAt }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Sign-in failed." },
+      { status: 401 },
+    );
+  }
+}

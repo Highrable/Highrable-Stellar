@@ -51,7 +51,7 @@ export function JobCard({
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <li className="hr-clickable-card flex flex-col gap-3 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
+    <li className="hr-clickable-card hr-card-surface flex flex-col gap-3 px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
       <div className="min-w-0 flex-1 space-y-1.5">
         <Link
           href={`/marketplace/jobs/${job._id}`}

@@ -15,7 +15,9 @@ export const viewer = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     try {
-      return await participant(ctx, token);
+      const user = await participant(ctx, token);
+      const profile = await author(ctx, user._id);
+      return { ...user, avatarUrl: profile.avatarUrl ?? undefined };
     } catch {
       return null;
     }
@@ -160,6 +162,16 @@ export const activeStories = query({
       else groups.set(story.authorId, { author: storyAuthor, stories: [item] });
     }
     return Array.from(groups.values());
+  },
+});
+export const storyPreview = query({
+  args: { mediaId: v.id("socialMedia") },
+  handler: async (ctx, { mediaId }) => {
+    const media = await ctx.db.get(mediaId);
+    const story = media?.storyId ? await ctx.db.get(media.storyId) : null;
+    if (!media || media.removed || !media.complete || !story) return null;
+    if (story.status !== "published" || story.expiresAt <= Date.now()) return null;
+    return media.preview ?? null;
   },
 });
 export const storyMedia = query({

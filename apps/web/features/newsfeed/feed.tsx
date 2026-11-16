@@ -29,7 +29,21 @@ const reactionEmoji: Record<(typeof reactions)[number], string> = {
 type Media = { _id: TConvexId<"socialMedia">; name: string; mime: string; size: number };
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
-export function MediaItem({ media, auto = false }: { media: Media; auto?: boolean }) {
+export function MediaItem({
+  media,
+  auto = false,
+  autoPlayVideo = false,
+  storyMode = false,
+  onVideoEnded,
+  onVideoProgress,
+}: {
+  media: Media;
+  auto?: boolean;
+  autoPlayVideo?: boolean;
+  storyMode?: boolean;
+  onVideoEnded?: () => void;
+  onVideoProgress?: (percent: number) => void;
+}) {
   const client = useConvex();
   const container = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState("");
@@ -54,8 +68,14 @@ export function MediaItem({ media, auto = false }: { media: Media; auto?: boolea
     }
   }
   useEffect(() => {
-    if (!auto || !media.mime.startsWith("image/") || !container.current) return;
-    if (typeof IntersectionObserver === "undefined") return;
+    const isPhoto = auto && media.mime.startsWith("image/");
+    const isStoryVideo = autoPlayVideo && media.mime.startsWith("video/");
+    if ((!isPhoto && !isStoryVideo) || !container.current) return;
+    if (typeof IntersectionObserver === "undefined") {
+      if (!isStoryVideo) return;
+      const timeout = window.setTimeout(() => void load(), 0);
+      return () => window.clearTimeout(timeout);
+    }
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
@@ -63,28 +83,54 @@ export function MediaItem({ media, auto = false }: { media: Media; auto?: boolea
           void load();
         }
       },
-      { rootMargin: "300px 0px" },
+      { rootMargin: isStoryVideo ? "0px" : "300px 0px" },
     );
     observer.observe(container.current);
     return () => observer.disconnect();
-  }, [auto, media._id]);
+  }, [auto, autoPlayVideo, media._id]);
   return (
-    <div ref={container} className="relative min-w-0 overflow-hidden rounded-xl bg-muted/30">
+    <div
+      ref={container}
+      className={
+        storyMode
+          ? "flex size-full min-h-0 items-center justify-center overflow-hidden bg-black"
+          : "relative min-w-0 overflow-hidden rounded-xl bg-muted/30"
+      }
+    >
       {url ? (
         media.mime.startsWith("image/") ? (
           <img
             src={url}
             alt={media.name}
-            className="max-h-[min(70vh,42rem)] w-full object-contain"
+            className={
+              storyMode
+                ? "size-full object-contain"
+                : "max-h-[min(70vh,42rem)] w-full object-contain"
+            }
           />
         ) : (
-          <video controls preload="none" src={url} className="max-h-[min(70vh,42rem)] w-full">
+          <video
+            controls
+            preload="none"
+            autoPlay={autoPlayVideo}
+            muted={autoPlayVideo}
+            src={url}
+            aria-label={media.name}
+            onEnded={onVideoEnded}
+            onTimeUpdate={(event) => {
+              const video = event.currentTarget;
+              if (video.duration > 0) onVideoProgress?.((video.currentTime / video.duration) * 100);
+            }}
+            className={storyMode ? "size-full object-contain" : "max-h-[min(70vh,42rem)] w-full"}
+          >
             <track kind="captions" />
             Your browser does not support video playback.
           </video>
         )
       ) : (
-        <div className="flex min-h-52 items-center justify-center p-5 text-center">
+        <div
+          className={`flex items-center justify-center p-5 text-center ${storyMode ? "size-full" : "min-h-52"}`}
+        >
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">{media.name}</p>
             {media.mime.startsWith("video/") || error ? (

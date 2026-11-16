@@ -1,5 +1,5 @@
 import { api } from "@repo/convex-client";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -12,25 +12,40 @@ const mock = vi.hoisted(() => ({
   groups: [] as unknown[],
   mutate: vi.fn(),
   paginated: vi.fn(),
+  preview: "data:image/jpeg;base64,dGh1bWI=",
+  readMedia: vi.fn(),
+  uploadMedia: vi.fn(),
 }));
 vi.mock("./session", () => ({
   useSocialSession: () => ({
     token: "verified-session",
-    viewer: { _id: "author-1", name: "Ada Builder", avatarUrl: null },
+    viewer: {
+      _id: "author-1",
+      name: "Ada Builder",
+      avatarUrl: "https://cdn.example/ada.jpg",
+    },
   }),
 }));
 vi.mock("convex/react", () => ({
   useConvex: () => ({}),
   useMutation: () => mock.mutate,
   usePaginatedQuery: mock.paginated,
-  useQuery: () => mock.groups,
+  useQuery: (_query: unknown, args: { mediaId?: string; token?: string } | "skip") =>
+    args === "skip" ? undefined : args.mediaId ? mock.preview : mock.groups,
 }));
 vi.mock("./media-client", () => ({
-  readMedia: vi.fn(),
-  uploadMedia: vi.fn(),
+  readMedia: mock.readMedia,
+  uploadMedia: mock.uploadMedia,
 }));
 
-const media = { _id: "media-1", name: "story.png", mime: "image/png", size: 12 };
+const media: { _id: string; name: string; mime: string; size: number; preview?: string } = {
+  _id: "media-1",
+  name: "story.png",
+  mime: "image/png",
+  size: 12,
+  preview: "data:image/jpeg;base64,dGh1bWI=",
+};
+const videoMedia = { _id: "video-1", name: "story.mp4", mime: "video/mp4", size: 12 };
 const reactionCounts = {
   Like: 0,
   Celebrate: 0,
@@ -39,7 +54,7 @@ const reactionCounts = {
   Insightful: 0,
   Funny: 0,
 };
-function story(id: string) {
+function story(id: string, item = media) {
   return {
     _id: id,
     publishedAt: 1,
@@ -48,7 +63,7 @@ function story(id: string) {
     reactionCount: 0,
     reactionCounts,
     viewerReaction: null,
-    media: [media],
+    media: [item],
   };
 }
 const groups = [
@@ -76,7 +91,10 @@ const groups = [
 beforeEach(() => {
   vi.stubGlobal("React", React);
   mock.groups = groups;
+  mock.preview = "data:image/jpeg;base64,dGh1bWI=";
   mock.mutate.mockReset().mockResolvedValue(undefined);
+  mock.readMedia.mockReset().mockResolvedValue(new Blob(["story media"]));
+  mock.uploadMedia.mockReset();
   mock.paginated
     .mockReset()
     .mockReturnValue({ results: [media], status: "Exhausted", loadMore: vi.fn() });
@@ -88,12 +106,83 @@ afterEach(() => {
 
 it("groups stories by author and navigates through stories", async () => {
   render(<Stories />);
+  const createStory = screen.getByRole("button", { name: "Create a story" });
+  expect(createStory.querySelector('img[src="https://cdn.example/ada.jpg"]')).toBeTruthy();
+  const authorStory = screen.getByRole("button", { name: "View Ada Builder's stories" });
+  await waitFor(() =>
+    expect(authorStory.querySelector('img[src="data:image/jpeg;base64,dGh1bWI="]')).toBeTruthy(),
+  );
   expect(screen.getAllByRole("button", { name: "View Ada Builder's stories" })).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "Next story item" }));
   fireEvent.click(screen.getByRole("button", { name: "Next story item" }));
   expect(await screen.findByRole("heading", { name: "Bobby Aleto" })).toBeTruthy();
+});
+
+it("automatically advances after showing a photo story preview", async () => {
+  vi.useFakeTimers();
+  try {
+    render(<Stories />);
+    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+    expect(screen.getByRole("group", { name: "Story 1 of 2" })).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(screen.getByRole("group", { name: "Story 2 of 2" })).toBeTruthy();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("loads and autoplays only the video opened in the story viewer", async () => {
+  mock.groups = [
+    {
+      ...groups[0],
+      stories: [story("story-video", videoMedia)],
+    },
+  ] as unknown as typeof groups;
+  mock.paginated.mockReturnValue({
+    results: [videoMedia],
+    status: "Exhausted",
+    loadMore: vi.fn(),
+  });
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:story-video"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  try {
+    render(<Stories />);
+    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+    await waitFor(() => expect(mock.readMedia).toHaveBeenCalled());
+    const video = await screen.findByLabelText("story.mp4");
+    expect(video.hasAttribute("autoplay")).toBe(true);
+    expect((video as HTMLVideoElement).muted).toBe(true);
+    expect(video.hasAttribute("controls")).toBe(true);
+    fireEvent.ended(video);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  } finally {
+    cleanup();
+    if (originalCreateObjectURL) {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreateObjectURL,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (originalRevokeObjectURL) {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevokeObjectURL,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  }
 });
 
 it("restores the confirmed story reaction after a failed request", async () => {

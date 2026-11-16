@@ -26,6 +26,7 @@ export async function uploadMedia(
     storyId?: TConvexId<"socialStories">;
     requestId: string;
     file: File;
+    preview?: string;
     signal: AbortSignal;
     onProgress: (percent: number) => void;
   },
@@ -40,6 +41,7 @@ export async function uploadMedia(
     name: input.file.name,
     mime: input.file.type,
     size: input.file.size,
+    ...(input.preview ? { preview: input.preview } : {}),
   });
   for (let offset = 0; offset < input.file.size; offset += CHUNK_BYTES) {
     input.signal.throwIfAborted();

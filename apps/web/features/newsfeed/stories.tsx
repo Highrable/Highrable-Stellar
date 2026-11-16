@@ -12,7 +12,7 @@ import {
 import { Input } from "@repo/ui/components/ui/input";
 import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ChevronLeft, ChevronRight, ImagePlus, Plus, Trash2, Video } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FunctionReturnType } from "convex/server";
 
@@ -26,6 +26,7 @@ type FileDraft = {
   key: string;
   file: File;
   preview: string;
+  poster: Promise<string | undefined>;
   progress: number;
   id?: TConvexId<"socialMedia">;
 };
@@ -40,11 +41,80 @@ const emoji: Record<(typeof kinds)[number], string> = {
 };
 const errorText = (error: unknown) => (error instanceof Error ? error.message : "Please retry.");
 
+async function createStoryPoster(file: File): Promise<string | undefined> {
+  const sourceUrl = URL.createObjectURL(file);
+  let video: HTMLVideoElement | null = null;
+  try {
+    let frame: HTMLImageElement | HTMLVideoElement;
+    if (file.type.startsWith("image/")) {
+      const image = new Image();
+      image.src = sourceUrl;
+      await image.decode();
+      frame = image;
+    } else {
+      video = document.createElement("video");
+      video.muted = true;
+      video.preload = "auto";
+      video.playsInline = true;
+      video.src = sourceUrl;
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(
+          () => reject(new Error("Could not preview video.")),
+          8000,
+        );
+        video!.addEventListener(
+          "loadeddata",
+          () => {
+            window.clearTimeout(timeout);
+            resolve();
+          },
+          { once: true },
+        );
+        video!.addEventListener(
+          "error",
+          () => {
+            window.clearTimeout(timeout);
+            reject(new Error("Could not preview video."));
+          },
+          { once: true },
+        );
+      });
+      frame = video;
+    }
+    const width = frame instanceof HTMLVideoElement ? frame.videoWidth : frame.naturalWidth;
+    const height = frame instanceof HTMLVideoElement ? frame.videoHeight : frame.naturalHeight;
+    if (!width || !height) return undefined;
+    const scale = Math.min(1, 360 / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return undefined;
+    context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+    const poster = canvas.toDataURL("image/jpeg", 0.62);
+    return poster.length <= 250_000 ? poster : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
 function StoryPreview({ media }: { media: Story["media"][number] | undefined }) {
   const client = useConvex();
   const container = useRef<HTMLDivElement>(null);
+  const [requested, setRequested] = useState(false);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const preview = useQuery(
+    api.newsfeed.queries.storyPreview,
+    media && requested ? { mediaId: media._id } : "skip",
+  );
   useEffect(
     () => () => {
       if (url) URL.revokeObjectURL(url);
@@ -52,24 +122,33 @@ function StoryPreview({ media }: { media: Story["media"][number] | undefined }) 
     [url],
   );
   useEffect(() => {
-    if (!media || !media.mime.startsWith("image/") || !container.current) return;
-    if (typeof IntersectionObserver === "undefined") return;
+    if (!media || !container.current) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const timeout = window.setTimeout(() => setRequested(true), 0);
+      return () => window.clearTimeout(timeout);
+    }
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
         observer.disconnect();
-        void readMedia(client, media._id, media.mime)
-          .then((blob) => setUrl(URL.createObjectURL(blob)))
-          .catch((reason) => setError(errorText(reason)));
+        setRequested(true);
       },
       { rootMargin: "120px" },
     );
     observer.observe(container.current);
     return () => observer.disconnect();
-  }, [client, media]);
+  }, [media?._id]);
+  useEffect(() => {
+    if (!requested || !media || preview !== null || url || !media.mime.startsWith("image/")) return;
+    void readMedia(client, media._id, media.mime)
+      .then((blob) => setUrl(URL.createObjectURL(blob)))
+      .catch((reason) => setError(errorText(reason)));
+  }, [client, media, preview, requested, url]);
   return (
     <div ref={container} className="absolute inset-0 bg-muted">
-      {url ? (
+      {preview ? (
+        <img src={preview} alt="" className="size-full object-cover" />
+      ) : url ? (
         <img src={url} alt="" className="size-full object-cover" />
       ) : (
         <div className="flex size-full items-center justify-center bg-gradient-to-br from-sky-700 via-violet-700 to-rose-500 text-white">
@@ -86,6 +165,27 @@ function StoryPreview({ media }: { media: Story["media"][number] | undefined }) 
         </span>
       )}
     </div>
+  );
+}
+
+function StoryAvatar({
+  src,
+  name,
+  className = "size-11",
+}: {
+  src?: string | null;
+  name: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex shrink-0 rounded-full bg-gradient-to-tr from-yellow-300 via-orange-500 to-amber-400 p-[3px] ${className}`}
+    >
+      <Avatar className="size-full border-2 border-background">
+        <AvatarImage src={src ?? undefined} alt="" />
+        <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
+      </Avatar>
+    </span>
   );
 }
 
@@ -143,11 +243,13 @@ function StoryComposer({
       if (!activeStoryId) throw new Error("Could not start your story draft.");
       for (const file of files) {
         if (file.id) continue;
+        const poster = file.key === files[0]?.key ? await file.poster : undefined;
         const mediaId = await uploadMedia(client, {
           token,
           storyId: activeStoryId,
           requestId: file.key,
           file: file.file,
+          ...(poster ? { preview: poster } : {}),
           signal: abort.current.signal,
           onProgress: (progress) =>
             setFiles((items) =>
@@ -199,7 +301,13 @@ function StoryComposer({
                 const added = Array.from(event.target.files ?? []).map((file) => {
                   const preview = URL.createObjectURL(file);
                   previews.current.add(preview);
-                  return { key: crypto.randomUUID(), file, preview, progress: 0 };
+                  return {
+                    key: crypto.randomUUID(),
+                    file,
+                    preview,
+                    poster: createStoryPoster(file),
+                    progress: 0,
+                  };
                 });
                 setFiles((current) => [...current, ...added]);
                 event.target.value = "";
@@ -286,6 +394,7 @@ function StoryViewer({
   const group = groups[initial.group]!;
   const story = group.stories[initial.story]!;
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [progressState, setProgressState] = useState({ mediaId: "", percent: 0 });
   const [reactionState, setReactionState] = useState({
     server: story.viewerReaction,
     confirmed: story.viewerReaction,
@@ -305,30 +414,50 @@ function StoryViewer({
   const remove = useMutation(api.newsfeed.mutations.deleteStory);
   const activeStory = story;
   const media = results[mediaIndex];
-  const flat = groups.flatMap((item, groupIndex) =>
-    item.stories.map((entry, storyIndex) => ({ groupIndex, storyIndex, entry })),
+  const flat = useMemo(
+    () =>
+      groups.flatMap((item, groupIndex) =>
+        item.stories.map((entry, storyIndex) => ({ groupIndex, storyIndex, entry })),
+      ),
+    [groups],
   );
   const flatIndex = flat.findIndex((item) => item.entry._id === activeStory._id);
-  function move(direction: -1 | 1) {
-    if (direction > 0 && mediaIndex < results.length - 1) {
-      setMediaIndex((index) => index + 1);
-      return;
-    }
-    if (direction < 0 && mediaIndex > 0) {
-      setMediaIndex((index) => index - 1);
-      return;
-    }
-    if (direction > 0 && status === "CanLoadMore") {
-      loadMore(20);
-      return;
-    }
-    const next = flat[flatIndex + direction];
-    if (!next) {
-      onClose();
-      return;
-    }
-    onNavigate(next.groupIndex, next.storyIndex);
-  }
+  const progressPercent = progressState.mediaId === media?._id ? progressState.percent : 0;
+  const move = useCallback(
+    (direction: -1 | 1) => {
+      if (direction > 0 && mediaIndex < results.length - 1) {
+        setMediaIndex((index) => index + 1);
+        return;
+      }
+      if (direction < 0 && mediaIndex > 0) {
+        setMediaIndex((index) => index - 1);
+        return;
+      }
+      if (direction > 0 && status === "CanLoadMore") {
+        loadMore(20);
+        return;
+      }
+      if (direction > 0 && status === "LoadingMore") return;
+      const next = flat[flatIndex + direction];
+      if (!next) {
+        onClose();
+        return;
+      }
+      onNavigate(next.groupIndex, next.storyIndex);
+    },
+    [flat, flatIndex, loadMore, mediaIndex, onClose, onNavigate, results.length, status],
+  );
+  useEffect(() => {
+    if (!media || !media.mime.startsWith("image/")) return;
+    const frame = window.requestAnimationFrame(() =>
+      setProgressState({ mediaId: media._id, percent: 100 }),
+    );
+    const timeout = window.setTimeout(() => move(1), 5000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [media?._id, media?.mime, move]);
   async function reactTo(kind: Story["viewerReaction"]) {
     if (!token || reactionBusy) return;
     setError("");
@@ -372,67 +501,110 @@ function StoryViewer({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="h-[88dvh] max-h-[900px] max-w-4xl overflow-hidden p-0 sm:p-0">
-        <div className="flex h-full flex-col bg-neutral-950 text-white">
-          <DialogHeader className="flex-row items-center justify-between gap-4 p-4 text-left">
+      <DialogContent className="h-dvh w-screen max-w-none overflow-hidden rounded-none border-0 bg-black p-0 sm:h-[min(94dvh,900px)] sm:w-[min(450px,calc(100vw-2rem))] sm:rounded-2xl">
+        <div className="relative flex h-full flex-col overflow-hidden bg-black text-white">
+          <DialogHeader className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pr-14 pb-3 text-left">
+            <div
+              role="group"
+              aria-label={`Story ${initial.story + 1} of ${group.stories.length}`}
+              className="mb-4 flex gap-1"
+            >
+              {group.stories.map((entry, index) => (
+                <span
+                  key={entry._id}
+                  aria-hidden="true"
+                  className="h-1 flex-1 rounded-full bg-white/30"
+                >
+                  {index < initial.story && <span className="block h-full rounded-full bg-white" />}
+                  {index === initial.story && (
+                    <span
+                      className="block h-full rounded-full bg-white transition-[width] ease-linear"
+                      style={{
+                        width: `${progressPercent}%`,
+                        transitionDuration: media?.mime.startsWith("video/") ? "150ms" : "5000ms",
+                      }}
+                    />
+                  )}
+                </span>
+              ))}
+            </div>
             <div className="flex min-w-0 items-center gap-3">
-              <Avatar className="size-10 ring-2 ring-blue-500">
-                <AvatarImage src={group.author.avatarUrl ?? undefined} alt="" />
-                <AvatarFallback>{group.author.name.slice(0, 1)}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
+              <StoryAvatar
+                src={group.author.avatarUrl}
+                name={group.author.name}
+                className="size-11"
+              />
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="truncate text-white">{group.author.name}</DialogTitle>
-                <DialogDescription className="text-white/60">
+                <DialogDescription className="text-white/70">
                   {new Date(activeStory.publishedAt ?? 0).toLocaleString()}
                 </DialogDescription>
               </div>
-            </div>
-            {viewer?._id === group.author.id && (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Delete story"
-                onClick={() => void deleteOwnStory()}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            )}
-          </DialogHeader>
-          <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
-            <div className="relative flex h-full max-h-[70dvh] w-full items-center justify-center">
-              {media ? (
-                <MediaItem key={media._id} media={media} auto />
-              ) : (
-                <p role="status" className="text-sm text-white/70">
-                  {status === "LoadingFirstPage" ? "Loading story…" : "No story media available."}
-                </p>
+              {viewer?._id === group.author.id && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete story"
+                  onClick={() => void deleteOwnStory()}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon-lg"
-                aria-label="Previous story item"
-                disabled={status === "LoadingFirstPage"}
-                className="absolute left-2 rounded-full bg-black/40 text-white hover:bg-black/60"
-                onClick={() => move(-1)}
-              >
-                <ChevronLeft />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-lg"
-                aria-label="Next story item"
-                disabled={status === "LoadingFirstPage"}
-                className="absolute right-2 rounded-full bg-black/40 text-white hover:bg-black/60"
-                onClick={() => move(1)}
-              >
-                <ChevronRight />
-              </Button>
             </div>
-          </div>
-          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 p-3">
-            <span className="text-sm text-white/75">{activeStory.reactionCount} reactions</span>
+          </DialogHeader>
+          <main className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
+            {media ? (
+              <MediaItem
+                key={media._id}
+                media={media}
+                auto
+                autoPlayVideo
+                storyMode
+                onVideoEnded={() => move(1)}
+                onVideoProgress={(percent) => setProgressState({ mediaId: media._id, percent })}
+              />
+            ) : (
+              <p role="status" className="p-4 text-center text-sm text-white/70">
+                {status === "LoadingFirstPage" ? "Loading story…" : "No story media available."}
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-lg"
+              aria-label="Previous story item"
+              disabled={status === "LoadingFirstPage"}
+              className="absolute top-1/2 left-2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white hover:bg-black/60"
+              onClick={() => move(-1)}
+            >
+              <ChevronLeft />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-lg"
+              aria-label="Next story item"
+              disabled={status === "LoadingFirstPage"}
+              className="absolute top-1/2 right-2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white hover:bg-black/60"
+              onClick={() => move(1)}
+            >
+              <ChevronRight />
+            </Button>
+          </main>
+          <footer className="z-10 shrink-0 border-t border-white/10 bg-black px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-white/80">
+              <span>{activeStory.reactionCount} reactions</span>
+              <div className="flex gap-1" aria-label="Story reaction counts">
+                {kinds.map(
+                  (kind) =>
+                    activeStory.reactionCounts[kind] > 0 && (
+                      <span key={kind}>
+                        {emoji[kind]} {activeStory.reactionCounts[kind]}
+                      </span>
+                    ),
+                )}
+              </div>
+            </div>
             {viewer && (
-              <div role="group" aria-label="React to story" className="flex gap-1">
+              <div role="group" aria-label="React to story" className="flex justify-between gap-1">
                 {kinds.map((kind) => (
                   <Button
                     key={kind}
@@ -461,22 +633,12 @@ function StoryViewer({
                 )}
               </div>
             )}
-            <div className="flex gap-1 text-sm" aria-label="Story reaction counts">
-              {kinds.map(
-                (kind) =>
-                  activeStory.reactionCounts[kind] > 0 && (
-                    <span key={kind}>
-                      {emoji[kind]} {activeStory.reactionCounts[kind]}
-                    </span>
-                  ),
-              )}
-            </div>
+            {error && (
+              <p role="alert" className="mt-2 text-sm text-red-300">
+                {error}
+              </p>
+            )}
           </footer>
-          {error && (
-            <p role="alert" className="px-4 pb-3 text-sm text-red-300">
-              {error}
-            </p>
-          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -488,6 +650,11 @@ export function Stories() {
   const groups = useQuery(api.newsfeed.queries.activeStories, token ? { token } : {});
   const [creating, setCreating] = useState(false);
   const [selection, setSelection] = useState<{ group: number; story: number } | null>(null);
+  const closeViewer = useCallback(() => setSelection(null), []);
+  const navigateViewer = useCallback(
+    (group: number, story: number) => setSelection({ group, story }),
+    [],
+  );
   if (groups === undefined)
     return (
       <section aria-label="Stories" className="hr-card-surface p-4">
@@ -508,20 +675,34 @@ export function Stories() {
           {viewer && (
             <button
               type="button"
-              className="relative h-48 w-32 shrink-0 overflow-hidden rounded-xl border bg-muted text-left"
+              className="relative h-48 w-32 shrink-0 overflow-hidden rounded-xl border bg-muted text-left shadow-sm"
               onClick={() => setCreating(true)}
               aria-label="Create a story"
             >
-              <div className="flex h-32 items-center justify-center bg-muted">
-                <Avatar className="size-16">
-                  <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
-                  <AvatarFallback>{viewer.name?.slice(0, 1) ?? "H"}</AvatarFallback>
-                </Avatar>
+              <div className="absolute inset-0">
+                {viewer.avatarUrl ? (
+                  <img
+                    src={viewer.avatarUrl}
+                    alt=""
+                    loading="lazy"
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <div className="flex size-full items-center justify-center bg-gradient-to-br from-violet-700 via-orange-600 to-amber-400">
+                    <Avatar className="size-20 border-4 border-white/90">
+                      <AvatarImage src={undefined} alt="" />
+                      <AvatarFallback className="text-3xl">
+                        {viewer.name?.slice(0, 1) ?? "H"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                )}
+                <span className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/10 to-black/80" />
               </div>
-              <span className="absolute top-[7.25rem] left-1/2 flex size-9 -translate-x-1/2 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground">
+              <span className="absolute top-[7.25rem] left-1/2 flex size-10 -translate-x-1/2 items-center justify-center rounded-full border-4 border-white bg-orange-600 text-white shadow-md">
                 <Plus className="size-5" />
               </span>
-              <span className="absolute inset-x-1 bottom-3 text-center text-sm font-semibold">
+              <span className="absolute inset-x-1 bottom-3 text-center text-sm font-semibold text-white drop-shadow">
                 Create story
               </span>
             </button>
@@ -538,10 +719,11 @@ export function Stories() {
               >
                 <StoryPreview media={first?.media[0]} />
                 <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
-                <Avatar className="absolute top-3 left-3 size-11 ring-4 ring-blue-600">
-                  <AvatarImage src={group.author.avatarUrl ?? undefined} alt="" />
-                  <AvatarFallback>{group.author.name.slice(0, 1)}</AvatarFallback>
-                </Avatar>
+                <StoryAvatar
+                  src={group.author.avatarUrl}
+                  name={group.author.name}
+                  className="absolute top-3 left-3 size-11"
+                />
                 <span className="absolute inset-x-2 bottom-3 line-clamp-2 text-left text-sm leading-5 font-semibold">
                   {group.author.name}
                 </span>
@@ -559,8 +741,8 @@ export function Stories() {
           key={selectedStory._id}
           groups={groups}
           initial={selection}
-          onClose={() => setSelection(null)}
-          onNavigate={(group, story) => setSelection({ group, story })}
+          onClose={closeViewer}
+          onNavigate={navigateViewer}
         />
       )}
     </>

@@ -440,6 +440,17 @@ it("includes the viewer reaction and first media page in each card", async () =>
   expect(remaining.page.every((media) => media.mime === "image/png")).toBe(true);
 });
 
+it("resolves the signed-in profile avatar for the create-story card", async () => {
+  const f = await setup();
+  const avatarStorageId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob(["avatar"], { type: "image/jpeg" })),
+  );
+  await f.t.run((ctx) => ctx.db.patch(f.authorId, { avatarStorageId }));
+
+  const viewer = await f.t.query(api.newsfeed.queries.viewer, { token: f.auth });
+  expect(viewer?.avatarUrl).toBeTruthy();
+});
+
 it("publishes public stories with author groups, media, reactions, and author-only deletion", async () => {
   const f = await setup();
   const storyId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
@@ -453,6 +464,7 @@ it("publishes public stories with author groups, media, reactions, and author-on
     name: "story.png",
     mime: "image/png",
     size: 8,
+    preview: "data:image/jpeg;base64,dGh1bWI=",
   });
   const storageId = await f.t.run((ctx) =>
     ctx.storage.store(new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])])),
@@ -470,8 +482,17 @@ it("publishes public stories with author groups, media, reactions, and author-on
   expect(stories).toHaveLength(1);
   expect(stories[0]).toMatchObject({
     author: { name: "Ada" },
-    stories: [{ _id: storyId, mediaCount: 1, media: [{ _id: mediaId, mime: "image/png" }] }],
+    stories: [
+      {
+        _id: storyId,
+        mediaCount: 1,
+        media: [{ _id: mediaId, mime: "image/png" }],
+      },
+    ],
   });
+  expect(await f.t.query(api.newsfeed.queries.storyPreview, { mediaId })).toBe(
+    "data:image/jpeg;base64,dGh1bWI=",
+  );
   const mediaPage = await f.t.query(api.newsfeed.queries.storyMedia, {
     storyId,
     paginationOpts: { cursor: null, numItems: 10 },
@@ -555,6 +576,7 @@ it("expires stories at 24 hours and denies reactions and media reads after expir
   await f.t.mutation(api.newsfeed.mutations.publishStory, { token: f.auth, storyId });
   vi.setSystemTime(Date.now() + 24 * 60 * 60_000 + 1);
   expect(await f.t.query(api.newsfeed.queries.activeStories, {})).toEqual([]);
+  expect(await f.t.query(api.newsfeed.queries.storyPreview, { mediaId })).toBeNull();
   expect(
     (
       await f.t.query(api.newsfeed.queries.storyMedia, {

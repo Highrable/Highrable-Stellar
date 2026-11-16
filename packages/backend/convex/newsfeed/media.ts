@@ -24,6 +24,7 @@ export const begin = mutation({
     name: v.string(),
     mime: v.string(),
     size: v.number(),
+    preview: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await participant(ctx, args.token);
@@ -42,6 +43,13 @@ export const begin = mutation({
       throw new Error("Cannot upload to this post or story.");
     if (!MIME_TYPES.includes(args.mime) || !Number.isSafeInteger(args.size) || args.size <= 0)
       throw new Error("Choose a nonempty JPEG, PNG, GIF, WebP, MP4, WebM or text file.");
+    if (
+      args.preview !== undefined &&
+      (!args.storyId ||
+        !args.preview.startsWith("data:image/jpeg;base64,") ||
+        args.preview.length > 250_000)
+    )
+      throw new Error("Story previews must be small JPEG thumbnails.");
     const prior = await ctx.db
       .query("socialMedia")
       .withIndex("by_request", (q) => q.eq("authorId", user._id).eq("requestId", args.requestId))
@@ -67,6 +75,7 @@ export const begin = mutation({
       name: args.name,
       mime: args.mime,
       size: args.size,
+      ...(args.preview ? { preview: args.preview } : {}),
       received: 0,
       complete: false,
       removed: false,

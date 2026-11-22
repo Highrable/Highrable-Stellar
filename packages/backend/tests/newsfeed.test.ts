@@ -53,6 +53,21 @@ async function setup(prefix = "G") {
   });
   return { t, auth, authorId, postId };
 }
+function profileArgs<T extends Record<string, unknown>>(session: string, overrides: T = {} as T) {
+  return {
+    token: session,
+    name: "Ada Professional",
+    headline: "Product engineer",
+    about: "I build accessible products.",
+    workplace: "Independent",
+    skills: ["TypeScript", "Design systems"],
+    links: ["https://example.com"],
+    workHistory: [],
+    certificates: [],
+    portfolio: [],
+    ...overrides,
+  };
+}
 async function text(
   f: Awaited<ReturnType<typeof setup>>,
   value = "Hello community",
@@ -126,28 +141,179 @@ describe.each(["G", "C"])("%s verified identity", (prefix) => {
   it("protects profile updates without accepting a target address", async () => {
     const f = await setup(prefix);
     await f.t.mutation(api.newsfeed.mutations.saveProfile, {
-      token: f.auth,
+      ...profileArgs(f.auth, {
+        name: "Ada Updated",
+        headline: "Builder",
+        about: "About",
+        skills: ["Rust"],
+      }),
+    });
+    const publicProfile = await f.t.query(api.newsfeed.queries.profile, {
+      walletAddress: wallet(prefix),
+    });
+    expect(publicProfile?.author.name).toBe("Ada Updated");
+    expect(publicProfile?.details).toMatchObject({
+      name: "Ada Updated",
+      workplace: "Independent",
+      skills: ["Rust"],
+    });
+    expect(publicProfile).not.toHaveProperty("author.walletAddress");
+    const byId = await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId });
+    expect(byId).toMatchObject({ id: f.authorId, details: { name: "Ada Updated" } });
+    expect(byId).not.toHaveProperty("walletAddress");
+    expect(byId?.author).not.toHaveProperty("walletAddress");
+    const results = await f.t.query(api.newsfeed.queries.searchPeople, { term: "Ada" });
+    expect(results).toContainEqual({
+      id: f.authorId,
       name: "Ada Updated",
       headline: "Builder",
-      about: "About",
-      skills: ["Rust"],
-      links: ["https://example.com"],
+      avatarUrl: null,
     });
-    expect(
-      (await f.t.query(api.newsfeed.queries.profile, { walletAddress: wallet(prefix) }))?.author
-        .name,
-    ).toBe("Ada Updated");
+    expect(results[0]).not.toHaveProperty("walletAddress");
+    await expect(f.t.query(api.newsfeed.queries.searchPeople, { term: "A" })).resolves.toEqual([]);
+    await expect(
+      f.t.mutation(api.newsfeed.mutations.saveProfile, profileArgs("")),
+    ).rejects.toThrow();
     await expect(
       f.t.mutation(api.newsfeed.mutations.saveProfile, {
-        token: f.auth,
-        name: "Ada",
-        headline: "",
-        about: "",
-        skills: [],
-        links: ["javascript:alert(1)"],
+        ...profileArgs(f.auth, { links: ["javascript:alert(1)"] }),
       }),
     ).rejects.toThrow();
+    await expect(
+      f.t.mutation(
+        api.newsfeed.mutations.saveProfile,
+        profileArgs(f.auth, {
+          workHistory: [
+            { title: "Engineer", company: "Studio", startDate: "bad-date", description: "" },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/dates/);
+    const otherAddress = wallet(prefix, "B");
+    const otherId = await f.t.run((ctx) =>
+      ctx.db.insert("users", {
+        walletAddress: otherAddress,
+        name: "Morgan",
+        role: "client",
+        createdAt: Date.now(),
+      }),
+    );
+    const otherToken = await token(otherAddress);
+    await f.t.mutation(
+      api.newsfeed.mutations.saveProfile,
+      profileArgs(otherToken, { name: "Morgan Studio" }),
+    );
+    expect(
+      (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))?.details.name,
+    ).toBe("Ada Updated");
+    expect(
+      (await f.t.query(api.newsfeed.queries.profileById, { profileId: otherId }))?.details.name,
+    ).toBe("Morgan Studio");
+    await f.t.mutation(api.newsfeed.mutations.deleteProfile, { token: otherToken });
+    expect(
+      (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))?.details.name,
+    ).toBe("Ada Updated");
+    await f.t.mutation(api.newsfeed.mutations.deleteProfile, { token: f.auth });
+    expect(
+      (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))?.details
+        .headline,
+    ).toBe("");
   });
+});
+it("stores profile images through authenticated server-owned references", async () => {
+  const f = await setup();
+  const otherAddress = wallet("G", "B");
+  const otherId = await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: otherAddress,
+      name: "Morgan",
+      createdAt: Date.now(),
+    }),
+  );
+  const otherToken = await token(otherAddress);
+  const firstStorageId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob(["avatar bytes"], { type: "image/webp" })),
+  );
+  await f.t.mutation(internal.newsfeed.media.saveProfileImage, {
+    token: f.auth,
+    purpose: "avatar",
+    storageId: firstStorageId,
+  });
+  const firstUrl = (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))
+    ?.details.avatarUrl;
+  expect(firstUrl).toBeTruthy();
+  const secondStorageId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob(["other avatar"], { type: "image/webp" })),
+  );
+  await f.t.mutation(internal.newsfeed.media.saveProfileImage, {
+    token: otherToken,
+    purpose: "avatar",
+    storageId: secondStorageId,
+  });
+  expect(
+    (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))?.details
+      .avatarUrl,
+  ).toBe(firstUrl);
+  expect(
+    (await f.t.query(api.newsfeed.queries.profileById, { profileId: otherId }))?.details.avatarUrl,
+  ).toBeTruthy();
+  const replacementId = await f.t.run((ctx) =>
+    ctx.storage.store(new Blob(["updated avatar"], { type: "image/webp" })),
+  );
+  await f.t.mutation(internal.newsfeed.media.saveProfileImage, {
+    token: f.auth,
+    purpose: "avatar",
+    storageId: replacementId,
+  });
+  expect(
+    (await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId }))?.details
+      .avatarUrl,
+  ).not.toBe(firstUrl);
+  expect(await f.t.run((ctx) => ctx.storage.get(firstStorageId))).toBeNull();
+});
+it("authenticates profile image uploads by origin and content and never accepts caller storage ids", async () => {
+  vi.stubEnv("NEWSFEED_WEB_ORIGIN", "https://highrable.example");
+  const f = await setup();
+  const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
+  const response = await f.t.fetch("/newsfeed/profile-image?purpose=avatar", {
+    method: "POST",
+    headers: {
+      origin: "https://highrable.example",
+      authorization: `Bearer ${f.auth}`,
+      "content-type": "image/png",
+    },
+    body: png,
+  });
+  expect(response.status).toBe(200);
+  const profile = await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId });
+  expect(profile?.details.avatarUrl).toBeTruthy();
+  expect(profile?.details).not.toHaveProperty("avatarStorageId");
+  const invalidContent = await f.t.fetch("/newsfeed/profile-image?purpose=cover", {
+    method: "POST",
+    headers: {
+      origin: "https://highrable.example",
+      authorization: `Bearer ${f.auth}`,
+      "content-type": "image/png",
+    },
+    body: new TextEncoder().encode("<svg/>"),
+  });
+  expect(invalidContent.status).toBe(400);
+  const invalidOrigin = await f.t.fetch("/newsfeed/profile-image?purpose=cover", {
+    method: "POST",
+    headers: {
+      origin: "https://attacker.example",
+      authorization: `Bearer ${f.auth}`,
+      "content-type": "image/png",
+    },
+    body: png,
+  });
+  expect(invalidOrigin.status).toBe(400);
+  const invalidSession = await f.t.fetch("/newsfeed/profile-image?purpose=cover", {
+    method: "POST",
+    headers: { origin: "https://highrable.example", "content-type": "image/png" },
+    body: png,
+  });
+  expect(invalidSession.status).toBe(400);
 });
 it("keeps publishing and concurrent interactions retry-safe", async () => {
   const f = await setup();
@@ -197,6 +363,124 @@ it("keeps publishing and concurrent interactions retry-safe", async () => {
   expect(await f.t.query(api.newsfeed.queries.post, { id: f.postId })).toMatchObject({
     reactionCount: 0,
   });
+});
+it("supports paginated top-level comments, one-level replies and comment reactions", async () => {
+  const f = await setup();
+  const bodyId = await text(f);
+  await f.t.mutation(api.newsfeed.mutations.publish, { token: f.auth, postId: f.postId, bodyId });
+  const rootId = await f.t.mutation(api.newsfeed.mutations.comment, {
+    token: f.auth,
+    postId: f.postId,
+    requestId: "root-comment-1",
+    body: "A first comment",
+  });
+  const latestRootId = await f.t.mutation(api.newsfeed.mutations.comment, {
+    token: f.auth,
+    postId: f.postId,
+    requestId: "root-comment-2",
+    body: "A second comment",
+  });
+  const replyId = await f.t.mutation(api.newsfeed.mutations.comment, {
+    token: f.auth,
+    postId: f.postId,
+    parentId: latestRootId,
+    requestId: "reply-1",
+    body: "A useful reply",
+  });
+  const firstPage = await f.t.query(api.newsfeed.queries.comments, {
+    postId: f.postId,
+    token: f.auth,
+    paginationOpts: { cursor: null, numItems: 1 },
+  });
+  expect(firstPage.page).toMatchObject([{ _id: latestRootId, replyCount: 1 }]);
+  expect(firstPage.isDone).toBe(false);
+  const secondPage = await f.t.query(api.newsfeed.queries.comments, {
+    postId: f.postId,
+    token: f.auth,
+    paginationOpts: { cursor: firstPage.continueCursor, numItems: 1 },
+  });
+  expect(secondPage.page.map((item) => item._id)).toContain(rootId);
+  const otherAddress = wallet("G", "B");
+  await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: otherAddress,
+      name: "Rae",
+      createdAt: Date.now(),
+    }),
+  );
+  const otherToken = await token(otherAddress);
+  await f.t.mutation(api.newsfeed.mutations.reactToComment, {
+    token: otherToken,
+    commentId: replyId,
+    kind: "Love",
+  });
+  await f.t.mutation(api.newsfeed.mutations.reactToComment, {
+    token: otherToken,
+    commentId: replyId,
+    kind: "Celebrate",
+  });
+  const replyPage = await f.t.query(api.newsfeed.queries.replies, {
+    commentId: latestRootId,
+    token: otherToken,
+    paginationOpts: { cursor: null, numItems: 5 },
+  });
+  expect(replyPage.page).toMatchObject([
+    { _id: replyId, reactionCount: 1, viewerReaction: "Celebrate" },
+  ]);
+  await f.t.mutation(api.newsfeed.mutations.reactToComment, {
+    token: otherToken,
+    commentId: replyId,
+    kind: null,
+  });
+  expect(
+    (
+      await f.t.query(api.newsfeed.queries.replies, {
+        commentId: latestRootId,
+        paginationOpts: { cursor: null, numItems: 5 },
+      })
+    ).page[0]?.reactionCount,
+  ).toBe(0);
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.comment, {
+      token: f.auth,
+      postId: f.postId,
+      parentId: replyId,
+      requestId: "nested-reply",
+      body: "No deeper nesting",
+    }),
+  ).rejects.toThrow(/top-level/);
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.reactToComment, {
+      token: "",
+      commentId: replyId,
+      kind: "Like",
+    }),
+  ).rejects.toThrow();
+  const report = { token: otherToken, commentId: replyId, reason: "Spam" };
+  expect(await f.t.mutation(api.newsfeed.mutations.report, report)).toBe(
+    await f.t.mutation(api.newsfeed.mutations.report, report),
+  );
+  await f.t.run(async (ctx) => {
+    await ctx.db.patch(replyId, { status: "hidden" });
+    await ctx.db.patch(f.postId, { commentCount: 2 });
+  });
+  await f.t.mutation(api.newsfeed.mutations.editComment, {
+    token: f.auth,
+    commentId: latestRootId,
+    deleted: true,
+  });
+  expect(await f.t.query(api.newsfeed.queries.post, { id: f.postId })).toMatchObject({
+    commentCount: 1,
+  });
+  expect((await f.t.run((ctx) => ctx.db.get(replyId)))?.status).toBe("deleted");
+  expect(
+    (
+      await f.t.query(api.newsfeed.queries.replies, {
+        commentId: latestRootId,
+        paginationOpts: { cursor: null, numItems: 5 },
+      })
+    ).page,
+  ).toEqual([]);
 });
 it("prevents incomplete media publication and cleans abandoned chunks", async () => {
   const f = await setup();

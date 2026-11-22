@@ -83,7 +83,7 @@ it("shows failed reaction feedback while retaining the last confirmed value", as
   await screen.findByRole("alert");
   expect(screen.getByRole("button", { name: "Like" })).toBeTruthy();
 });
-it("uses the author-filtered feed for profile activity and renders the shared card", () => {
+it("uses wallet-free profile links and copies post links from the options menu", async () => {
   render(<Feed authorId={post.authorId} />);
   expect(mock.paginated).toHaveBeenCalledWith(
     api.newsfeed.queries.feed,
@@ -91,7 +91,18 @@ it("uses the author-filtered feed for profile activity and renders the shared ca
     { initialNumItems: 10 },
   );
   expect(screen.getByRole("article")).toBeTruthy();
+  expect(screen.getByRole("link", { name: /Highrable participant/ }).getAttribute("href")).toBe(
+    "/people/author",
+  );
+  expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+  fireEvent.click(screen.getByRole("button", { name: "Post options" }));
   expect(screen.getByRole("button", { name: "Copy link" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Share post" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+  expect((await screen.findByRole("status")).textContent).toBe("Link copied.");
+  expect(writeText).toHaveBeenCalledWith("http://localhost:3000/newsfeed/post-1");
 });
 it("renders initial attachment metadata without a query per card", () => {
   render(

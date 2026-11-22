@@ -85,6 +85,31 @@ export async function uploadMedia(
   input.onProgress(100);
   return mediaId;
 }
+export async function uploadProfileImage(
+  token: string,
+  purpose: "avatar" | "cover",
+  file: File,
+  signal?: AbortSignal,
+) {
+  const site = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+  if (!site) throw new Error("Social upload hosting is not configured.");
+  if (!file.type.startsWith("image/")) throw new Error("Choose a profile image.");
+  const response = await fetch(`${site}/newsfeed/profile-image?purpose=${purpose}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": file.type },
+    body: file,
+    ...(signal ? { signal } : {}),
+  });
+  if (!response.ok) {
+    let reason = "Profile image upload failed.";
+    try {
+      reason = ((await response.json()) as { error?: string }).error ?? reason;
+    } catch {
+      /* The hosting layer can return a non-JSON error. */
+    }
+    throw new Error(reason);
+  }
+}
 export async function readMedia(
   client: ConvexReactClient,
   mediaId: TConvexId<"socialMedia">,

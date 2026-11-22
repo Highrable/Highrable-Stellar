@@ -18,8 +18,26 @@ vi.mock("./session", () => ({
   useSocialSession: () => ({ token: "verified-session", viewer: mocks.viewer }),
 }));
 vi.mock("./media-client", () => ({ uploadMedia: mocks.upload }));
+vi.mock("./image-editor", () => ({
+  ImageEditor: ({ file, onSave }: { file: File | null; onSave: (file: File) => void }) =>
+    file ? (
+      <button
+        type="button"
+        onClick={() =>
+          onSave(new File(["edited image"], "photo-edited.webp", { type: "image/webp" }))
+        }
+      >
+        Apply test edits
+      </button>
+    ) : null,
+}));
 beforeEach(() => {
   vi.stubGlobal("React", React);
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:composer-preview"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
   mocks.viewer = { _id: "user-1" };
   mocks.mutation.mockReset();
   mocks.upload.mockReset();
@@ -71,4 +89,56 @@ it("retains text after an upload failure and does not publish broken media", asy
   expect(
     mocks.mutation.mock.calls.filter(([ref]) => getFunctionName(ref).endsWith(":publish")),
   ).toHaveLength(0);
+});
+it("applies image edits to the preview file before publishing", async () => {
+  render(<Composer />);
+  openComposer();
+  const image = new File(["original"], "photo.png", { type: "image/png" });
+  fireEvent.change(screen.getByLabelText("Choose post photos or videos"), {
+    target: { files: [image] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Edit image" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply test edits" }));
+  expect(screen.getByText("photo-edited.webp")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+  await waitFor(() => expect(mocks.upload).toHaveBeenCalled());
+  expect(mocks.upload.mock.calls[0]?.[1].file.name).toBe("photo-edited.webp");
+  expect(mocks.upload.mock.calls[0]?.[1].file.type).toBe("image/webp");
+});
+it("keeps video files on the existing preview and upload path", async () => {
+  render(<Composer />);
+  openComposer();
+  const video = new File(["video bytes"], "walkthrough.mp4", { type: "video/mp4" });
+  fireEvent.change(screen.getByLabelText("Choose post photos or videos"), {
+    target: { files: [video] },
+  });
+  expect(screen.getByText("walkthrough.mp4")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Edit image" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+  await waitFor(() => expect(mocks.upload).toHaveBeenCalled());
+  expect(mocks.upload.mock.calls[0]?.[1].file).toBe(video);
+});
+it("retains a cancelled video draft and retries the upload", async () => {
+  let attempt = 0;
+  mocks.upload.mockImplementation((_client, input) => {
+    attempt += 1;
+    if (attempt > 1) return Promise.resolve("media-1");
+    return new Promise((_resolve, reject) => {
+      input.signal.addEventListener("abort", () => reject(new Error("Upload cancelled.")), {
+        once: true,
+      });
+    });
+  });
+  render(<Composer />);
+  openComposer();
+  fireEvent.change(screen.getByLabelText("Choose post photos or videos"), {
+    target: { files: [new File(["video bytes"], "walkthrough.mp4", { type: "video/mp4" })] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Publish" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Cancel upload" }));
+  await screen.findByRole("alert");
+  expect(screen.getByText("walkthrough.mp4")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Retry publishing" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(mocks.upload).toHaveBeenCalledTimes(2);
 });

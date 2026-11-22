@@ -15,6 +15,7 @@ import { useConvex } from "convex/react";
 import { ImagePlus, Smile, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { ImageEditor } from "./image-editor";
 import { uploadMedia } from "./media-client";
 import { useSocialSession } from "./session";
 
@@ -39,6 +40,7 @@ export function Composer({
   const [files, setFiles] = useState<DraftFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [editingImageKey, setEditingImageKey] = useState<string | null>(null);
   const request = useRef(crypto.randomUUID());
   const postId = useRef<TConvexId<"socialPosts"> | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -79,6 +81,18 @@ export function Composer({
     });
     setFiles((current) => [...current, ...added]);
     if (fileInput.current) fileInput.current.value = "";
+  }
+  function applyImageEdits(key: string, edited: File) {
+    setFiles((current) =>
+      current.map((file) => {
+        if (file.key !== key) return file;
+        URL.revokeObjectURL(file.preview);
+        previews.current.delete(file.preview);
+        const preview = URL.createObjectURL(edited);
+        previews.current.add(preview);
+        return { ...file, file: edited, preview, progress: 0 };
+      }),
+    );
   }
   async function publish() {
     if (busy) return;
@@ -235,6 +249,18 @@ export function Composer({
             <p className="mt-2 truncate text-xs" title={file.file.name}>
               {file.file.name}
             </p>
+            {file.file.type.startsWith("image/") && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || Boolean(file.id)}
+                onClick={() => setEditingImageKey(file.key)}
+                className="mt-2 h-8 w-full"
+              >
+                Edit image
+              </Button>
+            )}
             <progress
               aria-label={`Uploading ${file.file.name}`}
               max={100}
@@ -259,6 +285,16 @@ export function Composer({
           {error}
         </p>
       )}
+      <ImageEditor
+        file={files.find((file) => file.key === editingImageKey)?.file ?? null}
+        onOpenChange={(open) => {
+          if (!open) setEditingImageKey(null);
+        }}
+        onSave={(edited) => {
+          if (editingImageKey) applyImageEdits(editingImageKey, edited);
+          setEditingImageKey(null);
+        }}
+      />
       <p className="text-xs text-muted-foreground">
         Failed uploads can be retried. Your draft stays here if you close this window.
       </p>

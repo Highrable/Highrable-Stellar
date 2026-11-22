@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Composer } from "./composer";
 import { Feed, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
+import { PeopleSearch } from "./people-search";
 import { SocialSession, useSocialSession } from "./session";
 import { Stories } from "./stories";
 
@@ -38,6 +39,7 @@ export function NewsfeedPage({ postId }: { postId?: string }) {
             <Permalink id={postId} />
           ) : (
             <>
+              <PeopleSearch />
               <Composer />
               <Stories />
               <Feed />

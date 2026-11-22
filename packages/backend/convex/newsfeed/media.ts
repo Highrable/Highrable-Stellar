@@ -192,6 +192,44 @@ export const remove = mutation({
       });
   },
 });
+export const saveProfileImage = internalMutation({
+  args: {
+    token: v.string(),
+    purpose: v.union(v.literal("avatar"), v.literal("cover")),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    const prior = await ctx.db
+      .query("socialProfiles")
+      .withIndex("by_author", (q) => q.eq("authorId", user._id))
+      .unique();
+    const field = args.purpose === "avatar" ? "avatarStorageId" : "coverStorageId";
+    const oldStorageId = prior?.[field];
+    if (oldStorageId && oldStorageId !== args.storageId) await ctx.storage.delete(oldStorageId);
+    if (prior) {
+      if (args.purpose === "avatar")
+        await ctx.db.patch(prior._id, { avatarStorageId: args.storageId, avatarUrl: undefined });
+      else await ctx.db.patch(prior._id, { coverStorageId: args.storageId, coverUrl: undefined });
+      return;
+    }
+    await ctx.db.insert("socialProfiles", {
+      authorId: user._id,
+      name: user.name?.trim() || "Highrable participant",
+      headline: "",
+      about: "",
+      workplace: "",
+      skills: [],
+      links: [],
+      workHistory: [],
+      certificates: [],
+      portfolio: [],
+      ...(args.purpose === "avatar"
+        ? { avatarStorageId: args.storageId }
+        : { coverStorageId: args.storageId }),
+    });
+  },
+});
 export const cleanup = internalMutation({
   args: {},
   handler: async (ctx) => {

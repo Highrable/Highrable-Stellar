@@ -86,6 +86,8 @@ export const socialTables = {
   }).index("by_post_author", ["postId", "authorId"]),
   socialComments: defineTable({
     postId: v.id("socialPosts"),
+    parentId: v.optional(v.id("socialComments")),
+    hiddenByParent: v.optional(v.boolean()),
     authorId: v.id("users"),
     requestId: v.string(),
     body: v.string(),
@@ -93,7 +95,15 @@ export const socialTables = {
     updatedAt: v.number(),
   })
     .index("by_post", ["postId", "status"])
+    .index("by_post_parent", ["postId", "parentId", "status"])
     .index("by_request", ["authorId", "requestId"]),
+  socialCommentReactions: defineTable({
+    commentId: v.id("socialComments"),
+    authorId: v.id("users"),
+    kind: reactionKind,
+  })
+    .index("by_comment_author", ["commentId", "authorId"])
+    .index("by_comment", ["commentId"]),
   socialReports: defineTable({
     authorId: v.id("users"),
     postId: v.optional(v.id("socialPosts")),
@@ -113,9 +123,46 @@ export const socialTables = {
     name: v.string(),
     headline: v.string(),
     about: v.string(),
+    workplace: v.optional(v.string()),
     skills: v.array(v.string()),
     links: v.array(v.string()),
     coverUrl: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-  }).index("by_author", ["authorId"]),
+    coverStorageId: v.optional(v.id("_storage")),
+    avatarStorageId: v.optional(v.id("_storage")),
+    workHistory: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          company: v.string(),
+          startDate: v.string(),
+          endDate: v.optional(v.string()),
+          description: v.string(),
+        }),
+      ),
+    ),
+    certificates: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          issuer: v.string(),
+          issuedAt: v.optional(v.string()),
+          details: v.string(),
+          url: v.optional(v.string()),
+        }),
+      ),
+    ),
+    portfolio: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          details: v.string(),
+          url: v.optional(v.string()),
+          imageUrl: v.optional(v.string()),
+        }),
+      ),
+    ),
+  })
+    .index("by_author", ["authorId"])
+    .searchIndex("search_name", { searchField: "name" }),
 };

@@ -12,11 +12,11 @@ export async function author(ctx: QueryCtx, id: Id<"users">) {
     id,
     name: profile?.name || user?.name?.trim() || "Highrable participant",
     avatarUrl:
+      (profile?.avatarStorageId ? await ctx.storage.getUrl(profile.avatarStorageId) : null) ??
       profile?.avatarUrl ??
       (user?.avatarStorageId ? await ctx.storage.getUrl(user.avatarStorageId) : user?.avatarUrl) ??
       null,
-    walletAddress: user?.walletAddress ?? "",
-    role: user?.role ?? "freelancer",
+    headline: profile?.headline ?? "",
   };
 }
 export async function published(ctx: QueryCtx, id: Id<"socialPosts">) {

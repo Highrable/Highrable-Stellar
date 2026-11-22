@@ -256,11 +256,23 @@ export const reactToStory = mutation({
   },
 });
 export const comment = mutation({
-  args: { token: v.string(), postId: v.id("socialPosts"), requestId: v.string(), body: v.string() },
+  args: {
+    token: v.string(),
+    postId: v.id("socialPosts"),
+    parentId: v.optional(v.id("socialComments")),
+    requestId: v.string(),
+    body: v.string(),
+  },
   handler: async (ctx, args) => {
     const user = await participant(ctx, args.token);
     requestKey(args.requestId);
     const post = await published(ctx, args.postId);
+    if (args.body.length > 3_000) throw new Error("Comments must be 3,000 characters or fewer.");
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent || parent.postId !== post._id || parent.status !== "published" || parent.parentId)
+        throw new Error("Replies must belong to an active top-level comment.");
+    }
     const prior = await ctx.db
       .query("socialComments")
       .withIndex("by_request", (q) => q.eq("authorId", user._id).eq("requestId", args.requestId))
@@ -273,6 +285,7 @@ export const comment = mutation({
     const id = await ctx.db.insert("socialComments", {
       authorId: user._id,
       postId: post._id,
+      ...(args.parentId ? { parentId: args.parentId } : {}),
       requestId: args.requestId,
       body: args.body,
       status: "published",
@@ -280,6 +293,34 @@ export const comment = mutation({
     });
     await ctx.db.patch(post._id, { commentCount: post.commentCount + 1 });
     return id;
+  },
+});
+export const reactToComment = mutation({
+  args: {
+    token: v.string(),
+    commentId: v.id("socialComments"),
+    kind: v.union(reactionKind, v.null()),
+  },
+  handler: async (ctx, args) => {
+    const user = await participant(ctx, args.token);
+    const comment = await ctx.db.get(args.commentId);
+    if (!comment || comment.status !== "published") throw new Error("Comment unavailable.");
+    await published(ctx, comment.postId);
+    const prior = await ctx.db
+      .query("socialCommentReactions")
+      .withIndex("by_comment_author", (q) =>
+        q.eq("commentId", comment._id).eq("authorId", user._id),
+      )
+      .unique();
+    if (prior?.kind === args.kind) return;
+    if (prior && args.kind) await ctx.db.patch(prior._id, { kind: args.kind });
+    else if (prior) await ctx.db.delete(prior._id);
+    else if (args.kind)
+      await ctx.db.insert("socialCommentReactions", {
+        commentId: comment._id,
+        authorId: user._id,
+        kind: args.kind,
+      });
   },
 });
 export const editComment = mutation({
@@ -297,12 +338,44 @@ export const editComment = mutation({
     if (c.status !== "published") throw new Error("Comment unavailable.");
     const post = await published(ctx, c.postId);
     if (!args.deleted && !args.body?.trim()) throw new Error("Write a comment.");
+    if (args.body && args.body.length > 3_000)
+      throw new Error("Comments must be 3,000 characters or fewer.");
     await ctx.db.patch(c._id, {
       status: args.deleted ? "deleted" : "published",
       ...(args.body !== undefined ? { body: args.body } : {}),
       updatedAt: Date.now(),
     });
-    if (args.deleted) await ctx.db.patch(post._id, { commentCount: post.commentCount - 1 });
+    if (args.deleted) {
+      const replies = c.parentId
+        ? []
+        : await ctx.db
+            .query("socialComments")
+            .withIndex("by_post_parent", (q) => q.eq("postId", post._id).eq("parentId", c._id))
+            .collect();
+      for (const reply of replies) {
+        await ctx.db.patch(reply._id, {
+          status: "deleted",
+          hiddenByParent: undefined,
+          updatedAt: Date.now(),
+        });
+        const replyReactions = await ctx.db
+          .query("socialCommentReactions")
+          .withIndex("by_comment", (q) => q.eq("commentId", reply._id))
+          .collect();
+        for (const reaction of replyReactions) await ctx.db.delete(reaction._id);
+      }
+      const reactions = await ctx.db
+        .query("socialCommentReactions")
+        .withIndex("by_comment", (q) => q.eq("commentId", c._id))
+        .collect();
+      for (const reaction of reactions) await ctx.db.delete(reaction._id);
+      await ctx.db.patch(post._id, {
+        commentCount: Math.max(
+          0,
+          post.commentCount - 1 - replies.filter((reply) => reply.status === "published").length,
+        ),
+      });
+    }
   },
 });
 export const report = mutation({
@@ -366,8 +439,34 @@ export const moderate = mutation({
     if (target.status === status) return;
     if (args.commentId && "postId" in target) {
       const post = await ctx.db.get(target.postId);
+      let affectedReplies = 0;
+      if (post && !target.parentId) {
+        const replies = await ctx.db
+          .query("socialComments")
+          .withIndex("by_post_parent", (q) =>
+            q
+              .eq("postId", post._id)
+              .eq("parentId", target._id)
+              .eq("status", args.hidden ? "published" : "hidden"),
+          )
+          .filter((q) => args.hidden || q.eq(q.field("hiddenByParent"), true))
+          .collect();
+        affectedReplies = replies.length;
+        for (const reply of replies) {
+          await ctx.db.patch(reply._id, {
+            status,
+            ...(args.hidden ? { hiddenByParent: true } : { hiddenByParent: undefined }),
+            updatedAt: Date.now(),
+          });
+        }
+      }
       if (post)
-        await ctx.db.patch(post._id, { commentCount: post.commentCount + (args.hidden ? -1 : 1) });
+        await ctx.db.patch(post._id, {
+          commentCount: Math.max(
+            0,
+            post.commentCount + (args.hidden ? -1 : 1) * (1 + affectedReplies),
+          ),
+        });
     }
     await ctx.db.patch(id, { status, updatedAt: Date.now() });
     await ctx.db.insert("socialModeration", {
@@ -384,33 +483,116 @@ export const saveProfile = mutation({
     name: v.string(),
     headline: v.string(),
     about: v.string(),
+    workplace: v.string(),
     skills: v.array(v.string()),
     links: v.array(v.string()),
-    coverUrl: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
+    workHistory: v.array(
+      v.object({
+        title: v.string(),
+        company: v.string(),
+        startDate: v.string(),
+        endDate: v.optional(v.string()),
+        description: v.string(),
+      }),
+    ),
+    certificates: v.array(
+      v.object({
+        name: v.string(),
+        issuer: v.string(),
+        issuedAt: v.optional(v.string()),
+        details: v.string(),
+        url: v.optional(v.string()),
+      }),
+    ),
+    portfolio: v.array(
+      v.object({
+        title: v.string(),
+        details: v.string(),
+        url: v.optional(v.string()),
+        imageUrl: v.optional(v.string()),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
-    const wallet = await verifyToken(args.token);
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_walletAddress", (q) => q.eq("walletAddress", wallet))
-      .unique();
+    const user = await participant(ctx, args.token);
     if (!user || !args.name.trim())
       throw new Error("Sign in and enter a name to save your profile.");
-    const { token: _token, ...fields } = args;
-    const record = {
-      ...fields,
-      name: args.name.trim(),
-      links: args.links.map(safeUrl),
-      ...(args.coverUrl ? { coverUrl: safeUrl(args.coverUrl) } : {}),
-      ...(args.avatarUrl ? { avatarUrl: safeUrl(args.avatarUrl) } : {}),
-      authorId: user._id,
-    };
     const prior = await ctx.db
       .query("socialProfiles")
       .withIndex("by_author", (q) => q.eq("authorId", user._id))
       .unique();
+    if (args.name.trim().length > 100 || args.headline.length > 220 || args.about.length > 4_000)
+      throw new Error("Profile name, headline or introduction is too long.");
+    if (args.workplace.length > 160 || args.skills.length > 40 || args.links.length > 20)
+      throw new Error("Too many profile entries.");
+    if (args.workHistory.length > 30 || args.certificates.length > 30 || args.portfolio.length > 30)
+      throw new Error("Too many work history, certificate or portfolio entries.");
+    const validMonth = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+    const limit = (value: string, maximum: number, field: string) => {
+      if (value.length > maximum) throw new Error(`${field} is too long.`);
+      return value.trim();
+    };
+    if (args.skills.some((skill) => !skill.trim() || skill.length > 60))
+      throw new Error("Skills must be 60 characters or fewer.");
+    const workHistory = args.workHistory.map((item) => {
+      if (!validMonth(item.startDate) || (item.endDate && !validMonth(item.endDate)))
+        throw new Error("Work history dates must use YYYY-MM.");
+      return {
+        title: limit(item.title, 140, "Job title"),
+        company: limit(item.company, 140, "Company name"),
+        startDate: item.startDate,
+        ...(item.endDate ? { endDate: item.endDate } : {}),
+        description: limit(item.description, 3_000, "Work description"),
+      };
+    });
+    const certificates = args.certificates.map((item) => {
+      if (item.issuedAt && !validMonth(item.issuedAt))
+        throw new Error("Certificate dates must use YYYY-MM.");
+      return {
+        name: limit(item.name, 160, "Certificate name"),
+        issuer: limit(item.issuer, 140, "Certificate issuer"),
+        ...(item.issuedAt ? { issuedAt: item.issuedAt } : {}),
+        details: limit(item.details, 2_000, "Certificate details"),
+        ...(item.url ? { url: safeUrl(item.url) } : {}),
+      };
+    });
+    const portfolio = args.portfolio.map((item) => ({
+      title: limit(item.title, 160, "Portfolio title"),
+      details: limit(item.details, 3_000, "Portfolio details"),
+      ...(item.url ? { url: safeUrl(item.url) } : {}),
+      ...(item.imageUrl ? { imageUrl: safeUrl(item.imageUrl) } : {}),
+    }));
+    const record = {
+      authorId: user._id,
+      name: args.name.trim(),
+      headline: args.headline.trim(),
+      about: args.about.trim(),
+      workplace: args.workplace.trim(),
+      skills: args.skills.map((skill) => skill.trim()),
+      links: args.links.map(safeUrl),
+      workHistory,
+      certificates,
+      portfolio,
+      ...(prior?.avatarStorageId ? { avatarStorageId: prior.avatarStorageId } : {}),
+      ...(prior?.coverStorageId ? { coverStorageId: prior.coverStorageId } : {}),
+      ...(prior?.avatarUrl ? { avatarUrl: prior.avatarUrl } : {}),
+      ...(prior?.coverUrl ? { coverUrl: prior.coverUrl } : {}),
+    };
     if (prior) await ctx.db.replace(prior._id, record);
     else await ctx.db.insert("socialProfiles", record);
+  },
+});
+export const deleteProfile = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const user = await participant(ctx, token);
+    const profile = await ctx.db
+      .query("socialProfiles")
+      .withIndex("by_author", (q) => q.eq("authorId", user._id))
+      .unique();
+    if (!profile) return;
+    if (profile.avatarStorageId) await ctx.storage.delete(profile.avatarStorageId);
+    if (profile.coverStorageId) await ctx.storage.delete(profile.coverStorageId);
+    await ctx.db.delete(profile._id);
   },
 });

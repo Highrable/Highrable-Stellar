@@ -1,11 +1,39 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 
 import { query } from "../_generated/server";
 import { participant, verifyToken } from "./auth";
 import { author, card } from "./helpers";
+
+async function publicProfile(ctx: Parameters<typeof author>[0], user: Doc<"users">) {
+  const profile = await ctx.db
+    .query("socialProfiles")
+    .withIndex("by_author", (q) => q.eq("authorId", user._id))
+    .unique();
+  const [avatarStorageUrl, coverStorageUrl, legacyAvatarStorageUrl] = await Promise.all([
+    profile?.avatarStorageId ? ctx.storage.getUrl(profile.avatarStorageId) : null,
+    profile?.coverStorageId ? ctx.storage.getUrl(profile.coverStorageId) : null,
+    !profile?.avatarStorageId && !profile?.avatarUrl && user.avatarStorageId
+      ? ctx.storage.getUrl(user.avatarStorageId)
+      : null,
+  ]);
+  return {
+    name: profile?.name || user.name?.trim() || "Highrable participant",
+    headline: profile?.headline ?? "",
+    about: profile?.about ?? user.bio ?? "",
+    workplace: profile?.workplace ?? user.companyName ?? "",
+    skills: profile?.skills ?? user.skills ?? [],
+    links: profile?.links ?? [],
+    avatarUrl:
+      avatarStorageUrl ?? profile?.avatarUrl ?? legacyAvatarStorageUrl ?? user.avatarUrl ?? null,
+    coverUrl: coverStorageUrl ?? profile?.coverUrl ?? null,
+    workHistory: profile?.workHistory ?? [],
+    certificates: profile?.certificates ?? [],
+    portfolio: profile?.portfolio ?? [],
+  };
+}
 
 export const configuration = query({
   args: {},
@@ -55,12 +83,19 @@ export const post = query({
   },
 });
 export const comments = query({
-  args: { postId: v.id("socialPosts"), paginationOpts: paginationOptsValidator },
+  args: {
+    postId: v.id("socialPosts"),
+    token: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
     const parent = await ctx.db.get(args.postId);
+    const viewer = args.token ? await participant(ctx, args.token).catch(() => null) : null;
     const rows = await ctx.db
       .query("socialComments")
-      .withIndex("by_post", (q) => q.eq("postId", args.postId).eq("status", "published"))
+      .withIndex("by_post_parent", (q) =>
+        q.eq("postId", args.postId).eq("parentId", undefined).eq("status", "published"),
+      )
       .order("desc")
       .paginate({ ...args.paginationOpts, numItems: Math.min(args.paginationOpts.numItems, 20) });
     return {
@@ -68,9 +103,97 @@ export const comments = query({
       page:
         parent?.status === "published"
           ? await Promise.all(
-              rows.page.map(async (c) => ({ ...c, author: await author(ctx, c.authorId) })),
+              rows.page.map(async (c) => {
+                const [commentAuthor, reactions, ownReaction] = await Promise.all([
+                  author(ctx, c.authorId),
+                  ctx.db
+                    .query("socialCommentReactions")
+                    .withIndex("by_comment", (q) => q.eq("commentId", c._id))
+                    .collect(),
+                  viewer
+                    ? ctx.db
+                        .query("socialCommentReactions")
+                        .withIndex("by_comment_author", (q) =>
+                          q.eq("commentId", c._id).eq("authorId", viewer._id),
+                        )
+                        .unique()
+                    : null,
+                ]);
+                return {
+                  ...c,
+                  author: commentAuthor,
+                  reactionCount: reactions.length,
+                  viewerReaction:
+                    (ownReaction?.kind as
+                      | "Like"
+                      | "Celebrate"
+                      | "Support"
+                      | "Love"
+                      | "Insightful"
+                      | "Funny"
+                      | undefined) ?? null,
+                  replyCount: (
+                    await ctx.db
+                      .query("socialComments")
+                      .withIndex("by_post_parent", (q) =>
+                        q.eq("postId", c.postId).eq("parentId", c._id).eq("status", "published"),
+                      )
+                      .collect()
+                  ).length,
+                };
+              }),
             )
           : [],
+    };
+  },
+});
+export const replies = query({
+  args: {
+    commentId: v.id("socialComments"),
+    token: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const parent = await ctx.db.get(args.commentId);
+    if (!parent || parent.status !== "published")
+      return { page: [], isDone: true, continueCursor: "" };
+    const post = await ctx.db.get(parent.postId);
+    if (!post || post.status !== "published") return { page: [], isDone: true, continueCursor: "" };
+    const rows = await ctx.db
+      .query("socialComments")
+      .withIndex("by_post_parent", (q) =>
+        q.eq("postId", parent.postId).eq("parentId", parent._id).eq("status", "published"),
+      )
+      .order("asc")
+      .paginate({ ...args.paginationOpts, numItems: Math.min(args.paginationOpts.numItems, 20) });
+    const viewer = args.token ? await participant(ctx, args.token).catch(() => null) : null;
+    return {
+      ...rows,
+      page: await Promise.all(
+        rows.page.map(async (comment) => {
+          const [commentAuthor, reactions] = await Promise.all([
+            author(ctx, comment.authorId),
+            ctx.db
+              .query("socialCommentReactions")
+              .withIndex("by_comment", (q) => q.eq("commentId", comment._id))
+              .collect(),
+          ]);
+          return {
+            ...comment,
+            author: commentAuthor,
+            reactionCount: reactions.length,
+            viewerReaction:
+              (reactions.find((reaction) => reaction.authorId === viewer?._id)?.kind as
+                | "Like"
+                | "Celebrate"
+                | "Support"
+                | "Love"
+                | "Insightful"
+                | "Funny"
+                | undefined) ?? null,
+          };
+        }),
+      ),
     };
   },
 });
@@ -234,17 +357,67 @@ export const profile = query({
       .withIndex("by_walletAddress", (q) => q.eq("walletAddress", args.walletAddress))
       .unique();
     if (!user) return null;
-    const details = await ctx.db
-      .query("socialProfiles")
-      .withIndex("by_author", (q) => q.eq("authorId", user._id))
-      .unique();
+    const details = await publicProfile(ctx, user);
     return {
       author: await author(ctx, user._id),
       details,
-      companyName: user.companyName ?? null,
-      bio: user.bio ?? "",
-      skills: user.skills ?? [],
+      bio: details.about,
+      skills: details.skills,
     };
+  },
+});
+export const profileById = query({
+  args: { profileId: v.id("users") },
+  handler: async (ctx, { profileId }) => {
+    const user = await ctx.db.get(profileId);
+    if (!user) return null;
+    const details = await publicProfile(ctx, user);
+    return { id: user._id, author: await author(ctx, user._id), details };
+  },
+});
+export const searchPeople = query({
+  args: { term: v.string() },
+  handler: async (ctx, { term }) => {
+    const normalized = term.trim().replace(/\s+/g, " ");
+    if (normalized.length < 2) return [];
+    const [profiles, users] = await Promise.all([
+      ctx.db
+        .query("socialProfiles")
+        .withSearchIndex("search_name", (q) => q.search("name", normalized))
+        .take(10),
+      ctx.db
+        .query("users")
+        .withSearchIndex("search_name", (q) => q.search("name", normalized))
+        .take(10),
+    ]);
+    const profileIds = new Set(profiles.map((profile) => profile.authorId));
+    const results = await Promise.all(
+      profiles.map(async (profile) => {
+        const user = await ctx.db.get(profile.authorId);
+        if (!user) return null;
+        const publicFields = await publicProfile(ctx, user);
+        return {
+          id: user._id,
+          name: publicFields.name,
+          headline: publicFields.headline,
+          avatarUrl: publicFields.avatarUrl,
+        };
+      }),
+    );
+    for (const user of users) {
+      if (profileIds.has(user._id)) continue;
+      const publicFields = await publicProfile(ctx, user);
+      if (publicFields.name === "Highrable participant") continue;
+      results.push({
+        id: user._id,
+        name: publicFields.name,
+        headline: publicFields.headline,
+        avatarUrl: publicFields.avatarUrl,
+      });
+    }
+    return results
+      .filter((result): result is NonNullable<typeof result> => result !== null)
+      .slice(0, 10);
   },
 });
 export const uploadByRequest = query({

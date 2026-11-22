@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 
 import { MediaItem } from "./feed";
+import { ImageEditor } from "./image-editor";
 import { readMedia, uploadMedia } from "./media-client";
 import { useSocialSession } from "./session";
 
@@ -201,6 +202,7 @@ function StoryComposer({
   const [files, setFiles] = useState<FileDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [editingImageKey, setEditingImageKey] = useState<string | null>(null);
   const requestId = useRef(crypto.randomUUID());
   const storyId = useRef<TConvexId<"socialStories"> | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -228,6 +230,18 @@ function StoryComposer({
     } catch (reason) {
       setError(errorText(reason));
     }
+  }
+  function applyImageEdits(key: string, edited: File) {
+    setFiles((current) =>
+      current.map((file) => {
+        if (file.key !== key) return file;
+        URL.revokeObjectURL(file.preview);
+        previews.current.delete(file.preview);
+        const preview = URL.createObjectURL(edited);
+        previews.current.add(preview);
+        return { ...file, file: edited, preview, poster: createStoryPoster(edited), progress: 0 };
+      }),
+    );
   }
   async function publish() {
     if (!token || busy) return;
@@ -335,6 +349,18 @@ function StoryComposer({
                     </video>
                   )}
                   <p className="mt-1 truncate text-xs">{file.file.name}</p>
+                  {file.file.type.startsWith("image/") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || Boolean(file.id)}
+                      onClick={() => setEditingImageKey(file.key)}
+                      className="mt-2 h-8 w-full"
+                    >
+                      Edit image
+                    </Button>
+                  )}
                   <progress
                     aria-label={`Uploading ${file.file.name}`}
                     max={100}
@@ -359,6 +385,16 @@ function StoryComposer({
               {error}
             </p>
           )}
+          <ImageEditor
+            file={files.find((file) => file.key === editingImageKey)?.file ?? null}
+            onOpenChange={(open) => {
+              if (!open) setEditingImageKey(null);
+            }}
+            onSave={(edited) => {
+              if (editingImageKey) applyImageEdits(editingImageKey, edited);
+              setEditingImageKey(null);
+            }}
+          />
           <div className="flex justify-end gap-2">
             {busy && (
               <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>

@@ -1,5 +1,6 @@
 import { api } from "@repo/convex-client";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { getFunctionName } from "convex/server";
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -27,7 +28,7 @@ vi.mock("./session", () => ({
   }),
 }));
 vi.mock("convex/react", () => ({
-  useConvex: () => ({}),
+  useConvex: () => ({ mutation: mock.mutate }),
   useMutation: () => mock.mutate,
   usePaginatedQuery: mock.paginated,
   useQuery: (_query: unknown, args: { mediaId?: string; token?: string } | "skip") =>
@@ -36,6 +37,19 @@ vi.mock("convex/react", () => ({
 vi.mock("./media-client", () => ({
   readMedia: mock.readMedia,
   uploadMedia: mock.uploadMedia,
+}));
+vi.mock("./image-editor", () => ({
+  ImageEditor: ({ file, onSave }: { file: File | null; onSave: (file: File) => void }) =>
+    file ? (
+      <button
+        type="button"
+        onClick={() =>
+          onSave(new File(["edited story image"], "story-edited.webp", { type: "image/webp" }))
+        }
+      >
+        Apply test edits
+      </button>
+    ) : null,
 }));
 
 const media: { _id: string; name: string; mime: string; size: number; preview?: string } = {
@@ -203,4 +217,49 @@ it("lets the story author delete their story", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Delete story" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(mock.mutate).toHaveBeenCalledTimes(1);
+});
+it("uploads an edited story image after applying edits to the draft", async () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:story-draft"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  mock.mutate.mockImplementation(async (ref: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(ref).endsWith("beginStory") ? "story-draft" : undefined,
+  );
+  mock.uploadMedia.mockResolvedValue("uploaded-story-image");
+  try {
+    render(<Stories />);
+    fireEvent.click(screen.getByRole("button", { name: "Create a story" }));
+    fireEvent.change(screen.getByLabelText("Choose story photos or videos"), {
+      target: { files: [new File(["original"], "story.png", { type: "image/png" })] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Edit image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply test edits" }));
+    expect(screen.getByText("story-edited.webp")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Share story" }));
+    await waitFor(() => expect(mock.uploadMedia).toHaveBeenCalled());
+    expect(mock.uploadMedia.mock.calls[0]?.[1].file.name).toBe("story-edited.webp");
+    expect(mock.uploadMedia.mock.calls[0]?.[1].file.type).toBe("image/webp");
+  } finally {
+    cleanup();
+    if (originalCreate) {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreate,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (originalRevoke) {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevoke,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  }
 });

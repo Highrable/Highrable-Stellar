@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { FunctionReturnType } from "convex/server";
+import type { FormEvent, ReactNode } from "react";
 
 import { readMedia, uploadMedia } from "./media-client";
 import { useSocialSession } from "./session";
@@ -18,6 +19,7 @@ import { useSocialSession } from "./session";
 const Composer = dynamic(() => import("./composer").then((module) => module.Composer));
 type Post = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.post>>;
 const reactions = ["Like", "Celebrate", "Support", "Love", "Insightful", "Funny"] as const;
+type Reaction = (typeof reactions)[number];
 const reactionEmoji: Record<(typeof reactions)[number], string> = {
   Like: "👍",
   Celebrate: "🎉",
@@ -237,16 +239,394 @@ function PostText({ post }: { post: Pick<Post, "preview" | "bodyId" | "bodySize"
 }
 function Author({ author }: { author: Post["author"] }) {
   return (
-    <Link
-      href={`/${author.role === "client" ? "clients" : "freelancers"}/${encodeURIComponent(author.walletAddress)}`}
-      className="flex min-w-0 items-center gap-3 font-semibold"
-    >
+    <Link href={`/people/${author.id}`} className="flex min-w-0 items-center gap-3 font-semibold">
       <Avatar className="size-11">
         <AvatarImage src={author.avatarUrl ?? undefined} alt="" />
         <AvatarFallback>{author.name.slice(0, 1).toUpperCase()}</AvatarFallback>
       </Avatar>
       <span className="truncate">{author.name}</span>
     </Link>
+  );
+}
+type CommentRecord = {
+  _id: TConvexId<"socialComments">;
+  authorId: TConvexId<"users">;
+  body: string;
+  updatedAt: number;
+  author: Post["author"];
+  reactionCount: number;
+  viewerReaction: Reaction | null;
+};
+function CommentReactions({ comment }: { comment: CommentRecord }) {
+  const { token } = useSocialSession();
+  const react = useMutation(api.newsfeed.mutations.reactToComment);
+  const [reactionState, setReactionState] = useState({
+    server: comment.viewerReaction,
+    selected: comment.viewerReaction,
+  });
+  const selected =
+    reactionState.server === comment.viewerReaction
+      ? reactionState.selected
+      : comment.viewerReaction;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function choose(kind: Reaction | null) {
+    if (!token || busy) return;
+    const previous = selected;
+    setReactionState({ server: comment.viewerReaction, selected: kind });
+    setBusy(true);
+    setError("");
+    try {
+      await react({ token, commentId: comment._id, kind });
+    } catch (reason) {
+      setReactionState({ server: comment.viewerReaction, selected: previous });
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!token || busy}
+            aria-label="React to comment"
+            className="h-7 px-2"
+          >
+            {selected ? reactionEmoji[selected] : "👍"} {selected ?? "React"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2" aria-label="Choose a comment reaction">
+          <div role="group" aria-label="Comment reactions" className="flex gap-1">
+            {reactions.map((kind) => (
+              <Button
+                key={kind}
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={busy}
+                aria-label={`React ${kind}`}
+                aria-pressed={selected === kind}
+                title={kind}
+                className="text-xl"
+                onClick={() => void choose(kind)}
+              >
+                {reactionEmoji[kind]}
+              </Button>
+            ))}
+            {selected && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => void choose(null)}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+      <span className="text-xs text-muted-foreground">{comment.reactionCount}</span>
+      {error && (
+        <span role="alert" className="text-xs text-destructive">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+function CommentCard({ comment, children }: { comment: CommentRecord; children?: ReactNode }) {
+  const { token, viewer } = useSocialSession();
+  const client = useConvex();
+  const [editing, setEditing] = useState(false);
+  const [editBody, setEditBody] = useState(comment.body);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function run(action: () => Promise<unknown>) {
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+      setEditing(false);
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <article className="rounded-2xl bg-muted/55 p-3 sm:p-4">
+      <header className="flex items-start gap-2.5">
+        <Link
+          href={`/people/${comment.author.id}`}
+          aria-label={`View ${comment.author.name}'s profile`}
+          className="shrink-0"
+        >
+          <Avatar className="size-9">
+            <AvatarImage src={comment.author.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback>{comment.author.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+          </Avatar>
+        </Link>
+        <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            <Link
+              href={`/people/${comment.author.id}`}
+              className="truncate text-sm font-semibold hover:underline"
+            >
+              {comment.author.name}
+            </Link>
+            <time
+              className="text-[11px] text-muted-foreground"
+              dateTime={new Date(comment.updatedAt).toISOString()}
+            >
+              {new Date(comment.updatedAt).toLocaleString()}
+            </time>
+          </div>
+          {editing ? (
+            <div className="mt-2 space-y-2">
+              <label htmlFor={`edit-comment-${comment._id}`} className="sr-only">
+                Edit comment
+              </label>
+              <Textarea
+                id={`edit-comment-${comment._id}`}
+                value={editBody}
+                onChange={(event) => setEditBody(event.target.value)}
+                disabled={busy}
+                maxLength={3000}
+                className="min-h-16 bg-background"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={busy || !editBody.trim()}
+                  onClick={() =>
+                    void run(() =>
+                      client.mutation(api.newsfeed.mutations.editComment, {
+                        token,
+                        commentId: comment._id,
+                        body: editBody,
+                        deleted: false,
+                      }),
+                    )
+                  }
+                >
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setEditing(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-1 text-sm leading-6 break-words whitespace-pre-wrap">{comment.body}</p>
+          )}
+        </div>
+      </header>
+      <div className="mt-1 ml-11 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <CommentReactions comment={comment} />
+        {viewer?._id === comment.authorId && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setEditing(true);
+                setEditBody(comment.body);
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              className="h-7 px-2 text-xs text-destructive"
+              onClick={() => {
+                if (window.confirm("Delete this comment and its replies?"))
+                  void run(() =>
+                    client.mutation(api.newsfeed.mutations.editComment, {
+                      token,
+                      commentId: comment._id,
+                      deleted: true,
+                    }),
+                  );
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        )}
+        {viewer && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            className="h-7 px-2 text-xs text-muted-foreground"
+            onClick={() => {
+              const reason = window.prompt("Why are you reporting this comment?");
+              if (reason?.trim())
+                void run(() =>
+                  client.mutation(api.newsfeed.mutations.report, {
+                    token,
+                    commentId: comment._id,
+                    reason,
+                  }),
+                );
+            }}
+          >
+            Report
+          </Button>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="mt-1 ml-11 text-xs text-destructive">
+          {error}
+        </p>
+      )}
+      {children}
+    </article>
+  );
+}
+function CommentReplies({
+  commentId,
+  postId,
+}: {
+  commentId: TConvexId<"socialComments">;
+  postId: TConvexId<"socialPosts">;
+}) {
+  const { token, viewer } = useSocialSession();
+  const client = useConvex();
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const requestKey = useRef(crypto.randomUUID());
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.newsfeed.queries.replies,
+    { commentId, ...(token ? { token } : {}) },
+    { initialNumItems: 5 },
+  );
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !body.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      await client.mutation(api.newsfeed.mutations.comment, {
+        token,
+        postId,
+        parentId: commentId,
+        requestId: requestKey.current,
+        body,
+      });
+      setBody("");
+      requestKey.current = crypto.randomUUID();
+    } catch (reason) {
+      setError(message(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="mt-3 ml-11 space-y-2 border-l-2 border-border pl-3">
+      {results.map((reply) => (
+        <CommentCard key={reply._id} comment={reply} />
+      ))}
+      {status === "LoadingFirstPage" && (
+        <p role="status" className="text-xs text-muted-foreground">
+          Loading replies…
+        </p>
+      )}
+      {status === "CanLoadMore" && (
+        <Button type="button" variant="ghost" size="sm" onClick={() => loadMore(5)}>
+          Load more replies
+        </Button>
+      )}
+      {viewer && (
+        <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2">
+          <Avatar className="mb-1 size-8">
+            <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback>{viewer.name?.slice(0, 1).toUpperCase() ?? "H"}</AvatarFallback>
+          </Avatar>
+          <label htmlFor={`reply-box-${commentId}`} className="sr-only">
+            Write a reply
+          </label>
+          <Textarea
+            id={`reply-box-${commentId}`}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            disabled={busy}
+            maxLength={3000}
+            className="min-h-10 flex-1 resize-y rounded-2xl bg-background py-2"
+            placeholder="Write a reply…"
+          />
+          <Button size="sm" disabled={busy || !body.trim()}>
+            {busy ? "Sending…" : "Reply"}
+          </Button>
+        </form>
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+function Thread({
+  comment,
+  postId,
+}: {
+  comment: CommentRecord & { replyCount: number };
+  postId: TConvexId<"socialPosts">;
+}) {
+  const [open, setOpen] = useState(false);
+  const { viewer } = useSocialSession();
+  return (
+    <CommentCard comment={comment}>
+      {open ? (
+        <CommentReplies commentId={comment._id} postId={postId} />
+      ) : viewer ? (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="mt-1 ml-11 h-7 px-2"
+          onClick={() => setOpen(true)}
+        >
+          {comment.replyCount > 0
+            ? `View ${comment.replyCount} ${comment.replyCount === 1 ? "reply" : "replies"}`
+            : "Reply"}
+        </Button>
+      ) : comment.replyCount > 0 ? (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="mt-1 ml-11 h-7 px-2"
+          onClick={() => setOpen(true)}
+        >
+          View {comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
+        </Button>
+      ) : null}
+    </CommentCard>
   );
 }
 function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
@@ -256,156 +636,74 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const key = useRef(crypto.randomUUID());
-  const [editing, setEditing] = useState<TConvexId<"socialComments"> | null>(null);
-  const [editBody, setEditBody] = useState("");
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.comments,
-    { postId },
+    { postId, ...(token ? { token } : {}) },
     { initialNumItems: 10 },
   );
-  async function run(fn: () => Promise<unknown>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !body.trim()) return;
     setBusy(true);
     setError("");
     try {
-      await fn();
-    } catch (e) {
-      setError(message(e));
+      await client.mutation(api.newsfeed.mutations.comment, {
+        token,
+        postId,
+        requestId: key.current,
+        body,
+      });
+      setBody("");
+      key.current = crypto.randomUUID();
+    } catch (reason) {
+      setError(message(reason));
     } finally {
       setBusy(false);
     }
   }
   return (
-    <section id={`comments-${postId}`} aria-label="Comments" className="space-y-3 border-t pt-3">
-      {results.map((c) => (
-        <div key={c._id} className="space-y-2 rounded-xl bg-muted/40 p-3">
-          <Author author={c.author} />
-          {editing === c._id ? (
-            <>
-              <div className="block">
-                <label htmlFor={`edit-comment-${c._id}`}>Edit comment</label>
-                <Textarea
-                  id={`edit-comment-${c._id}`}
-                  className="mt-2"
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                />
-              </div>
-              <Button
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await client.mutation(api.newsfeed.mutations.editComment, {
-                      token,
-                      commentId: c._id,
-                      body: editBody,
-                      deleted: false,
-                    });
-                    setEditing(null);
-                  })
-                }
-              >
-                Save comment
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setEditing(null)} className="ml-2">
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <p className="break-words whitespace-pre-wrap">{c.body}</p>
-          )}
-          {viewer?._id === c.authorId && (
-            <div className="flex gap-3 text-sm">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  setEditing(c._id);
-                  setEditBody(c.body);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  run(() =>
-                    client.mutation(api.newsfeed.mutations.editComment, {
-                      token,
-                      commentId: c._id,
-                      deleted: true,
-                    }),
-                  )
-                }
-              >
-                Delete
-              </Button>
-            </div>
-          )}
-          {viewer && (
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              className="text-sm underline"
-              onClick={() => {
-                const reason = window.prompt("Why are you reporting this comment?");
-                if (reason?.trim())
-                  void run(() =>
-                    client.mutation(api.newsfeed.mutations.report, {
-                      token,
-                      commentId: c._id,
-                      reason,
-                    }),
-                  );
-              }}
-            >
-              Report comment
-            </Button>
-          )}
-        </div>
+    <section id={`comments-${postId}`} aria-label="Comments" className="space-y-4 border-t pt-4">
+      {status === "LoadingFirstPage" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Loading comments…
+        </p>
+      )}
+      {results.map((comment) => (
+        <Thread key={comment._id} comment={comment} postId={postId} />
       ))}
-      {status === "LoadingFirstPage" && <p role="status">Loading comments…</p>}
       {status === "CanLoadMore" && (
-        <Button variant="outline" size="sm" onClick={() => loadMore(10)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => loadMore(10)}>
           Load more comments
         </Button>
       )}
       {viewer && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(async () => {
-              await client.mutation(api.newsfeed.mutations.comment, {
-                token,
-                postId,
-                requestId: key.current,
-                body,
-              });
-              setBody("");
-              key.current = crypto.randomUUID();
-            });
-          }}
-        >
-          <div className="block">
-            <label htmlFor={`new-comment-${postId}`}>Add a comment</label>
-            <Textarea
-              id={`new-comment-${postId}`}
-              className="mt-2"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              disabled={busy}
-            />
-          </div>
-          <Button className="mt-2" size="sm" disabled={busy || !body.trim()}>
-            Comment
+        <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2 sm:gap-3">
+          <Avatar className="mb-1 size-9">
+            <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback>{viewer.name?.slice(0, 1).toUpperCase() ?? "H"}</AvatarFallback>
+          </Avatar>
+          <label htmlFor={`new-comment-${postId}`} className="sr-only">
+            Write a comment
+          </label>
+          <Textarea
+            id={`new-comment-${postId}`}
+            className="min-h-11 flex-1 resize-y rounded-2xl bg-muted/50 py-2.5"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            disabled={busy}
+            maxLength={3000}
+            placeholder="Write a comment…"
+          />
+          <Button disabled={busy || !body.trim()} className="mb-0.5">
+            {busy ? "Posting…" : "Post"}
           </Button>
         </form>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </section>
   );
 }
@@ -445,7 +743,7 @@ export function PostCard({ post }: { post: Post }) {
       await navigator.share({ title: `Post by ${post.author.name}`, url });
     else {
       await navigator.clipboard.writeText(url);
-      setNotice("Link copied.");
+      setNotice(native ? "Link copied because sharing is unavailable." : "Link copied.");
     }
   }
   async function chooseReaction(kind: Post["viewerReaction"]) {
@@ -549,6 +847,25 @@ export function PostCard({ post }: { post: Post }) {
                   Report post
                 </Button>
               )}
+              <div className="my-1 border-t" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start"
+                disabled={busy}
+                onClick={() => void run(() => share(true))}
+              >
+                <Share2 aria-hidden="true" className="mr-2 size-4" /> Share post
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start"
+                disabled={busy}
+                onClick={() => void run(() => share(false))}
+              >
+                Copy link
+              </Button>
             </PopoverContent>
           </Popover>
         </div>
@@ -649,19 +966,6 @@ export function PostCard({ post }: { post: Post }) {
             <Share2 aria-hidden="true" className="size-4" /> Repost
           </Button>
         )}
-        {!viewer && (
-          <Button variant="ghost" className="h-10" onClick={() => void run(() => share(false))}>
-            Copy link
-          </Button>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2 pt-2">
-        <Button variant="ghost" size="sm" onClick={() => void run(() => share(false))}>
-          Copy link
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => void run(() => share(true))}>
-          Share
-        </Button>
       </div>
       {editing && (
         <form

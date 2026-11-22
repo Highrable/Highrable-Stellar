@@ -41,4 +41,5 @@ export default defineTable({
 })
   .index("by_walletAddress", ["walletAddress"])
   .index("by_role", ["role"])
-  .index("by_normalizedPublicHandle", ["normalizedPublicHandle"]);
+  .index("by_normalizedPublicHandle", ["normalizedPublicHandle"])
+  .searchIndex("search_name", { searchField: "name" });

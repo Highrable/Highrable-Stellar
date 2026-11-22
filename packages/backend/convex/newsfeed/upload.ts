@@ -98,3 +98,35 @@ export const upload = httpAction(async (ctx, req) => {
     );
   }
 });
+export const profileImage = httpAction(async (ctx, req) => {
+  let cors: Record<string, string> = {};
+  let stored: Id<"_storage"> | undefined;
+  try {
+    cors = headers(req);
+    const token = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
+    await verifyToken(token, req.headers.get("origin")!);
+    const purpose = new URL(req.url).searchParams.get("purpose");
+    if (purpose !== "avatar" && purpose !== "cover")
+      throw new Error("Choose an avatar or cover image.");
+    const mime = req.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
+    if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mime))
+      throw new Error("Choose a JPEG, PNG, GIF or WebP image.");
+    const blob = await req.blob();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if (!bytes.length || !matchesContent(mime, bytes))
+      throw new Error("The image contents do not match the selected format.");
+    stored = await ctx.storage.store(new Blob([bytes], { type: mime }));
+    await ctx.runMutation(internal.newsfeed.media.saveProfileImage, {
+      token,
+      purpose,
+      storageId: stored,
+    });
+    return Response.json({ ok: true }, { headers: cors });
+  } catch (error) {
+    if (stored) await ctx.storage.delete(stored);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Profile image upload failed." },
+      { status: 400, headers: cors },
+    );
+  }
+});

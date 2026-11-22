@@ -17,6 +17,7 @@ export async function author(ctx: QueryCtx, id: Id<"users">) {
       (user?.avatarStorageId ? await ctx.storage.getUrl(user.avatarStorageId) : user?.avatarUrl) ??
       null,
     headline: profile?.headline ?? "",
+    availability: profile?.availability ?? "",
   };
 }
 export async function published(ctx: QueryCtx, id: Id<"socialPosts">) {
@@ -25,7 +26,7 @@ export async function published(ctx: QueryCtx, id: Id<"socialPosts">) {
   return post;
 }
 async function cardContent(ctx: QueryCtx, post: Doc<"socialPosts">) {
-  const [body, postAuthor, media] = await Promise.all([
+  const [body, postAuthor, media, milestone] = await Promise.all([
     post.bodyId ? ctx.db.get(post.bodyId) : null,
     author(ctx, post.authorId),
     post.mediaCount
@@ -37,6 +38,7 @@ async function cardContent(ctx: QueryCtx, post: Doc<"socialPosts">) {
           .filter((q) => q.neq(q.field("mime"), "text/plain"))
           .take(4)
       : [],
+    post.milestoneId ? ctx.db.get(post.milestoneId) : null,
   ]);
   return {
     ...post,
@@ -44,6 +46,7 @@ async function cardContent(ctx: QueryCtx, post: Doc<"socialPosts">) {
     preview: body?.preview ?? "",
     bodySize: body?.size ?? 0,
     media: media.map(({ _id, name, mime, size }) => ({ _id, name, mime, size })),
+    milestone: milestone ? { title: milestone.title, status: milestone.status } : null,
   };
 }
 export async function card(ctx: QueryCtx, post: Doc<"socialPosts">, viewerId?: Id<"users">) {
@@ -71,4 +74,22 @@ export function safeUrl(value: string) {
   if (url.protocol !== "https:" && url.protocol !== "http:")
     throw new Error("Use an HTTP or HTTPS link.");
   return url.href;
+}
+
+export function normalizeTags(values: string[]) {
+  if (values.length > 5) throw new Error("Use five tags or fewer.");
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const value of values) {
+    const tag = value.trim().replace(/^#/, "");
+    if (!tag) continue;
+    if (!/^[\p{L}\p{N}_-]{1,32}$/u.test(tag))
+      throw new Error("Tags may contain letters, numbers, underscores, and hyphens.");
+    const key = tag.toLocaleLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      tags.push(tag);
+    }
+  }
+  return tags;
 }

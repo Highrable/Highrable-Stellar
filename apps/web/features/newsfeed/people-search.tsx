@@ -2,12 +2,15 @@
 
 import { api } from "@repo/convex-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
+import { Button } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import { useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export function PeopleSearch() {
+  const router = useRouter();
   const [term, setTerm] = useState("");
   const [debounced, setDebounced] = useState("");
   const [focused, setFocused] = useState(false);
@@ -24,23 +27,35 @@ export function PeopleSearch() {
 
   return (
     <div className="relative z-20">
-      <label htmlFor="newsfeed-people-search" className="sr-only">
-        Search people
-      </label>
-      <Input
-        id="newsfeed-people-search"
-        type="search"
-        value={term}
-        onChange={(event) => setTerm(event.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => window.setTimeout(() => setFocused(false), 120)}
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-controls="newsfeed-people-results"
-        placeholder="Search people by name"
-        className="h-12 rounded-xl bg-background px-4"
-      />
+      <form
+        className="flex gap-2 rounded-2xl border bg-background p-2 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const query = term.trim();
+          if (query.length >= 2) router.push(`/newsfeed/search?q=${encodeURIComponent(query)}`);
+        }}
+      >
+        <label htmlFor="newsfeed-people-search" className="sr-only">
+          Search people
+        </label>
+        <Input
+          id="newsfeed-people-search"
+          type="search"
+          value={term}
+          onChange={(event) => setTerm(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls="newsfeed-people-results"
+          placeholder="Search people, posts, sparks, or opportunities"
+          className="h-11 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0"
+        />
+        <Button type="submit" className="shrink-0 bg-orange-600 text-white hover:bg-orange-700">
+          Search
+        </Button>
+      </form>
       {focused && term.trim().length < 2 && term.trim().length > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">Enter at least two characters.</p>
       )}

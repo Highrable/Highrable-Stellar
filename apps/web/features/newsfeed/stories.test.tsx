@@ -121,13 +121,15 @@ afterEach(() => {
 it("groups stories by author and navigates through stories", async () => {
   render(<Stories />);
   const createStory = screen.getByRole("button", { name: "Create a story" });
-  expect(createStory.querySelector('img[src="https://cdn.example/ada.jpg"]')).toBeTruthy();
-  const authorStory = screen.getByRole("button", { name: "View Ada Builder's stories" });
+  expect(createStory.textContent).toContain("Create story");
+  expect(createStory.querySelector("svg")).toBeTruthy();
+  const authorStory = screen.getByRole("button", { name: "View Ada Builder's sparks" });
+  expect(authorStory.className).toContain("h-36 w-24");
   await waitFor(() =>
     expect(authorStory.querySelector('img[src="data:image/jpeg;base64,dGh1bWI="]')).toBeTruthy(),
   );
-  expect(screen.getAllByRole("button", { name: "View Ada Builder's stories" })).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+  expect(screen.getAllByRole("button", { name: "View Ada Builder's sparks" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's sparks" }));
   await screen.findByRole("dialog");
   fireEvent.click(screen.getByRole("button", { name: "Next story item" }));
   fireEvent.click(screen.getByRole("button", { name: "Next story item" }));
@@ -138,7 +140,7 @@ it("automatically advances after showing a photo story preview", async () => {
   vi.useFakeTimers();
   try {
     render(<Stories />);
-    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's sparks" }));
     expect(screen.getByRole("group", { name: "Story 1 of 2" })).toBeTruthy();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
@@ -170,7 +172,7 @@ it("loads and autoplays only the video opened in the story viewer", async () => 
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
   try {
     render(<Stories />);
-    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's sparks" }));
     await waitFor(() => expect(mock.readMedia).toHaveBeenCalled());
     const video = await screen.findByLabelText("story.mp4");
     expect(video.hasAttribute("autoplay")).toBe(true);
@@ -202,7 +204,7 @@ it("loads and autoplays only the video opened in the story viewer", async () => 
 it("restores the confirmed story reaction after a failed request", async () => {
   mock.mutate.mockRejectedValueOnce(new Error("Session expired"));
   render(<Stories />);
-  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
+  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's sparks" }));
   await screen.findByRole("dialog");
   const love = screen.getByRole("button", { name: "React Love" });
   fireEvent.click(love);
@@ -212,9 +214,9 @@ it("restores the confirmed story reaction after a failed request", async () => {
 
 it("lets the story author delete their story", async () => {
   render(<Stories />);
-  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's stories" }));
-  await screen.findByRole("button", { name: "Delete story" });
-  fireEvent.click(screen.getByRole("button", { name: "Delete story" }));
+  fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's sparks" }));
+  await screen.findByRole("button", { name: "Delete spark" });
+  fireEvent.click(screen.getByRole("button", { name: "Delete spark" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(mock.mutate).toHaveBeenCalledTimes(1);
 });
@@ -233,16 +235,29 @@ it("uploads an edited story image after applying edits to the draft", async () =
   try {
     render(<Stories />);
     fireEvent.click(screen.getByRole("button", { name: "Create a story" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Add context or a deliverable note" }), {
+      target: { value: "Dashboard prototype WIP" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /craft tags/i }), {
+      target: { value: "WIP, Figma" },
+    });
     fireEvent.change(screen.getByLabelText("Choose story photos or videos"), {
       target: { files: [new File(["original"], "story.png", { type: "image/png" })] },
     });
     fireEvent.click(screen.getByRole("button", { name: "Edit image" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply test edits" }));
     expect(screen.getByText("story-edited.webp")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Share story" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share spark" }));
     await waitFor(() => expect(mock.uploadMedia).toHaveBeenCalled());
     expect(mock.uploadMedia.mock.calls[0]?.[1].file.name).toBe("story-edited.webp");
     expect(mock.uploadMedia.mock.calls[0]?.[1].file.type).toBe("image/webp");
+    const beginCall = mock.mutate.mock.calls.find(([ref]) =>
+      getFunctionName(ref).endsWith("beginStory"),
+    );
+    expect(beginCall?.[1]).toMatchObject({
+      note: "Dashboard prototype WIP",
+      tags: ["WIP", "Figma"],
+    });
   } finally {
     cleanup();
     if (originalCreate) {

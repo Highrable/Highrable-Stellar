@@ -7,7 +7,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PeopleSearch } from "./people-search";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
+const routerMocks = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("convex/react", () => ({ useQuery: mocks.query }));
+vi.mock("next/navigation", () => ({ useRouter: () => routerMocks }));
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a href={href} {...props}>

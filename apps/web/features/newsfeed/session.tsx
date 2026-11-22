@@ -6,9 +6,11 @@ import { Button } from "@repo/ui/components/ui/button";
 import { useConvex, useQuery } from "convex/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 
-import type { TConvexDoc } from "@repo/convex-client";
+import type { FunctionReturnType } from "convex/server";
 
-const Session = createContext<{ token: string; viewer: TConvexDoc<"users"> | null | undefined }>({
+type Viewer = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.viewer>>;
+
+const Session = createContext<{ token: string; viewer: Viewer | null | undefined }>({
   token: "",
   viewer: null,
 });

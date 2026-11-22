@@ -900,3 +900,305 @@ it("allows any signed-in wallet without onboarding, a role, or a completed name"
     t.mutation(api.newsfeed.auth.ensureParticipant, { token: "forged" }),
   ).rejects.toThrow();
 });
+
+it("creates authenticated one-way follows and uses them for the network feed", async () => {
+  const f = await setup();
+  const otherWallet = wallet("G", "B");
+  const otherId = await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: otherWallet,
+      name: "Bea",
+      role: "freelancer",
+      createdAt: Date.now(),
+    }),
+  );
+  const otherPostId = await f.t.run((ctx) =>
+    ctx.db.insert("socialPosts", {
+      authorId: otherId,
+      requestId: "beas-post",
+      status: "published",
+      reactionCount: 0,
+      commentCount: 0,
+      mediaCount: 0,
+      pendingMedia: 0,
+      publishedAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  );
+  const followId = await f.t.mutation(api.newsfeed.mutations.follow, {
+    token: f.auth,
+    userId: otherId,
+  });
+  expect(
+    await f.t.mutation(api.newsfeed.mutations.follow, { token: f.auth, userId: otherId }),
+  ).toBe(followId);
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.follow, { token: f.auth, userId: f.authorId }),
+  ).rejects.toThrow(/yourself/);
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.follow, { token: "forged", userId: otherId }),
+  ).rejects.toThrow();
+  expect(
+    await f.t.query(api.newsfeed.queries.followState, { token: f.auth, userId: otherId }),
+  ).toEqual({ authenticated: true, following: true });
+  const followingPage = await f.t.query(api.newsfeed.queries.feed, {
+    token: f.auth,
+    followingOnly: true,
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(followingPage.page.map((post) => post._id)).toContain(otherPostId);
+  await f.t.mutation(api.newsfeed.mutations.unfollow, { token: f.auth, userId: otherId });
+  await f.t.mutation(api.newsfeed.mutations.unfollow, { token: f.auth, userId: otherId });
+  expect(
+    await f.t.query(api.newsfeed.queries.followState, { token: f.auth, userId: otherId }),
+  ).toEqual({ authenticated: true, following: false });
+  expect(
+    (
+      await f.t.query(api.newsfeed.queries.feed, {
+        token: f.auth,
+        followingOnly: true,
+        paginationOpts: { cursor: null, numItems: 10 },
+      })
+    ).page,
+  ).toEqual([]);
+});
+
+it("stores editable public availability and validates its size", async () => {
+  const f = await setup();
+  await f.t.mutation(
+    api.newsfeed.mutations.saveProfile,
+    profileArgs(f.auth, { availability: "Available for 20 hours/week" }),
+  );
+  const profile = await f.t.query(api.newsfeed.queries.profileById, { profileId: f.authorId });
+  expect(profile?.details.availability).toBe("Available for 20 hours/week");
+  await expect(
+    f.t.mutation(
+      api.newsfeed.mutations.saveProfile,
+      profileArgs(f.auth, { availability: "a".repeat(121) }),
+    ),
+  ).rejects.toThrow(/Too many profile entries/);
+});
+
+it("normalizes post tags, searches published content, and excludes hidden posts", async () => {
+  const f = await setup();
+  const bodyId = await text(f, "A Figma token update");
+  await f.t.mutation(api.newsfeed.mutations.publish, {
+    token: f.auth,
+    postId: f.postId,
+    bodyId,
+    tags: ["#Figma", "DesignSystems", "figma"],
+  });
+  const publicPost = await f.t.query(api.newsfeed.queries.post, { id: f.postId });
+  expect(publicPost?.tags).toEqual(["Figma", "DesignSystems"]);
+  expect(
+    (await f.t.query(api.newsfeed.queries.searchAll, { term: "Figma", tag: "Figma" })).posts.map(
+      (post) => post._id,
+    ),
+  ).toContain(f.postId);
+  const categoryPage = await f.t.query(api.newsfeed.queries.searchCategory, {
+    term: "Figma",
+    tag: "Figma",
+    category: "posts",
+    paginationOpts: { cursor: null, numItems: 10 },
+  });
+  expect(categoryPage.page).toContainEqual(expect.objectContaining({ _id: f.postId }));
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.beginPost, { token: f.auth, requestId: "bad-tag" }),
+  ).resolves.toBeDefined();
+  const invalidPostId = await f.t.mutation(api.newsfeed.mutations.beginPost, {
+    token: f.auth,
+    requestId: "invalid-tag-post",
+  });
+  const invalidBytes = new TextEncoder().encode("invalid");
+  const invalidBody = await f.t.mutation(api.newsfeed.media.begin, {
+    token: f.auth,
+    postId: invalidPostId,
+    requestId: "invalid-tag-body",
+    name: "post.txt",
+    mime: "text/plain",
+    size: invalidBytes.length,
+  });
+  const invalidStorage = await f.t.run((ctx) => ctx.storage.store(new Blob([invalidBytes])));
+  await f.t.mutation(internal.newsfeed.media.acceptChunk, {
+    token: f.auth,
+    mediaId: invalidBody,
+    storageId: invalidStorage,
+    index: 0,
+    size: invalidBytes.length,
+    preview: "invalid",
+  });
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.publish, {
+      token: f.auth,
+      postId: invalidPostId,
+      bodyId: invalidBody,
+      tags: ["not allowed!"],
+    }),
+  ).rejects.toThrow(/Tags/);
+  await f.t.run((ctx) => ctx.db.patch(f.postId, { status: "hidden" }));
+  expect(
+    (await f.t.query(api.newsfeed.queries.searchAll, { term: "Figma", tag: "Figma" })).posts,
+  ).toEqual([]);
+});
+
+it("keeps spark notes and tags searchable only while the spark is active", async () => {
+  const f = await setup();
+  const storyId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
+    token: f.auth,
+    requestId: "spark-notes",
+    note: "Dashboard prototype WIP",
+    tags: ["Dashboard", "Figma"],
+  });
+  await f.t.run((ctx) =>
+    ctx.db.patch(storyId, {
+      status: "published",
+      publishedAt: Date.now(),
+      mediaCount: 1,
+      expiresAt: Date.now() + 60_000,
+    }),
+  );
+  const active = await f.t.query(api.newsfeed.queries.storyById, { storyId });
+  expect(active?.[0]?.stories[0]).toMatchObject({
+    note: "Dashboard prototype WIP",
+    tags: ["Dashboard", "Figma"],
+  });
+  expect(
+    (await f.t.query(api.newsfeed.queries.searchAll, { term: "Dashboard" })).sparks.map(
+      (spark) => spark.id,
+    ),
+  ).toContain(storyId);
+  await f.t.run((ctx) => ctx.db.patch(storyId, { expiresAt: Date.now() - 1 }));
+  expect(await f.t.query(api.newsfeed.queries.storyById, { storyId })).toBeNull();
+  expect((await f.t.query(api.newsfeed.queries.searchAll, { term: "Dashboard" })).sparks).toEqual(
+    [],
+  );
+  expect(
+    await f.t.query(api.newsfeed.queries.searchCategory, {
+      term: "Dashboard",
+      category: "sparks",
+      paginationOpts: { cursor: null, numItems: 1 },
+    }),
+  ).toMatchObject({ page: [], isDone: true });
+
+  const activeId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
+    token: f.auth,
+    requestId: "active-search-spark",
+    note: "PaginationMarker work in progress",
+  });
+  await f.t.run((ctx) =>
+    ctx.db.patch(activeId, {
+      status: "published",
+      publishedAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+    }),
+  );
+  for (let index = 0; index < 8; index += 1) {
+    const expiredId = await f.t.mutation(api.newsfeed.mutations.beginStory, {
+      token: f.auth,
+      requestId: `expired-search-spark-${index}`,
+      note: "PaginationMarker work in progress",
+    });
+    await f.t.run((ctx) =>
+      ctx.db.patch(expiredId, {
+        status: "published",
+        publishedAt: Date.now(),
+        expiresAt: Date.now() - 1,
+      }),
+    );
+  }
+  const activePage = await f.t.query(api.newsfeed.queries.searchCategory, {
+    term: "PaginationMarker",
+    category: "sparks",
+    paginationOpts: { cursor: null, numItems: 1 },
+  });
+  expect(activePage.page.filter((spark) => "id" in spark).map((spark) => spark.id)).toContain(
+    activeId,
+  );
+});
+
+it("requires a participant confirmation before sharing only a milestone title and status", async () => {
+  const f = await setup();
+  const outsiderWallet = wallet("G", "C");
+  const jobId = await f.t.run((ctx) =>
+    ctx.db.insert("jobs", {
+      title: "Private job title",
+      description: "Private job description",
+      budget: 6400,
+      asset: "USDC",
+      clientWallet: outsiderWallet,
+      status: "open",
+      jobHash: "job-hash",
+      createdAt: Date.now(),
+    }),
+  );
+  const outsiderMilestone = await f.t.run((ctx) =>
+    ctx.db.insert("milestones", {
+      jobId,
+      order: 0,
+      title: "Outsider milestone",
+      description: "Private scope",
+      amount: 6400,
+      asset: "USDC",
+      status: "funded",
+      assignedFreelancerWallet: outsiderWallet,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  );
+  const bodyId = await text(f, "Milestone update");
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.publish, {
+      token: f.auth,
+      postId: f.postId,
+      bodyId,
+      milestoneId: outsiderMilestone,
+      milestoneConfirmed: true,
+    }),
+  ).rejects.toThrow(/participant/);
+  const participantJob = await f.t.run((ctx) =>
+    ctx.db.insert("jobs", {
+      title: "Private job title",
+      description: "Private job description",
+      budget: 6400,
+      asset: "USDC",
+      clientWallet: wallet(),
+      status: "open",
+      jobHash: "another-hash",
+      createdAt: Date.now(),
+    }),
+  );
+  const milestoneId = await f.t.run((ctx) =>
+    ctx.db.insert("milestones", {
+      jobId: participantJob,
+      order: 0,
+      title: "Design system delivery",
+      description: "Private scope that must not be shown",
+      amount: 6400,
+      asset: "USDC",
+      status: "released",
+      assignedFreelancerWallet: wallet(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  );
+  await expect(
+    f.t.mutation(api.newsfeed.mutations.publish, {
+      token: f.auth,
+      postId: f.postId,
+      bodyId,
+      milestoneId,
+      milestoneConfirmed: false,
+    }),
+  ).rejects.toThrow(/Confirm/);
+  await f.t.mutation(api.newsfeed.mutations.publish, {
+    token: f.auth,
+    postId: f.postId,
+    bodyId,
+    milestoneId,
+    milestoneConfirmed: true,
+  });
+  const post = await f.t.query(api.newsfeed.queries.post, { id: f.postId });
+  expect(post?.milestone).toEqual({ title: "Design system delivery", status: "released" });
+  expect(post?.milestone).not.toHaveProperty("amount");
+  expect(post?.milestone).not.toHaveProperty("description");
+});

@@ -2,16 +2,28 @@
 import { api, type TConvexId } from "@repo/convex-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/ui/dialog";
 import { Input } from "@repo/ui/components/ui/input";
+import { Textarea } from "@repo/ui/components/ui/textarea";
+import {
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import { ChevronLeft, ChevronRight, ImagePlus, Plus, Trash2, Video } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Globe2,
+  ImagePlus,
+  Plus,
+  Trash2,
+  Video,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FunctionReturnType } from "convex/server";
@@ -41,6 +53,14 @@ const emoji: Record<(typeof kinds)[number], string> = {
   Funny: "😂",
 };
 const errorText = (error: unknown) => (error instanceof Error ? error.message : "Please retry.");
+function relativeStoryTime(timestamp: number) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 async function createStoryPoster(file: File): Promise<string | undefined> {
   const sourceUrl = URL.createObjectURL(file);
@@ -199,10 +219,24 @@ function StoryComposer({
 }) {
   const { token, viewer } = useSocialSession();
   const client = useConvex();
+  const suggestedTags = useQuery(api.newsfeed.queries.trendingTags, {});
   const [files, setFiles] = useState<FileDraft[]>([]);
+  const [note, setNote] = useState("");
+  const [tagText, setTagText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [editingImageKey, setEditingImageKey] = useState<string | null>(null);
+  const selectedTags = tagText
+    .split(/[\s,]+/)
+    .map((tag) => tag.replace(/^#/, ""))
+    .filter(Boolean);
+
+  function toggleSuggestedTag(tag: string) {
+    const next = selectedTags.some((item) => item.toLowerCase() === tag.toLowerCase())
+      ? selectedTags.filter((item) => item.toLowerCase() !== tag.toLowerCase())
+      : [...selectedTags, tag].slice(0, 5);
+    setTagText(next.join(", "));
+  }
   const requestId = useRef(crypto.randomUUID());
   const storyId = useRef<TConvexId<"socialStories"> | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -252,6 +286,11 @@ function StoryComposer({
       storyId.current ??= await client.mutation(api.newsfeed.mutations.beginStory, {
         token,
         requestId: requestId.current,
+        note,
+        tags: tagText
+          .split(/[\s,]+/)
+          .map((tag) => tag.trim().replace(/^#/, ""))
+          .filter(Boolean),
       });
       const activeStoryId = storyId.current;
       if (!activeStoryId) throw new Error("Could not start your story draft.");
@@ -281,6 +320,8 @@ function StoryComposer({
       for (const file of files) URL.revokeObjectURL(file.preview);
       previews.current.clear();
       setFiles([]);
+      setNote("");
+      setTagText("");
       storyId.current = null;
       requestId.current = crypto.randomUUID();
       onOpenChange(false);
@@ -293,15 +334,37 @@ function StoryComposer({
   if (!viewer) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create a story</DialogTitle>
-          <DialogDescription>Share photos or videos for 24 hours.</DialogDescription>
+      <DialogContent className="flex max-h-[min(94dvh,50rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
+        <DialogHeader className="border-b px-6 py-5 text-left">
+          <div className="flex items-center gap-2">
+            <DialogTitle className="text-xl">Create a spark</DialogTitle>
+            <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
+              WIP
+            </span>
+          </div>
+          <DialogDescription className="text-sm">
+            Share raw snapshots, design artifacts, or quick work in progress for 24 hours.
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => fileInput.current?.click()}>
-              <ImagePlus className="size-4 text-emerald-600" /> Add photos or videos
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-slate-50 px-6 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+          <span className="inline-flex items-center gap-2">
+            <Clock3 aria-hidden="true" className="size-4 text-orange-600" /> Auto-expires in 24
+            hours
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Globe2 aria-hidden="true" className="size-4 text-emerald-600" /> Visible to Network
+            &amp; Clients
+          </span>
+        </div>
+        <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInput.current?.click()}
+              className="h-11 rounded-xl bg-slate-50 px-4 font-semibold dark:bg-slate-900"
+            >
+              <ImagePlus className="mr-2 size-4 text-orange-600" /> Add photos or videos
             </Button>
             <Input
               ref={fileInput}
@@ -327,58 +390,131 @@ function StoryComposer({
                 event.target.value = "";
               }}
             />
+            <span className="text-xs text-muted-foreground">
+              Add photos or videos to your spark
+            </span>
           </div>
           {files.length > 0 && (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <ul className="space-y-3">
               {files.map((file) => (
-                <li key={file.key} className="rounded-xl border p-2">
+                <li
+                  key={file.key}
+                  className="flex flex-col gap-3 rounded-xl border bg-slate-50 p-3 sm:flex-row sm:items-center dark:bg-slate-900"
+                >
                   {file.file.type.startsWith("image/") ? (
                     <img
                       src={file.preview}
                       alt={file.file.name}
-                      className="h-28 w-full rounded object-cover"
+                      className="h-28 w-full rounded-lg object-cover sm:w-44"
                     />
                   ) : (
                     <video
                       src={file.preview}
                       controls
                       preload="metadata"
-                      className="h-28 w-full object-contain"
+                      className="h-28 w-full rounded-lg bg-black object-contain sm:w-44"
                     >
                       <track kind="captions" />
                     </video>
                   )}
-                  <p className="mt-1 truncate text-xs">{file.file.name}</p>
-                  {file.file.type.startsWith("image/") && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || Boolean(file.id)}
-                      onClick={() => setEditingImageKey(file.key)}
-                      className="mt-2 h-8 w-full"
-                    >
-                      Edit image
-                    </Button>
-                  )}
-                  <progress
-                    aria-label={`Uploading ${file.file.name}`}
-                    max={100}
-                    value={file.progress}
-                    className="mt-1 w-full"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => void remove(file)}
-                  >
-                    Remove
-                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{file.file.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {(file.file.size / (1024 * 1024)).toFixed(1)} MB · {file.file.type || "Media"}
+                    </p>
+                    <progress
+                      aria-label={`Uploading ${file.file.name}`}
+                      max={100}
+                      value={file.progress}
+                      className="mt-3 w-full"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      {file.file.type.startsWith("image/") && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || Boolean(file.id)}
+                          onClick={() => setEditingImageKey(file.key)}
+                        >
+                          Edit image
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void remove(file)}
+                      >
+                        <Trash2 className="mr-1.5 size-3.5" /> Remove
+                      </Button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
+          )}
+          <label htmlFor="newsfeed-spark-note" className="block text-sm font-medium">
+            Add context or a deliverable note
+            <Textarea
+              id="newsfeed-spark-note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              disabled={busy}
+              maxLength={500}
+              className="mt-2 min-h-24 rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-900"
+              placeholder="What are you tweaking? For example, iterating on a checkout metrics dashboard before client sign-off…"
+            />
+          </label>
+          <label htmlFor="newsfeed-spark-tags" className="block text-sm font-medium">
+            Suggested craft tags
+            <Input
+              id="newsfeed-spark-tags"
+              value={tagText}
+              onChange={(event) => setTagText(event.target.value)}
+              disabled={busy}
+              placeholder="WIP, Figma, Dashboard"
+              className="mt-2 rounded-xl"
+            />
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Add up to five tags, separated by commas or spaces.
+            </span>
+          </label>
+          {!!suggestedTags?.length && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                Popular tags
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedTags
+                  .flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
+                  .slice(0, 5)
+                  .map((tag) => {
+                    const selected = selectedTags.some(
+                      (item) => item.toLowerCase() === tag.toLowerCase(),
+                    );
+                    return (
+                      <Button
+                        key={tag}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        aria-pressed={selected}
+                        onClick={() => toggleSuggestedTag(tag)}
+                        className={
+                          selected
+                            ? "rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-200"
+                            : "rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }
+                      >
+                        #{tag}
+                      </Button>
+                    );
+                  })}
+              </div>
+            </div>
           )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -395,7 +531,10 @@ function StoryComposer({
               setEditingImageKey(null);
             }}
           />
-          <div className="flex justify-end gap-2">
+        </div>
+        <footer className="flex items-center justify-between gap-3 border-t bg-slate-50 px-6 py-4 dark:bg-slate-900">
+          <p className="text-xs text-muted-foreground">Sparks stay visible for 24 hours.</p>
+          <div className="flex items-center gap-2">
             {busy && (
               <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>
                 Cancel upload
@@ -405,11 +544,12 @@ function StoryComposer({
               type="button"
               disabled={busy || files.length === 0}
               onClick={() => void publish()}
+              className="rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700"
             >
-              {busy ? "Publishing…" : error ? "Retry publishing" : "Share story"}
+              {busy ? "Publishing…" : error ? "Retry publishing" : "Share spark"}
             </Button>
           </div>
-        </div>
+        </footer>
       </DialogContent>
     </Dialog>
   );
@@ -537,7 +677,7 @@ function StoryViewer({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="h-dvh w-screen max-w-none overflow-hidden rounded-none border-0 bg-black p-0 sm:h-[min(94dvh,900px)] sm:w-[min(450px,calc(100vw-2rem))] sm:rounded-2xl">
+      <DialogContent className="h-dvh w-screen max-w-none overflow-hidden rounded-none border-0 bg-black p-0 sm:h-[min(94dvh,68rem)] sm:w-[min(36rem,calc(100vw-2rem))] sm:rounded-2xl">
         <div className="relative flex h-full flex-col overflow-hidden bg-black text-white">
           <DialogHeader className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pr-14 pb-3 text-left">
             <div
@@ -572,15 +712,36 @@ function StoryViewer({
               />
               <div className="min-w-0 flex-1">
                 <DialogTitle className="truncate text-white">{group.author.name}</DialogTitle>
-                <DialogDescription className="text-white/70">
-                  {new Date(activeStory.publishedAt ?? 0).toLocaleString()}
+                <DialogDescription className="flex min-w-0 items-center gap-1.5 truncate text-white/70">
+                  <time
+                    dateTime={
+                      activeStory.publishedAt
+                        ? new Date(activeStory.publishedAt).toISOString()
+                        : undefined
+                    }
+                  >
+                    {activeStory.publishedAt
+                      ? relativeStoryTime(activeStory.publishedAt)
+                      : "Just now"}
+                  </time>
+                  {!!activeStory.tags?.[0] && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <Link
+                        href={`/newsfeed/search?tag=${encodeURIComponent(activeStory.tags[0])}`}
+                        className="truncate text-orange-300 hover:text-orange-200"
+                      >
+                        #{activeStory.tags[0]}
+                      </Link>
+                    </>
+                  )}
                 </DialogDescription>
               </div>
               {viewer?._id === group.author.id && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Delete story"
+                  aria-label="Delete spark"
                   onClick={() => void deleteOwnStory()}
                 >
                   <Trash2 className="size-4" />
@@ -626,6 +787,20 @@ function StoryViewer({
             </Button>
           </main>
           <footer className="z-10 shrink-0 border-t border-white/10 bg-black px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {activeStory.note && <p className="mb-2 text-sm text-white/90">{activeStory.note}</p>}
+            {!!activeStory.tags?.length && (
+              <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Spark tags">
+                {activeStory.tags.map((tag) => (
+                  <Link
+                    key={tag}
+                    href={`/newsfeed/search?tag=${encodeURIComponent(tag)}`}
+                    className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-orange-200"
+                  >
+                    #{tag}
+                  </Link>
+                ))}
+              </div>
+            )}
             <div className="mb-2 flex items-center justify-between gap-2 text-xs text-white/80">
               <span>{activeStory.reactionCount} reactions</span>
               <div className="flex gap-1" aria-label="Story reaction counts">
@@ -681,6 +856,26 @@ function StoryViewer({
   );
 }
 
+export function SparkPermalink({ sparkId }: { sparkId: string }) {
+  const router = useRouter();
+  const { token } = useSocialSession();
+  const groups = useQuery(api.newsfeed.queries.storyById, {
+    storyId: sparkId as TConvexId<"socialStories">,
+    ...(token ? { token } : {}),
+  });
+  if (groups === undefined) return <p role="status">Loading spark…</p>;
+  if (!groups?.length) return <p>This spark is unavailable or has expired.</p>;
+  return (
+    <StoryViewer
+      key={sparkId}
+      groups={groups as Groups}
+      initial={{ group: 0, story: 0 }}
+      onClose={() => router.push("/newsfeed")}
+      onNavigate={() => router.push("/newsfeed")}
+    />
+  );
+}
+
 export function Stories() {
   const { token, viewer } = useSocialSession();
   const groups = useQuery(api.newsfeed.queries.activeStories, token ? { token } : {});
@@ -711,34 +906,26 @@ export function Stories() {
           {viewer && (
             <button
               type="button"
-              className="relative h-48 w-32 shrink-0 overflow-hidden rounded-xl border bg-muted text-left shadow-sm"
+              className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-800 text-left shadow-sm"
               onClick={() => setCreating(true)}
               aria-label="Create a story"
             >
-              <div className="absolute inset-0">
-                {viewer.avatarUrl ? (
-                  <img
-                    src={viewer.avatarUrl}
-                    alt=""
-                    loading="lazy"
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <div className="flex size-full items-center justify-center bg-gradient-to-br from-violet-700 via-orange-600 to-amber-400">
-                    <Avatar className="size-20 border-4 border-white/90">
-                      <AvatarImage src={undefined} alt="" />
-                      <AvatarFallback className="text-3xl">
-                        {viewer.name?.slice(0, 1) ?? "H"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                )}
-                <span className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/10 to-black/80" />
-              </div>
-              <span className="absolute top-[7.25rem] left-1/2 flex size-10 -translate-x-1/2 items-center justify-center rounded-full border-4 border-white bg-orange-600 text-white shadow-md">
-                <Plus className="size-5" />
+              {viewer.avatarUrl ? (
+                <img
+                  src={viewer.avatarUrl}
+                  alt=""
+                  className="absolute inset-0 size-full object-cover"
+                />
+              ) : (
+                <span className="absolute inset-0 bg-gradient-to-br from-orange-500 via-violet-700 to-slate-950" />
+              )}
+              <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/10 to-black/70" />
+              <span className="absolute inset-x-0 bottom-10 flex justify-center">
+                <span className="flex size-11 items-center justify-center rounded-full border-4 border-white bg-orange-600 text-white shadow-md">
+                  <Plus className="size-5" />
+                </span>
               </span>
-              <span className="absolute inset-x-1 bottom-3 text-center text-sm font-semibold text-white drop-shadow">
+              <span className="absolute inset-x-1 bottom-3 block text-center text-xs font-semibold text-white">
                 Create story
               </span>
             </button>
@@ -749,25 +936,25 @@ export function Stories() {
               <button
                 key={group.author.id}
                 type="button"
-                className="relative h-48 w-32 shrink-0 overflow-hidden rounded-xl border bg-muted text-left text-white shadow-sm"
+                className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-muted text-left text-white shadow-sm"
                 onClick={() => setSelection({ group: groupIndex, story: 0 })}
-                aria-label={`View ${group.author.name}'s stories`}
+                aria-label={`View ${group.author.name}'s sparks`}
               >
                 <StoryPreview media={first?.media[0]} />
                 <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
                 <StoryAvatar
                   src={group.author.avatarUrl}
                   name={group.author.name}
-                  className="absolute top-3 left-3 size-11"
+                  className="absolute top-2.5 left-2.5 size-10"
                 />
-                <span className="absolute inset-x-2 bottom-3 line-clamp-2 text-left text-sm leading-5 font-semibold">
+                <span className="absolute inset-x-2 bottom-2.5 truncate text-left text-sm leading-5 font-semibold">
                   {group.author.name}
                 </span>
               </button>
             );
           })}
           {groups.length === 0 && !viewer && (
-            <p className="py-4 text-sm text-muted-foreground">No active stories yet.</p>
+            <p className="py-4 text-sm text-muted-foreground">No active sparks yet.</p>
           )}
         </div>
       </section>

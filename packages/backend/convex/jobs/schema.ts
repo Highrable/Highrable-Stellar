@@ -87,4 +87,6 @@ export default defineTable({
   .index("by_status", ["status"])
   .index("by_selectedFreelancerWallet", ["selectedFreelancerWallet"])
   .index("by_jobHash", ["jobHash"])
-  .index("by_deadlineAt", ["deadlineAt"]);
+  .index("by_deadlineAt", ["deadlineAt"])
+  .searchIndex("search_title", { searchField: "title", filterFields: ["status"] })
+  .searchIndex("search_description", { searchField: "description", filterFields: ["status"] });

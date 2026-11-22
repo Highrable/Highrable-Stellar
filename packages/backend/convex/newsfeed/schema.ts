@@ -20,6 +20,10 @@ export const socialTables = {
     status: visibility,
     bodyId: v.optional(v.id("socialMedia")),
     originalId: v.optional(v.id("socialPosts")),
+    milestoneId: v.optional(v.id("milestones")),
+    tags: v.optional(v.array(v.string())),
+    searchText: v.optional(v.string()),
+    searchTags: v.optional(v.string()),
     reactionCount: v.number(),
     commentCount: v.number(),
     mediaCount: v.number(),
@@ -29,7 +33,9 @@ export const socialTables = {
   })
     .index("by_status", ["status", "publishedAt"])
     .index("by_author", ["authorId", "status", "publishedAt"])
-    .index("by_request", ["authorId", "requestId"]),
+    .index("by_request", ["authorId", "requestId"])
+    .searchIndex("search_text", { searchField: "searchText", filterFields: ["status"] })
+    .searchIndex("search_tags", { searchField: "searchTags", filterFields: ["status"] }),
   socialMedia: defineTable({
     authorId: v.id("users"),
     postId: v.optional(v.id("socialPosts")),
@@ -69,9 +75,15 @@ export const socialTables = {
     updatedAt: v.number(),
     publishedAt: v.optional(v.number()),
     expiresAt: v.number(),
+    note: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    searchText: v.optional(v.string()),
+    searchTags: v.optional(v.string()),
   })
     .index("by_expiry", ["expiresAt"])
-    .index("by_author_request", ["authorId", "requestId"]),
+    .index("by_author_request", ["authorId", "requestId"])
+    .searchIndex("search_text", { searchField: "searchText", filterFields: ["status"] })
+    .searchIndex("search_tags", { searchField: "searchTags", filterFields: ["status"] }),
   socialStoryReactions: defineTable({
     storyId: v.id("socialStories"),
     authorId: v.id("users"),
@@ -124,6 +136,7 @@ export const socialTables = {
     headline: v.string(),
     about: v.string(),
     workplace: v.optional(v.string()),
+    availability: v.optional(v.string()),
     skills: v.array(v.string()),
     links: v.array(v.string()),
     coverUrl: v.optional(v.string()),
@@ -165,4 +178,12 @@ export const socialTables = {
   })
     .index("by_author", ["authorId"])
     .searchIndex("search_name", { searchField: "name" }),
+  socialFollows: defineTable({
+    followerId: v.id("users"),
+    followedId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_follower", ["followerId", "createdAt"])
+    .index("by_followed", ["followedId", "createdAt"])
+    .index("by_pair", ["followerId", "followedId"]),
 };

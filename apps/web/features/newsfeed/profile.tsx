@@ -17,6 +17,7 @@ import type { FormEvent } from "react";
 
 import { Feed } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
+import { FollowButton } from "./follow-button";
 import { ImageEditor } from "./image-editor";
 import { uploadProfileImage } from "./media-client";
 import { SocialSession, useSocialSession } from "./session";
@@ -62,10 +63,18 @@ function ProfileContent({ profileId, showHeader }: { profileId: string; showHead
                   <p className="mt-1 text-muted-foreground">{details.headline}</p>
                 )}
                 {details.workplace && <p className="mt-1 text-sm">{details.workplace}</p>}
+                {details.availability && (
+                  <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+                    Available · {details.availability}
+                  </p>
+                )}
               </div>
-              {owner && (
-                <p className="text-sm text-muted-foreground">Your public professional profile</p>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {!owner && <FollowButton userId={profile.id} />}
+                {owner && (
+                  <p className="text-sm text-muted-foreground">Your public professional profile</p>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -86,6 +95,11 @@ function ProfileContent({ profileId, showHeader }: { profileId: string; showHead
         {!showHeader && details.workplace && (
           <p className="mt-3 text-sm text-muted-foreground">
             Current workplace: {details.workplace}
+          </p>
+        )}
+        {!showHeader && details.availability && (
+          <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300">
+            Availability: {details.availability}
           </p>
         )}
         {details.about && (
@@ -270,6 +284,7 @@ function ProfileEditor({ token, details }: { token: string; details: Details }) 
         headline: value("headline"),
         about: value("about"),
         workplace: value("workplace"),
+        availability: value("availability"),
         skills: value("skills")
           .split(",")
           .map((part) => part.trim())
@@ -368,6 +383,20 @@ function ProfileEditor({ token, details }: { token: string; details: Details }) 
                 maxLength={160}
                 className="mt-1"
                 placeholder="Company or independent practice"
+              />
+            </label>
+            <label
+              htmlFor="professional-availability"
+              className="block text-sm font-medium sm:col-span-2"
+            >
+              Project availability
+              <Input
+                name="availability"
+                id="professional-availability"
+                defaultValue={details.availability}
+                maxLength={120}
+                className="mt-1"
+                placeholder="Available for 20 hours/week"
               />
             </label>
             <label htmlFor="professional-about" className="block text-sm font-medium sm:col-span-2">

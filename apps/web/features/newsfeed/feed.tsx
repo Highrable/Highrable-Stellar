@@ -1,11 +1,12 @@
 "use client";
 import { api, type TConvexId } from "@repo/convex-client";
+import { TagChip } from "@repo/ui/components/highrable/social-primitives";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
-import { MessageCircle, MoreHorizontal, Share2, ThumbsUp } from "lucide-react";
+import { MessageCircle, MoreHorizontal, Repeat2, Share2, ThumbsUp } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -244,7 +245,19 @@ function Author({ author }: { author: Post["author"] }) {
         <AvatarImage src={author.avatarUrl ?? undefined} alt="" />
         <AvatarFallback>{author.name.slice(0, 1).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="truncate">{author.name}</span>
+      <span className="min-w-0 truncate">
+        <span className="block truncate text-sm">{author.name}</span>
+        {author.headline && (
+          <span className="block truncate text-xs font-normal text-muted-foreground">
+            {author.headline}
+          </span>
+        )}
+        {author.availability && (
+          <span className="mt-0.5 block w-fit truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            {author.availability}
+          </span>
+        )}
+      </span>
     </Link>
   );
 }
@@ -386,7 +399,7 @@ function CommentCard({ comment, children }: { comment: CommentRecord; children?:
               className="text-[11px] text-muted-foreground"
               dateTime={new Date(comment.updatedAt).toISOString()}
             >
-              {new Date(comment.updatedAt).toLocaleString()}
+              {relativePostTime(comment.updatedAt)}
             </time>
           </div>
           {editing ? (
@@ -707,10 +720,19 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
     </section>
   );
 }
-export function PostCard({ post }: { post: Post }) {
+function relativePostTime(timestamp: number) {
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "feed" | "detail" }) {
   const { token, viewer } = useSocialSession();
   const client = useConvex();
-  const [comments, setComments] = useState(false);
+  const [comments, setComments] = useState(variant === "detail");
   const [repost, setRepost] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -767,16 +789,41 @@ export function PostCard({ post }: { post: Post }) {
   }
   const published = post.publishedAt ?? post._creationTime;
   return (
-    <article className="hr-card-surface overflow-hidden rounded-2xl p-4 sm:p-5">
-      <header className="flex items-start justify-between gap-3">
-        <Author author={post.author} />
+    <article
+      className={
+        variant === "detail"
+          ? "hr-card-surface overflow-hidden rounded-2xl"
+          : "hr-card-surface overflow-hidden rounded-2xl"
+      }
+    >
+      {post.originalId && (
+        <div className="flex items-center gap-2 border-b bg-orange-50/60 px-4 py-2 text-xs text-slate-600 dark:bg-orange-950/20 dark:text-slate-300">
+          <Repeat2 aria-hidden="true" className="size-3.5 text-orange-600" />
+          <span>{post.author.name} reposted with perspective</span>
+          <span aria-hidden="true">·</span>
+          <time dateTime={new Date(published).toISOString()}>{relativePostTime(published)}</time>
+        </div>
+      )}
+      <header
+        className={`flex items-start justify-between gap-3 ${variant === "detail" ? "border-b bg-white p-5 sm:p-6 dark:bg-slate-950" : "px-4 pt-4 sm:px-5 sm:pt-5"}`}
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <Author author={post.author} />
+          {variant === "detail" && (
+            <span className="mt-1 hidden rounded-md bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700 sm:inline-flex dark:bg-orange-950/40 dark:text-orange-200">
+              Public Ecosystem
+            </span>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-1">
           <Link
             className="text-xs text-muted-foreground hover:underline"
             href={`/newsfeed/${post._id}`}
           >
             <time dateTime={new Date(published).toISOString()}>
-              {new Date(published).toLocaleString()}
+              {variant === "detail"
+                ? new Date(published).toLocaleString()
+                : relativePostTime(published)}
             </time>
           </Link>
           <Popover>
@@ -870,10 +917,34 @@ export function PostCard({ post }: { post: Post }) {
           </Popover>
         </div>
       </header>
-      <div className="space-y-4 py-4">
-        <div className="text-base leading-7 sm:text-lg">
+      <div className={`space-y-4 py-4 ${variant === "detail" ? "px-5 sm:px-7" : "px-4 sm:px-5"}`}>
+        <div
+          className={
+            variant === "detail" ? "text-lg leading-8 sm:text-xl" : "text-base leading-7 sm:text-lg"
+          }
+        >
           <PostText key={post.bodyId ?? "empty"} post={post} />
         </div>
+        {!!post.tags?.length && (
+          <div className="flex flex-wrap gap-2" aria-label="Post tags">
+            {post.tags.map((tag) => (
+              <Link key={tag} href={`/newsfeed/search?tag=${encodeURIComponent(tag)}`}>
+                <TagChip>#{tag}</TagChip>
+              </Link>
+            ))}
+          </div>
+        )}
+        {post.milestone && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-orange-200 bg-orange-50/70 px-3 py-2 text-sm dark:border-orange-900 dark:bg-orange-950/20">
+            <span className="font-medium">Milestone · {post.milestone.title}</span>
+            <span className="rounded-full bg-background px-2 py-0.5 text-xs text-muted-foreground">
+              {post.milestone.status}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Status shown from Highrable application records.
+            </span>
+          </div>
+        )}
         {post.mediaCount > 0 && <Gallery post={post} />}
         {post.originalId &&
           (post.original ? (
@@ -889,7 +960,9 @@ export function PostCard({ post }: { post: Post }) {
             <p className="rounded-xl bg-muted p-4">Original post unavailable.</p>
           ))}
       </div>
-      <div className="flex items-center justify-between border-b py-2 text-sm text-muted-foreground">
+      <div
+        className={`flex items-center justify-between border-b py-3 text-sm text-muted-foreground ${variant === "detail" ? "px-5 sm:px-7" : "px-4 sm:px-5"}`}
+      >
         <span className="flex items-center gap-1.5">
           {post.reactionCount > 0 && (
             <span className="text-base" aria-hidden="true">
@@ -902,7 +975,9 @@ export function PostCard({ post }: { post: Post }) {
           {post.commentCount} comments
         </button>
       </div>
-      <div className="grid grid-cols-3 gap-1 border-b py-1">
+      <div
+        className={`grid ${viewer ? "grid-cols-4" : "grid-cols-2"} gap-1 border-b py-1 ${variant === "detail" ? "px-5 sm:px-7" : "px-3 sm:px-4"}`}
+      >
         {viewer && (
           <Popover>
             <PopoverTrigger asChild>
@@ -966,6 +1041,9 @@ export function PostCard({ post }: { post: Post }) {
             <Share2 aria-hidden="true" className="size-4" /> Repost
           </Button>
         )}
+        <Button variant="ghost" className="h-10" onClick={() => void run(() => share(true))}>
+          <Share2 aria-hidden="true" className="size-4" /> Send
+        </Button>
       </div>
       {editing && (
         <form
@@ -1005,7 +1083,17 @@ export function PostCard({ post }: { post: Post }) {
         </form>
       )}
       {repost && <Composer originalId={post._id} onDone={() => setRepost(false)} />}
-      {comments && <Comments postId={post._id} />}
+      {comments && (
+        <div
+          className={
+            variant === "detail"
+              ? "bg-slate-50 px-5 py-5 sm:px-7 dark:bg-slate-900/40"
+              : "px-4 py-4 sm:px-5"
+          }
+        >
+          <Comments postId={post._id} />
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-red-700">
           {error}
@@ -1015,11 +1103,21 @@ export function PostCard({ post }: { post: Post }) {
     </article>
   );
 }
-export function Feed({ authorId }: { authorId?: TConvexId<"users"> }) {
+export function Feed({
+  authorId,
+  followingOnly = false,
+}: {
+  authorId?: TConvexId<"users">;
+  followingOnly?: boolean;
+}) {
   const { token } = useSocialSession();
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.feed,
-    { ...(authorId ? { authorId } : {}), ...(token ? { token } : {}) },
+    {
+      ...(authorId ? { authorId } : {}),
+      ...(followingOnly ? { followingOnly: true } : {}),
+      ...(token ? { token } : {}),
+    },
     { initialNumItems: 10 },
   );
   return (
@@ -1027,7 +1125,13 @@ export function Feed({ authorId }: { authorId?: TConvexId<"users"> }) {
       {status === "LoadingFirstPage" ? (
         <p role="status">Loading posts…</p>
       ) : results.length === 0 ? (
-        <p>No posts yet.</p>
+        <p className="rounded-xl border bg-background p-5 text-sm text-muted-foreground">
+          {followingOnly
+            ? token
+              ? "Your following feed is empty. Follow collaborators to see their posts here."
+              : "Sign in with a verified wallet to use the following feed."
+            : "No published posts yet. Be the first to share an update."}
+        </p>
       ) : (
         results.map((post) => <PostCard key={post._id} post={post} />)
       )}

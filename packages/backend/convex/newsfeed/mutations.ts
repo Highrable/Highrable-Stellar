@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { participant, verifyToken } from "./auth";
-import { published, requestKey, safeUrl } from "./helpers";
+import { normalizeTags, published, requestKey, safeUrl } from "./helpers";
 import { reactionKind } from "./schema";
 
 export const beginPost = mutation({
@@ -27,12 +27,21 @@ export const beginPost = mutation({
       commentCount: 0,
       mediaCount: 0,
       pendingMedia: 0,
+      searchText: "",
+      searchTags: "",
       updatedAt: Date.now(),
     });
   },
 });
 export const publish = mutation({
-  args: { token: v.string(), postId: v.id("socialPosts"), bodyId: v.optional(v.id("socialMedia")) },
+  args: {
+    token: v.string(),
+    postId: v.id("socialPosts"),
+    bodyId: v.optional(v.id("socialMedia")),
+    tags: v.optional(v.array(v.string())),
+    milestoneId: v.optional(v.id("milestones")),
+    milestoneConfirmed: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const user = await participant(ctx, args.token);
     const post = await ctx.db.get(args.postId);
@@ -54,10 +63,34 @@ export const publish = mutation({
     if (!body?.size && !post.mediaCount && !post.originalId)
       throw new Error("Write something or add media.");
     if (post.originalId) await published(ctx, post.originalId);
+    if (args.milestoneId && args.milestoneConfirmed !== true)
+      throw new Error("Confirm sharing the milestone title and status before publishing.");
+    if (!args.milestoneId && args.milestoneConfirmed)
+      throw new Error("Choose a milestone before confirming it.");
+    let milestoneId: typeof args.milestoneId;
+    if (args.milestoneId) {
+      const milestone = await ctx.db.get(args.milestoneId);
+      const job = milestone ? await ctx.db.get(milestone.jobId) : null;
+      if (!milestone || !job) throw new Error("Milestone unavailable.");
+      const wallet = user.walletAddress;
+      if (
+        job.clientWallet !== wallet &&
+        milestone.assignedFreelancerWallet !== wallet &&
+        job.selectedFreelancerWallet !== wallet
+      )
+        throw new Error("Only a job or milestone participant can attach it.");
+      milestoneId = milestone._id;
+    }
+    const tags = normalizeTags(args.tags ?? []);
+    const searchText = [body?.preview ?? "", ...tags].join(" ").slice(0, 1200);
     await ctx.db.patch(post._id, {
       status: "published",
       publishedAt: Date.now(),
       ...(args.bodyId ? { bodyId: args.bodyId } : {}),
+      ...(milestoneId ? { milestoneId } : {}),
+      tags,
+      searchText,
+      searchTags: tags.join(" "),
       updatedAt: Date.now(),
     });
     return post._id;
@@ -79,7 +112,13 @@ export const editPost = mutation({
       body.mime !== "text/plain"
     )
       throw new Error("Cannot edit this post.");
-    await ctx.db.patch(post._id, { bodyId: body._id, updatedAt: Date.now() });
+    const tags = post.tags ?? [];
+    await ctx.db.patch(post._id, {
+      bodyId: body._id,
+      searchText: [body.preview, ...tags].join(" ").slice(0, 1200),
+      searchTags: tags.join(" "),
+      updatedAt: Date.now(),
+    });
   },
 });
 export const deletePost = mutation({
@@ -118,7 +157,12 @@ export const react = mutation({
   },
 });
 export const beginStory = mutation({
-  args: { token: v.string(), requestId: v.string() },
+  args: {
+    token: v.string(),
+    requestId: v.string(),
+    note: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+  },
   handler: async (ctx, args) => {
     const user = await participant(ctx, args.token);
     requestKey(args.requestId);
@@ -128,7 +172,20 @@ export const beginStory = mutation({
         q.eq("authorId", user._id).eq("requestId", args.requestId),
       )
       .unique();
-    if (prior) return prior._id;
+    const note = args.note?.trim() ?? "";
+    if (note.length > 500) throw new Error("Spark notes must be 500 characters or fewer.");
+    const tags = normalizeTags(args.tags ?? []);
+    if (prior) {
+      if (prior.status === "draft")
+        await ctx.db.patch(prior._id, {
+          note: note || undefined,
+          tags,
+          searchText: [note, ...tags].join(" ").slice(0, 600),
+          searchTags: tags.join(" "),
+          updatedAt: Date.now(),
+        });
+      return prior._id;
+    }
     const now = Date.now();
     return ctx.db.insert("socialStories", {
       authorId: user._id,
@@ -145,6 +202,10 @@ export const beginStory = mutation({
       funnyCount: 0,
       updatedAt: now,
       expiresAt: now + 24 * 60 * 60_000,
+      ...(note ? { note } : {}),
+      tags,
+      searchText: [note, ...tags].join(" ").slice(0, 600),
+      searchTags: tags.join(" "),
     });
   },
 });
@@ -484,6 +545,7 @@ export const saveProfile = mutation({
     headline: v.string(),
     about: v.string(),
     workplace: v.string(),
+    availability: v.optional(v.string()),
     skills: v.array(v.string()),
     links: v.array(v.string()),
     workHistory: v.array(
@@ -523,7 +585,12 @@ export const saveProfile = mutation({
       .unique();
     if (args.name.trim().length > 100 || args.headline.length > 220 || args.about.length > 4_000)
       throw new Error("Profile name, headline or introduction is too long.");
-    if (args.workplace.length > 160 || args.skills.length > 40 || args.links.length > 20)
+    if (
+      args.workplace.length > 160 ||
+      (args.availability?.length ?? 0) > 120 ||
+      args.skills.length > 40 ||
+      args.links.length > 20
+    )
       throw new Error("Too many profile entries.");
     if (args.workHistory.length > 30 || args.certificates.length > 30 || args.portfolio.length > 30)
       throw new Error("Too many work history, certificate or portfolio entries.");
@@ -568,6 +635,7 @@ export const saveProfile = mutation({
       headline: args.headline.trim(),
       about: args.about.trim(),
       workplace: args.workplace.trim(),
+      availability: args.availability?.trim() ?? "",
       skills: args.skills.map((skill) => skill.trim()),
       links: args.links.map(safeUrl),
       workHistory,
@@ -580,6 +648,37 @@ export const saveProfile = mutation({
     };
     if (prior) await ctx.db.replace(prior._id, record);
     else await ctx.db.insert("socialProfiles", record);
+  },
+});
+
+export const follow = mutation({
+  args: { token: v.string(), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewer = await participant(ctx, args.token);
+    if (viewer._id === args.userId) throw new Error("You cannot follow yourself.");
+    if (!(await ctx.db.get(args.userId))) throw new Error("Profile unavailable.");
+    const prior = await ctx.db
+      .query("socialFollows")
+      .withIndex("by_pair", (q) => q.eq("followerId", viewer._id).eq("followedId", args.userId))
+      .unique();
+    if (prior) return prior._id;
+    return ctx.db.insert("socialFollows", {
+      followerId: viewer._id,
+      followedId: args.userId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const unfollow = mutation({
+  args: { token: v.string(), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewer = await participant(ctx, args.token);
+    const prior = await ctx.db
+      .query("socialFollows")
+      .withIndex("by_pair", (q) => q.eq("followerId", viewer._id).eq("followedId", args.userId))
+      .unique();
+    if (prior) await ctx.db.delete(prior._id);
   },
 });
 export const deleteProfile = mutation({

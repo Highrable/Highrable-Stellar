@@ -1,4 +1,5 @@
 import { env } from "@/core/config/env";
+import { SameOriginError } from "@/core/wallet/server/same-origin";
 import { ConvexHttpClient } from "convex/browser";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -47,6 +48,9 @@ export function createAdminConvexClient(): ConvexHttpClient {
 }
 
 export function createAdminErrorResponse(error: unknown): NextResponse {
+  if (error instanceof SameOriginError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
   if (error instanceof AdminAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }

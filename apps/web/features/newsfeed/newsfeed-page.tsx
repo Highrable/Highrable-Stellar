@@ -79,7 +79,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
                     variant={!followingOnly ? "default" : "ghost"}
                     aria-pressed={!followingOnly}
                     onClick={() => setFollowingOnly(false)}
-                    className={!followingOnly ? "bg-orange-600 text-white hover:bg-orange-700" : ""}
+                    className={!followingOnly ? "hr-v2-button-primary" : ""}
                   >
                     All Network
                   </Button>
@@ -90,7 +90,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
                     aria-pressed={followingOnly}
                     disabled={!token}
                     onClick={() => setFollowingOnly(true)}
-                    className={followingOnly ? "bg-orange-600 text-white hover:bg-orange-700" : ""}
+                    className={followingOnly ? "hr-v2-button-primary" : ""}
                   >
                     Peer Perspectives
                   </Button>
@@ -114,7 +114,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
 export function NewsfeedPage({ postId }: { postId?: string }) {
   return (
     <div
-      className={`mx-auto w-full px-3 py-3 sm:px-5 sm:py-4 ${postId ? "max-w-5xl" : "max-w-7xl"}`}
+      className={`hr-newsfeed-page mx-auto w-full px-3 py-3 sm:px-5 sm:py-4 ${postId ? "max-w-5xl" : "max-w-7xl"}`}
     >
       <FeedBoundary>
         <SocialSession>

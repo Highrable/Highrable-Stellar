@@ -74,7 +74,7 @@ export function FollowButton({
         onClick={() => void toggle()}
         aria-pressed={following}
         aria-label={token ? (following ? "Unfollow" : "Follow") : "Sign in to follow"}
-        className={!following ? "bg-orange-600 text-white hover:bg-orange-700" : undefined}
+        className={!following ? "hr-v2-button-primary" : undefined}
       >
         {following ? (
           <UserRoundCheck className="mr-1.5 size-4" />

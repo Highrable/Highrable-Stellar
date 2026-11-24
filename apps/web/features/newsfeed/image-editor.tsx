@@ -86,7 +86,7 @@ export function ImageEditor({
 
   return (
     <Dialog open={Boolean(file)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
+      <DialogContent className="hr-newsfeed-dialog max-h-[92dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit image</DialogTitle>
           <DialogDescription>

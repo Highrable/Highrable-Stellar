@@ -810,13 +810,23 @@ export const suggestedPeople = query({
       : [];
     const followed = new Set(follows.map((row) => String(row.followedId)));
     const profiles = await ctx.db.query("socialProfiles").order("desc").take(30);
+    const users = await ctx.db.query("users").order("desc").take(100);
+    const profileAuthors = new Set(profiles.map((profile) => String(profile.authorId)));
+    const candidateIds = [
+      ...profiles.map((profile) => profile.authorId),
+      ...users.filter((user) => user.name?.trim()).map((user) => user._id),
+    ];
     const suggestions = [];
-    for (const profile of profiles) {
-      if (viewer && (profile.authorId === viewer._id || followed.has(String(profile.authorId))))
-        continue;
-      const user = await ctx.db.get(profile.authorId);
+    const seen = new Set<string>();
+    for (const authorId of candidateIds) {
+      const key = String(authorId);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (viewer && (authorId === viewer._id || followed.has(key))) continue;
+      const user = await ctx.db.get(authorId);
       if (!user) continue;
       const details = await publicProfile(ctx, user);
+      if (details.name === "Highrable participant" && !profileAuthors.has(key)) continue;
       suggestions.push({
         id: user._id,
         name: details.name,

@@ -93,9 +93,50 @@ async function text(
   });
   return mediaId;
 }
+
 beforeEach(() => {
   vi.stubEnv("NEWSFEED_ENABLED", "true");
   vi.stubEnv("NEWSFEED_SESSION_SECRET", secret);
+});
+
+it("suggests named Highrable members without social profiles and excludes self and followed users", async () => {
+  const f = await setup();
+  const collaboratorId = await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: wallet("G", "B"),
+      name: "Mina Designer",
+      role: "freelancer",
+      createdAt: Date.now(),
+    }),
+  );
+  await f.t.run((ctx) =>
+    ctx.db.insert("users", {
+      walletAddress: wallet("G", "C"),
+      name: " ",
+      role: "client",
+      createdAt: Date.now(),
+    }),
+  );
+
+  const suggestions = await f.t.query(api.newsfeed.queries.suggestedPeople, { token: f.auth });
+  expect(suggestions).toContainEqual(
+    expect.objectContaining({
+      id: collaboratorId,
+      name: "Mina Designer",
+      headline: "",
+      following: false,
+    }),
+  );
+  expect(suggestions.map((person) => person.name)).not.toContain("Ada");
+  expect(suggestions.map((person) => person.name)).not.toContain("Highrable participant");
+  expect(suggestions[0]).not.toHaveProperty("walletAddress");
+
+  await f.t.mutation(api.newsfeed.mutations.follow, {
+    token: f.auth,
+    userId: collaboratorId,
+  });
+  const afterFollow = await f.t.query(api.newsfeed.queries.suggestedPeople, { token: f.auth });
+  expect(afterFollow.map((person) => person.id)).not.toContain(collaboratorId);
 });
 
 describe.each(["G", "C"])("%s verified identity", (prefix) => {

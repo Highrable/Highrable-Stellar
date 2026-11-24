@@ -325,6 +325,129 @@ body {
   text-transform: uppercase;
 }
 
+/* Newsfeed tactile surfaces and control feedback stay local to the feed. */
+.hr-newsfeed-page .hr-card-surface {
+  border-color: var(--border);
+  background-color: var(--card);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 82%),
+    0 1px 2px rgb(58 34 14 / 5%),
+    0 8px 22px rgb(58 34 14 / 7%);
+}
+
+.dark .hr-newsfeed-page .hr-card-surface {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 2px 5px rgb(0 0 0 / 24%),
+    0 10px 26px rgb(0 0 0 / 22%);
+}
+
+.hr-newsfeed-page .hr-newsfeed-post-card {
+  border-radius: 1rem;
+}
+
+.hr-newsfeed-page .hr-newsfeed-post-card[data-newsfeed-variant="detail"] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 82%),
+    0 2px 5px rgb(58 34 14 / 5%),
+    0 12px 30px rgb(58 34 14 / 9%);
+}
+
+.dark .hr-newsfeed-page .hr-newsfeed-post-card[data-newsfeed-variant="detail"] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 2px 5px rgb(0 0 0 / 25%),
+    0 12px 30px rgb(0 0 0 / 25%);
+}
+
+.hr-newsfeed-page :is(button, [role="button"]),
+.hr-newsfeed-dialog :is(button, [role="button"]) {
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.25, 1.18),
+    box-shadow 180ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.hr-newsfeed-page :is(button, [role="button"]):hover:not(:disabled),
+.hr-newsfeed-dialog :is(button, [role="button"]):hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.hr-newsfeed-page :is(button, [role="button"]):active:not(:disabled),
+.hr-newsfeed-dialog :is(button, [role="button"]):active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+  transition-duration: 80ms;
+}
+
+.hr-newsfeed-page :is(button, [role="button"]):disabled,
+.hr-newsfeed-dialog :is(button, [role="button"]):disabled {
+  transform: none;
+}
+
+.hr-newsfeed-page [data-slot="button"][data-variant="default"],
+.hr-newsfeed-dialog [data-slot="button"][data-variant="default"] {
+  color: #2b1a00;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 38%),
+    0 2px 4px rgb(48 28 10 / 13%);
+}
+
+.hr-newsfeed-page [data-slot="button"].hr-v2-button-primary,
+.hr-newsfeed-dialog [data-slot="button"].hr-v2-button-primary {
+  color: #ffffff;
+}
+
+.hr-newsfeed-page [data-slot="button"][data-variant="default"]:hover:not(:disabled),
+.hr-newsfeed-dialog [data-slot="button"][data-variant="default"]:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 48%),
+    0 4px 10px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.hr-newsfeed-page .hr-newsfeed-story-card {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 36%),
+    0 3px 8px rgb(31 20 10 / 18%);
+}
+
+.hr-newsfeed-page .hr-newsfeed-story-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 48%),
+    0 7px 16px rgb(31 20 10 / 22%);
+}
+
+.hr-newsfeed-dialog {
+  border-color: var(--border);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 78%),
+    0 12px 32px rgb(39 26 14 / 16%);
+}
+
+.dark .hr-newsfeed-dialog {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 12px 32px rgb(0 0 0 / 38%);
+}
+
+.hr-newsfeed-page :is(a, button, [role="button"], input, textarea, select):focus-visible,
+.hr-newsfeed-dialog :is(a, button, [role="button"], input, textarea, select):focus-visible {
+  outline: 2px solid var(--mode-text, var(--highrable-orange-4));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hr-newsfeed-page :is(button, [role="button"]),
+  .hr-newsfeed-dialog :is(button, [role="button"]),
+  .hr-newsfeed-page :is(button, [role="button"]):hover,
+  .hr-newsfeed-page :is(button, [role="button"]):active,
+  .hr-newsfeed-dialog :is(button, [role="button"]):hover,
+  .hr-newsfeed-dialog :is(button, [role="button"]):active {
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
 @media (max-width: 47.99rem) {
   .hr-product-page-hero {
     padding-bottom: 1.25rem;

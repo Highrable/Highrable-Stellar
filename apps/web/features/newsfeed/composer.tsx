@@ -523,17 +523,21 @@ export function Composer({
                 <Maximize2 aria-hidden="true" className="size-4" />
               </Button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <div className="mt-3 grid grid-cols-4 items-center gap-1 border-t border-slate-100 pt-3 sm:flex sm:flex-wrap sm:gap-2 dark:border-slate-800">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Photo/Video"
                 onClick={() => {
                   setOpen(true);
                   setTimeout(() => fileInput.current?.click(), 100);
                 }}
+                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
               >
-                <ImagePlus className="mr-1.5 size-4 text-emerald-600" /> Photo/Video
+                <ImagePlus className="mr-0 size-3.5 text-emerald-600 sm:mr-1.5 sm:size-4" />
+                <span className="truncate sm:hidden">Photo</span>
+                <span className="hidden sm:inline">Photo/Video</span>
               </Button>
               <Button
                 type="button"
@@ -543,11 +547,15 @@ export function Composer({
                   setOpen(true);
                   setTimeout(() => document.getElementById("newsfeed-milestone")?.focus(), 100);
                 }}
+                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
               >
-                <span aria-hidden="true" className="mr-1.5 text-orange-600">
+                <span
+                  aria-hidden="true"
+                  className="mr-0 text-[10px] text-orange-600 sm:mr-1.5 sm:text-base"
+                >
                   ✺
                 </span>{" "}
-                Milestone
+                <span className="truncate">Milestone</span>
               </Button>
               <Button
                 type="button"
@@ -557,8 +565,10 @@ export function Composer({
                   setOpen(true);
                   setTimeout(() => document.getElementById("newsfeed-post-tags")?.focus(), 100);
                 }}
+                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
               >
-                <Tags className="mr-1.5 size-4 text-blue-600" /> Tags
+                <Tags className="mr-0 size-3.5 text-blue-600 sm:mr-1.5 sm:size-4" />
+                <span className="truncate">Tags</span>
               </Button>
               <span className="ml-auto hidden text-xs text-muted-foreground sm:inline">
                 Public · Freelance Network
@@ -567,9 +577,11 @@ export function Composer({
                 type="submit"
                 size="sm"
                 disabled={busy || !body.trim() || Boolean(milestoneId && !milestoneConfirmed)}
-                className="hr-v2-button-primary ml-auto px-4 sm:ml-0"
+                className="hr-v2-button-primary h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:ml-0 sm:h-8 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
               >
-                {busy ? "Publishing…" : error ? "Retry" : "Publish"}
+                <span className="truncate">
+                  {busy ? "Publishing…" : error ? "Retry" : "Publish"}
+                </span>
               </Button>
             </div>
           </form>
@@ -592,7 +604,7 @@ export function Composer({
           if (!next && originalId) onDone?.();
         }}
       >
-        <DialogContent className="flex max-h-[min(94dvh,62rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
+        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,62rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
           <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
             <DialogTitle className="text-xl">{originalId ? "Repost" : "Create Post"}</DialogTitle>
             <DialogDescription className="text-sm">

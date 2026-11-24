@@ -803,11 +803,8 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
   const published = post.publishedAt ?? post._creationTime;
   return (
     <article
-      className={
-        variant === "detail"
-          ? "hr-card-surface overflow-hidden rounded-2xl"
-          : "hr-card-surface overflow-hidden rounded-2xl"
-      }
+      data-newsfeed-variant={variant}
+      className="hr-card-surface hr-newsfeed-post-card overflow-hidden rounded-2xl"
     >
       {post.originalId && (
         <div className="flex items-center gap-2 border-b bg-orange-50/60 px-4 py-2 text-xs text-slate-600 dark:bg-orange-950/20 dark:text-slate-300">
@@ -818,7 +815,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         </div>
       )}
       <header
-        className={`flex items-start justify-between gap-3 ${variant === "detail" ? "border-b bg-white p-5 sm:p-6 dark:bg-slate-950" : "px-4 pt-4 sm:px-5 sm:pt-5"}`}
+        className={`flex items-start justify-between gap-3 ${variant === "detail" ? "border-b bg-card p-5 sm:p-6" : "px-4 pt-4 sm:px-5 sm:pt-5"}`}
       >
         <div className="flex min-w-0 items-start gap-3">
           <Author author={post.author} />
@@ -1101,11 +1098,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
       {repost && <Composer originalId={post._id} onDone={() => setRepost(false)} />}
       {comments && (
         <div
-          className={
-            variant === "detail"
-              ? "bg-slate-50 px-5 py-5 sm:px-7 dark:bg-slate-900/40"
-              : "px-4 py-4 sm:px-5"
-          }
+          className={variant === "detail" ? "bg-muted/30 px-5 py-5 sm:px-7" : "px-4 py-4 sm:px-5"}
         >
           <Comments postId={post._id} />
         </div>

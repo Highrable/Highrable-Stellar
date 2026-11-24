@@ -334,7 +334,7 @@ function StoryComposer({
   if (!viewer) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(94dvh,50rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
+      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,50rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
         <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-xl">Create a showcase</DialogTitle>
@@ -544,7 +544,7 @@ function StoryComposer({
               type="button"
               disabled={busy || files.length === 0}
               onClick={() => void publish()}
-              className="rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700"
+              className="hr-v2-button-primary rounded-xl px-5"
             >
               {busy ? "Publishing…" : error ? "Retry publishing" : "Share showcase"}
             </Button>
@@ -912,7 +912,7 @@ export function Stories() {
           {viewer && (
             <button
               type="button"
-              className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-800 text-left shadow-sm"
+              className="hr-newsfeed-story-card relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-800 text-left shadow-sm"
               onClick={() => setCreating(true)}
               aria-label="Create a showcase"
             >
@@ -942,7 +942,7 @@ export function Stories() {
               <button
                 key={group.author.id}
                 type="button"
-                className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-muted text-left text-white shadow-sm"
+                className="hr-newsfeed-story-card relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-muted text-left text-white shadow-sm"
                 onClick={() => setSelection({ group: groupIndex, story: 0 })}
                 aria-label={`View ${group.author.name}'s showcase`}
               >

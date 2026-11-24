@@ -9,7 +9,12 @@ import {
 import applications from "./applications/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
-import { conversationReads, conversations, messages } from "./conversations/schema";
+import {
+  conversationParticipants,
+  conversationReads,
+  conversations,
+  messages,
+} from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
 import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
@@ -38,6 +43,7 @@ export default defineSchema({
   conversations,
   messages,
   conversationReads,
+  conversationParticipants,
   users,
   jobs,
   milestones,

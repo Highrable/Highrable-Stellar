@@ -22,7 +22,7 @@ import {
   useSidebar,
 } from "@repo/ui/components/ui/sidebar";
 import { useQuery } from "convex/react";
-import { Gavel, Newspaper, ShieldCheck, UserRound } from "lucide-react";
+import { Gavel, MessageCircle, Newspaper, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -59,6 +59,13 @@ const NEWSFEED_NAVIGATION: IModeNavItem = {
   href: "/newsfeed",
   description: "Updates from the Highrable community",
   icon: Newspaper,
+};
+
+const MESSAGES_NAVIGATION: IModeNavItem = {
+  name: "Messages",
+  href: "/messages",
+  description: "Direct, group, and work conversations",
+  icon: MessageCircle,
 };
 
 function isActivePath(pathname: string, href: string) {
@@ -218,6 +225,7 @@ export function AppSidebar() {
                 Community
               </SidebarGroupLabel>
               <SidebarMenu>
+                <NavigationLink item={MESSAGES_NAVIGATION} pathname={pathname} />
                 <NavigationLink item={NEWSFEED_NAVIGATION} pathname={pathname} />
               </SidebarMenu>
             </SidebarGroup>

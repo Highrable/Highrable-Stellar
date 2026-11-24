@@ -13,6 +13,7 @@ import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/li
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { ModeOnly } from "@/features/mode";
+import { SocialSession } from "@/features/newsfeed/session";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
@@ -309,11 +310,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
           ) : null}
 
           {!isMilestoneProject && canShowWorkChat ? (
-            <ConversationThread
-              parentType={chatParent.parentType}
-              parentId={chatParent.parentId}
-              title={chatParent.title}
-            />
+            <SocialSession>
+              <ConversationThread
+                parentType={chatParent.parentType}
+                parentId={chatParent.parentId}
+                title={chatParent.title}
+              />
+            </SocialSession>
           ) : null}
         </div>
 

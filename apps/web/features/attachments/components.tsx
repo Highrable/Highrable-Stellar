@@ -13,6 +13,7 @@ import {
   ProtectedAttachmentDialog,
 } from "@/features/attachments/protected-viewer";
 import { showWarningToast } from "@/features/common";
+import { useSocialSession } from "@/features/newsfeed/session";
 import { api } from "@repo/convex-client";
 import {
   HighrableV2Badge,
@@ -126,7 +127,7 @@ interface IAttachmentUploaderProps {
   readonly onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
   readonly disabled?: boolean;
   readonly ownerRole?: "client" | "freelancer";
-  readonly context?: "job" | "dispute";
+  readonly context?: "job" | "dispute" | "chat";
 }
 
 function getAttachmentLabel(type: TAttachmentType): string {
@@ -208,6 +209,7 @@ export function AttachmentPreviewCard({
   onRemove,
 }: IAttachmentPreviewCardProps) {
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const recordDownloadAttempt = useMutation(api.attachments.recordDownloadAttempt);
   const isDraft = "id" in attachment;
   const type = attachment.type as TAttachmentType;
@@ -233,6 +235,7 @@ export function AttachmentPreviewCard({
         attachmentId: attachment._id,
         viewerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+        ...(token ? { sessionToken: token } : {}),
       });
       if (result.url) {
         window.open(result.url, "_blank", "noopener,noreferrer");
@@ -341,6 +344,7 @@ export function AttachmentPreviewCard({
       {isProtected && !isDraft ? (
         <ProtectedAttachmentDialog
           attachment={attachment}
+          sessionToken={token}
           isOpen={isProtectedPreviewOpen}
           onOpenChange={setIsProtectedPreviewOpen}
         />
@@ -552,6 +556,7 @@ export function AttachmentUploader({
 }: IAttachmentUploaderProps) {
   const protectedPreviewId = useId();
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const saveUploadedAttachment = useMutation(api.attachments.saveUploadedAttachment);
   const createExternalAttachment = useMutation(api.attachments.createExternalAttachment);
@@ -604,10 +609,12 @@ export function AttachmentUploader({
       const postUrl = await generateUploadUrl({
         walletAddress: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(token ? { sessionToken: token } : {}),
         name: file.name,
         size: file.size,
         ...(file.type ? { mimeType: file.type } : {}),
         type,
+        context,
       });
       const result = await fetch(postUrl, {
         method: "POST",
@@ -625,10 +632,12 @@ export function AttachmentUploader({
         uploadedByWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
         ownerRole,
+        ...(token ? { sessionToken: token } : {}),
         name: file.name,
         size: file.size,
         ...(file.type ? { mimeType: file.type } : {}),
         type,
+        context,
         parentType: "unknown",
         visibility: "private",
         ...(useProtectedPreview
@@ -671,6 +680,8 @@ export function AttachmentUploader({
       uploadedByWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
       ownerRole,
+      ...(token ? { sessionToken: token } : {}),
+      context,
       type: input.type,
       name: normalizedUrl,
       parentType: "unknown",
@@ -716,6 +727,7 @@ export function AttachmentUploader({
       await softDeleteAttachment({
         attachmentId: attachmentId as TConvexId<"attachments">,
         walletAddress: walletIdentity.walletAddress,
+        ...(token ? { sessionToken: token } : {}),
       });
     } catch (error) {
       setError(getReadableAttachmentError(error, "Could not remove attachment."));
@@ -745,17 +757,21 @@ export function AttachmentUploader({
           <HighrableV2IconNotice
             label="Attachment storage notice"
             message={
-              context === "dispute"
-                ? "Evidence is stored off-chain and linked to this dispute after submission."
-                : "Attachments are stored off-chain and linked to the job after the post is created."
+              context === "chat"
+                ? "Work chat files are stored off-chain and linked to messages after sending."
+                : context === "dispute"
+                  ? "Evidence is stored off-chain and linked to this dispute after submission."
+                  : "Attachments are stored off-chain and linked to the job after the post is created."
             }
           />
           <HighrableV2IconNotice
             label="Attachment visibility notice"
             message={
-              context === "dispute"
-                ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
-                : "Job attachments become visible on the public job detail page after they are linked."
+              context === "chat"
+                ? "Work chat files are visible to the client and assigned freelancer on that work."
+                : context === "dispute"
+                  ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
+                  : "Job attachments become visible on the public job detail page after they are linked."
             }
           />
           {!walletIdentity.walletAddress ? (

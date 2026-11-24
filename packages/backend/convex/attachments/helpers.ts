@@ -25,6 +25,7 @@ import {
   resolveCurrentDisputeWork,
 } from "../disputes/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "../disputes/schema";
+import { verifyToken } from "../newsfeed/auth";
 
 const MB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MB;
@@ -1189,6 +1190,42 @@ export async function assertCanViewAttachment(
   }
 
   throw new ForbiddenError("You do not have permission to view this attachment.");
+}
+
+export async function assertChatMessageSession(
+  ctx: QueryCtx,
+  messageId: Id<"messages">,
+  sessionToken: string | undefined,
+  claimedWallet?: string,
+) {
+  if (!sessionToken)
+    throw new ForbiddenError("Sign in with your verified Highrable session to access chat files.");
+  const walletAddress = normalizeWalletAddress(await verifyToken(sessionToken));
+  if (claimedWallet && normalizeWalletAddress(claimedWallet) !== walletAddress) {
+    throw new ForbiddenError("The verified session does not match this wallet.");
+  }
+  const message = await ctx.db.get(messageId);
+  if (!message) throw new NotFoundError("Chat message was not found.");
+  const conversation = await ctx.db.get(message.conversationId);
+  if (!conversation || !conversation.participantWallets.includes(walletAddress)) {
+    throw new ForbiddenError("You do not have permission to access this chat file.");
+  }
+  return walletAddress;
+}
+
+export async function assertChatAttachmentSession(
+  ctx: QueryCtx,
+  attachment: Pick<Doc<"attachments">, "parentType" | "parentId">,
+  sessionToken: string | undefined,
+  claimedWallet?: string,
+) {
+  if (attachment.parentType !== "chat_message" || !attachment.parentId) return undefined;
+  return await assertChatMessageSession(
+    ctx,
+    attachment.parentId as Id<"messages">,
+    sessionToken,
+    claimedWallet,
+  );
 }
 
 export async function assertCanModifyAttachment(

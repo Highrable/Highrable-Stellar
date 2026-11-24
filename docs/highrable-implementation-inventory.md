@@ -1,6 +1,6 @@
 # Highrable Implementation Inventory
 
-Updated: 2026-05-21
+Updated: 2026-11-24
 
 This document inventories the functionality currently implemented in the Highrable codebase across the smart contracts, Convex backend, Next.js frontend, shared packages, and deployment/tooling layer. It is based on the code that exists in this repository today and calls out where a surface is complete, partial, placeholder, or still dependent on follow-up operational work.
 
@@ -14,21 +14,21 @@ Highrable is already implemented as a working three-layer product:
 
 Current maturity by area:
 
-| Area | Status | Notes |
-| --- | --- | --- |
-| Smart-contract escrow lifecycle | Implemented | Full core lifecycle, asset allowlist, open escrow creation, tests present |
-| Reputation contract | Implemented | Completion recording, freelancer stats, tests present |
-| Convex product model | Implemented | Jobs, milestones, applications, escrows, profiles, disputes, cancellations, agreements, submissions, attachments, chat, deadlines, revisions, transactions |
-| External wallet UX | Implemented | Stellar Wallets Kit integration, persistence, auth challenge/verify |
-| Passkey smart-account UX | Implemented with compatibility work | Create, restore, reconnect, discovered contract selection, smart-account escrow execution |
-| Escrow asset support and top-up flows | Implemented | Supported escrow asset abstraction, optional XLM escrow, external-wallet XLM to USDC conversion flow |
-| Marketplace and job detail UI | Implemented | Job creation, browsing, trust notices, applications, escrow actions, attachments, chat, agreements, proof links |
-| Dashboard | Implemented | Client/freelancer modes, metrics, applied jobs, ongoing jobs, posted jobs |
-| Disputes and cancellations workflows | Implemented | User-facing dispute and cancellation flows with evidence and on-chain status tracking |
-| Admin operations | Implemented | Admin dashboard, dispute queue/detail, moderation notes, review status, and settlement recording APIs |
-| Public profiles and proof pages | Implemented | Freelancer profile, client trust profile, escrow proof page |
-| Talent directory | Placeholder | Planned surface, not yet a live directory |
-| Automated scheduling | Partial | Deadline reminder scanning is scheduled; escrow/reputation sync remains action-driven |
+| Area                                  | Status                              | Notes                                                                                                                                                      |
+| ------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Smart-contract escrow lifecycle       | Implemented                         | Full core lifecycle, asset allowlist, open escrow creation, tests present                                                                                  |
+| Reputation contract                   | Implemented                         | Completion recording, freelancer stats, tests present                                                                                                      |
+| Convex product model                  | Implemented                         | Jobs, milestones, applications, escrows, profiles, disputes, cancellations, agreements, submissions, attachments, chat, deadlines, revisions, transactions |
+| External wallet UX                    | Implemented                         | Stellar Wallets Kit integration, persistence, auth challenge/verify                                                                                        |
+| Passkey smart-account UX              | Implemented with compatibility work | Create, restore, reconnect, discovered contract selection, smart-account escrow execution                                                                  |
+| Escrow asset support and top-up flows | Implemented                         | Supported escrow asset abstraction, optional XLM escrow, external-wallet XLM to USDC conversion flow                                                       |
+| Marketplace and job detail UI         | Implemented                         | Job creation, browsing, trust notices, applications, escrow actions, attachments, chat, agreements, proof links                                            |
+| Dashboard                             | Implemented                         | Client/freelancer modes, metrics, applied jobs, ongoing jobs, posted jobs                                                                                  |
+| Disputes and cancellations workflows  | Implemented                         | User-facing dispute and cancellation flows with evidence and on-chain status tracking                                                                      |
+| Admin operations                      | Implemented                         | Admin dashboard, dispute queue/detail, moderation notes, review status, and settlement recording APIs                                                      |
+| Public profiles and proof pages       | Implemented                         | Freelancer profile, client trust profile, escrow proof page                                                                                                |
+| Talent directory                      | Placeholder                         | Planned surface, not yet a live directory                                                                                                                  |
+| Automated scheduling                  | Partial                             | Deadline reminder scanning is scheduled; escrow/reputation sync remains action-driven                                                                      |
 
 ## 2. Monorepo Structure
 
@@ -183,33 +183,34 @@ Primary directory: `packages/backend/convex`
 
 Implemented data model tables:
 
-| Table | Purpose |
-| --- | --- |
-| `users` | Wallet-linked user record, role, wallet type, profile fields |
-| `jobs` | Job postings, budget, asset, wallet ownership, job type, status |
-| `milestones` | Multi-phase project decomposition and per-milestone lifecycle |
-| `applications` | Freelancer proposals to jobs and milestones |
-| `escrows` | Escrow mirror state, tx hashes, sync metadata |
-| `workAgreements` | Agreement lifecycle records tied to jobs/milestones/escrows |
-| `workAgreementVersions` | Immutable agreement version snapshots and hashes |
-| `workAgreementEvents` | Agreement audit trail and workflow events |
-| `workSubmissions` | Proof-of-work submissions, hashes, and on-chain anchoring metadata |
-| `attachments` | File/link uploads with visibility and protection controls |
-| `attachmentAccessLogs` | Attachment access audit logs |
-| `conversations` | Parent-linked chat threads |
-| `messages` | Thread messages and system events |
-| `conversationReads` | Per-wallet read state and unread tracking |
-| `deadlineReminders` | Scheduled deadline reminder queue |
-| `notifications` | User notification feed for workflow events |
-| `deadlineAuditEvents` | Deadline change audit history |
-| `revisionRequests` | Revision workflow records and state |
-| `cancellationRequests` | Cancellation workflow records and eligibility snapshots |
-| `cancellationEvents` | Cancellation timeline events |
-| `disputes` | Dispute records, evidence links, and settlement metadata |
-| `disputeEvents` | Dispute timeline and moderation events |
-| `reputationRecords` | Convex mirror of verified or created completion reviews |
-| `jobReports` | Scam, spam, off-platform, fake job, and other reports |
-| `transactions` | Wallet transaction audit trail with pending/success/failed status |
+| Table                      | Purpose                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `users`                    | Wallet-linked user record, role, wallet type, profile fields                     |
+| `jobs`                     | Job postings, budget, asset, wallet ownership, job type, status                  |
+| `milestones`               | Multi-phase project decomposition and per-milestone lifecycle                    |
+| `applications`             | Freelancer proposals to jobs and milestones                                      |
+| `escrows`                  | Escrow mirror state, tx hashes, sync metadata                                    |
+| `workAgreements`           | Agreement lifecycle records tied to jobs/milestones/escrows                      |
+| `workAgreementVersions`    | Immutable agreement version snapshots and hashes                                 |
+| `workAgreementEvents`      | Agreement audit trail and workflow events                                        |
+| `workSubmissions`          | Proof-of-work submissions, hashes, and on-chain anchoring metadata               |
+| `attachments`              | File/link uploads with visibility and protection controls                        |
+| `attachmentAccessLogs`     | Attachment access audit logs                                                     |
+| `conversations`            | Parent-linked chat threads                                                       |
+| `messages`                 | Thread messages and system events                                                |
+| `conversationReads`        | Per-wallet read state and unread tracking                                        |
+| `conversationParticipants` | Indexed active/removed/left membership for participant-scoped conversation lists |
+| `deadlineReminders`        | Scheduled deadline reminder queue                                                |
+| `notifications`            | User notification feed for workflow events                                       |
+| `deadlineAuditEvents`      | Deadline change audit history                                                    |
+| `revisionRequests`         | Revision workflow records and state                                              |
+| `cancellationRequests`     | Cancellation workflow records and eligibility snapshots                          |
+| `cancellationEvents`       | Cancellation timeline events                                                     |
+| `disputes`                 | Dispute records, evidence links, and settlement metadata                         |
+| `disputeEvents`            | Dispute timeline and moderation events                                           |
+| `reputationRecords`        | Convex mirror of verified or created completion reviews                          |
+| `jobReports`               | Scam, spam, off-platform, fake job, and other reports                            |
+| `transactions`             | Wallet transaction audit trail with pending/success/failed status                |
 
 ### 4.2 Shared Validation and Error Infrastructure
 
@@ -484,11 +485,15 @@ Primary files:
 
 Implemented functionality:
 
-- Parent-scoped threads for job, milestone, escrow, dispute, and submission contexts.
-- Participant-aware message send/read flows.
-- Attachment-aware chat messages.
+- Parent-scoped work threads for job, milestone, escrow, dispute, and submission contexts, plus social direct and group conversations.
+- Verified signed social-session checks for every conversation read/write; caller-supplied wallet values do not establish chat identity.
+- Indexed participant membership for social conversation lists, group membership changes, ownership transfer, leaving, unread state, and preview data.
+- Real-time text messages, replies, own-message deletion, and paginated history. Social direct/group conversations reject attachments.
+- Attachment-aware work chat messages; attachment read and access-log endpoints verify the signed session and current conversation membership.
 - System/event messages for lifecycle events (proof, deadlines, disputes, cancellations, agreements).
-- Conversation preview and unread-count support.
+- Conversation preview and unread indicators across the `/messages` General and Clients tabs.
+
+The expected `docs/obsidian/` vault is absent from this checkout. This inventory records the messaging architecture until the requested vault becomes available.
 
 ### 4.16 Deadlines and Notifications Domain
 
@@ -624,33 +629,33 @@ Primary directory: `apps/web`
 
 Implemented routes:
 
-| Route | Purpose | Current status |
-| --- | --- | --- |
-| `/` | Main landing page | Implemented |
-| `/home` | Alternate landing route | Implemented |
-| `/marketplace` | Main marketplace workflow | Implemented |
-| `/jobs` | Job browsing page | Implemented |
-| `/marketplace/jobs/[jobId]` | Job detail and execution flow | Implemented |
-| `/post-job` | Standalone job posting page | Implemented |
-| `/dashboard` | Client/freelancer dashboard | Implemented |
-| `/freelancers/[walletAddress]` | Public freelancer profile | Implemented |
-| `/clients/[walletAddress]` | Public client trust profile | Implemented |
-| `/proof/[escrowId]` | Public escrow proof page | Implemented |
-| `/disputes` | Wallet-scoped dispute list | Implemented |
-| `/disputes/[disputeId]` | Dispute detail timeline and response flow | Implemented |
-| `/work-agreements/[agreementId]/review` | Freelancer agreement review/accept/reject flow | Implemented |
-| `/admin` | Admin operations dashboard | Implemented |
-| `/admin/disputes` | Admin dispute console | Implemented |
-| `/admin/disputes/[disputeId]` | Admin dispute detail and settlement actions | Implemented |
-| `/talent` | Planned talent directory preview | Placeholder |
-| `/api/admin/metrics` | Admin metrics endpoint | Implemented |
-| `/api/admin/disputes` | Admin dispute list endpoint | Implemented |
-| `/api/admin/disputes/[disputeId]` | Admin dispute detail endpoint | Implemented |
-| `/api/admin/disputes/[disputeId]/status` | Admin review-status update endpoint | Implemented |
-| `/api/admin/disputes/[disputeId]/note` | Admin moderation-note endpoint | Implemented |
-| `/api/admin/disputes/[disputeId]/resolve` | Admin dispute settlement endpoint | Implemented |
-| `/api/auth/stellar/challenge` | Challenge issue endpoint | Implemented |
-| `/api/auth/stellar/verify` | Signature verify and session issue endpoint | Implemented |
+| Route                                     | Purpose                                        | Current status |
+| ----------------------------------------- | ---------------------------------------------- | -------------- |
+| `/`                                       | Main landing page                              | Implemented    |
+| `/home`                                   | Alternate landing route                        | Implemented    |
+| `/marketplace`                            | Main marketplace workflow                      | Implemented    |
+| `/jobs`                                   | Job browsing page                              | Implemented    |
+| `/marketplace/jobs/[jobId]`               | Job detail and execution flow                  | Implemented    |
+| `/post-job`                               | Standalone job posting page                    | Implemented    |
+| `/dashboard`                              | Client/freelancer dashboard                    | Implemented    |
+| `/freelancers/[walletAddress]`            | Public freelancer profile                      | Implemented    |
+| `/clients/[walletAddress]`                | Public client trust profile                    | Implemented    |
+| `/proof/[escrowId]`                       | Public escrow proof page                       | Implemented    |
+| `/disputes`                               | Wallet-scoped dispute list                     | Implemented    |
+| `/disputes/[disputeId]`                   | Dispute detail timeline and response flow      | Implemented    |
+| `/work-agreements/[agreementId]/review`   | Freelancer agreement review/accept/reject flow | Implemented    |
+| `/admin`                                  | Admin operations dashboard                     | Implemented    |
+| `/admin/disputes`                         | Admin dispute console                          | Implemented    |
+| `/admin/disputes/[disputeId]`             | Admin dispute detail and settlement actions    | Implemented    |
+| `/talent`                                 | Planned talent directory preview               | Placeholder    |
+| `/api/admin/metrics`                      | Admin metrics endpoint                         | Implemented    |
+| `/api/admin/disputes`                     | Admin dispute list endpoint                    | Implemented    |
+| `/api/admin/disputes/[disputeId]`         | Admin dispute detail endpoint                  | Implemented    |
+| `/api/admin/disputes/[disputeId]/status`  | Admin review-status update endpoint            | Implemented    |
+| `/api/admin/disputes/[disputeId]/note`    | Admin moderation-note endpoint                 | Implemented    |
+| `/api/admin/disputes/[disputeId]/resolve` | Admin dispute settlement endpoint              | Implemented    |
+| `/api/auth/stellar/challenge`             | Challenge issue endpoint                       | Implemented    |
+| `/api/auth/stellar/verify`                | Signature verify and session issue endpoint    | Implemented    |
 
 ### 5.2 Landing, Layout, and SEO
 
@@ -942,6 +947,8 @@ Implemented functionality:
 - Work agreement setup, generation/upload paths, review, acceptance/rejection, and amendment flow surfaces.
 - Work proof submission UX for draft, preview, revision-aware updates, and on-chain anchor state transitions.
 - Parent-scoped chat threads (job/escrow) with message attachments and system event context.
+- Dedicated `/messages` route with General direct/group chats, Clients work conversations, search, group management, replies, deletion, and pagination.
+- Lower-right Messages shortcut and sidebar navigation.
 - Protected attachment previews with watermark overlays, deterrent logging, and role-aware download restrictions.
 - Deadline notification panel in dashboard with unread counts and reminder visibility.
 - Cancellation request/respond/execute flows with status badges and timeline panels.
@@ -950,7 +957,7 @@ Implemented functionality:
 
 Current scope note:
 
-- Most collaboration and operations UIs are embedded in marketplace/job-detail/dashboard/admin flows rather than exposed as separate top-level navigation routes.
+- Work collaboration and operations UIs remain embedded in marketplace/job-detail/dashboard/admin flows; social and work conversations also have the dedicated `/messages` route.
 
 ## 6. Shared Packages and Internal Infrastructure
 

@@ -349,12 +349,6 @@ export const sendMessage = mutation({
     const viewer = await requireSessionParticipant(ctx, args.sessionToken);
     const conversation = await getConversationOrThrow(ctx, args.conversationId);
     const sender = assertCanSendMessage(conversation, viewer.walletAddress);
-    if (
-      (conversation.parentType === "direct" || conversation.parentType === "group") &&
-      args.attachmentIds.length > 0
-    ) {
-      throw new BadRequestError("Social conversations support text messages only.");
-    }
     const body = validateMessagePayload({
       body: args.body,
       attachmentIds: args.attachmentIds,

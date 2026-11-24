@@ -488,8 +488,8 @@ Implemented functionality:
 - Parent-scoped work threads for job, milestone, escrow, dispute, and submission contexts, plus social direct and group conversations.
 - Verified signed social-session checks for every conversation read/write; caller-supplied wallet values do not establish chat identity.
 - Indexed participant membership for social conversation lists, group membership changes, ownership transfer, leaving, unread state, and preview data.
-- Real-time text messages, replies, own-message deletion, and paginated history. Social direct/group conversations reject attachments.
-- Attachment-aware work chat messages; attachment read and access-log endpoints verify the signed session and current conversation membership.
+- Real-time messages with file, image, and video attachments, replies, own-message deletion, and paginated history.
+- Work and social chat attachment reads and access-log endpoints verify the signed session and current conversation membership.
 - System/event messages for lifecycle events (proof, deadlines, disputes, cancellations, agreements).
 - Conversation preview and unread indicators across the `/messages` General and Clients tabs.
 

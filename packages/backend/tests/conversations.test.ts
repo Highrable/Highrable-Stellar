@@ -106,6 +106,102 @@ describe("verified messaging sessions", () => {
     ).rejects.toThrow();
   });
 
+  it("accepts photo and video uploads only from a verified session and exposes them to current members", async () => {
+    const f = await fixture();
+    const conversationId = await f.t.mutation(api.conversations.startDirectConversation, {
+      sessionToken: f.ada.token,
+      otherUserId: f.ben.userId,
+    });
+
+    await expect(
+      f.t.mutation(api.attachments.generateUploadUrl, {
+        walletAddress: f.ada.address,
+        name: "photo.png",
+        size: 5,
+        mimeType: "image/png",
+        type: "image",
+        context: "chat",
+      }),
+    ).rejects.toThrow("verified Highrable session");
+    await expect(
+      f.t.mutation(api.attachments.generateUploadUrl, {
+        walletAddress: f.ben.address,
+        sessionToken: f.ada.token,
+        name: "photo.png",
+        size: 5,
+        mimeType: "image/png",
+        type: "image",
+        context: "chat",
+      }),
+    ).rejects.toThrow("does not match this wallet");
+    const uploadUrl = await f.t.mutation(api.attachments.generateUploadUrl, {
+      walletAddress: f.ada.address,
+      sessionToken: f.ada.token,
+      name: "photo.png",
+      size: 5,
+      mimeType: "image/png",
+      type: "image",
+      context: "chat",
+    });
+    expect(uploadUrl).toContain("/api/storage/upload");
+
+    const [photoStorageId, videoStorageId] = await f.t.run(async (ctx) =>
+      Promise.all([
+        ctx.storage.store(new Blob(["photo"], { type: "image/png" })),
+        ctx.storage.store(new Blob(["video"], { type: "video/mp4" })),
+      ]),
+    );
+    const photoId = await f.t.mutation(api.attachments.saveUploadedAttachment, {
+      storageId: photoStorageId,
+      uploadedByWallet: f.ada.address,
+      ownerRole: "client",
+      name: "photo.png",
+      size: 5,
+      mimeType: "image/png",
+      type: "image",
+      context: "chat",
+      parentType: "unknown",
+      visibility: "private",
+      sessionToken: f.ada.token,
+    });
+    const videoId = await f.t.mutation(api.attachments.saveUploadedAttachment, {
+      storageId: videoStorageId,
+      uploadedByWallet: f.ada.address,
+      ownerRole: "client",
+      name: "clip.mp4",
+      size: 5,
+      mimeType: "video/mp4",
+      type: "video",
+      context: "chat",
+      parentType: "unknown",
+      visibility: "private",
+      sessionToken: f.ada.token,
+    });
+    const messageId = await f.t.mutation(api.conversations.sendMessage, {
+      conversationId,
+      sessionToken: f.ada.token,
+      body: "",
+      attachmentIds: [photoId, videoId],
+    });
+
+    const messages = await f.t.query(api.conversations.getMessagesForConversation, {
+      conversationId,
+      sessionToken: f.ben.token,
+    });
+    expect(messages[0]?._id).toBe(messageId);
+    expect(messages[0]?.attachments.map(({ name, type }) => ({ name, type }))).toEqual([
+      { name: "photo.png", type: "image" },
+      { name: "clip.mp4", type: "video" },
+    ]);
+    await expect(
+      f.t.query(api.attachments.getById, {
+        attachmentId: photoId,
+        viewerWallet: f.cara.address,
+        sessionToken: f.cara.token,
+      }),
+    ).rejects.toThrow();
+  });
+
   it("supports replies, own-message deletion, unread state, and paginated history for wallet and passkey sessions", async () => {
     const f = await fixture();
     const conversationId = await f.t.mutation(api.conversations.startDirectConversation, {

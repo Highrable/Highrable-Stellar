@@ -21,6 +21,25 @@ vi.mock("@/features/newsfeed/session", () => ({
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => ({ walletAddress: mocks.wallet }),
 }));
+vi.mock("@/features/attachments/components", () => ({
+  AttachmentFileIcon: () => null,
+  AttachmentPreviewCard: () => null,
+  AttachmentTypeBadge: ({ type }: { type: string }) => <span>{type}</span>,
+  AttachmentUploader: ({
+    onChange,
+  }: {
+    onChange: (value: Array<{ id: string; name: string; type: string; status: "ready" }>) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange([{ id: "attachment-photo", name: "photo.png", type: "image", status: "ready" }])
+      }
+    >
+      Add sample photo
+    </button>
+  ),
+}));
 vi.mock("convex/react", () => ({
   useQuery: (_reference: unknown, args: unknown) => {
     if (args !== "skip" && typeof args === "object" && args !== null && "conversationId" in args) {
@@ -99,4 +118,36 @@ it("finds a registered person and opens a direct conversation", async () => {
     sessionToken: "verified-session",
     otherUserId: "user-ben",
   });
+});
+
+it("sends uploaded media IDs with a message from the conversation composer", async () => {
+  mocks.conversations = [
+    {
+      _id: "conversation-1",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      ],
+      unread: false,
+      status: "active",
+    },
+  ];
+  render(<MessagesPage />);
+  fireEvent.click(screen.getByRole("button", { name: /Ben Designer/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Attach files or media" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add sample photo" }));
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+  await waitFor(() =>
+    expect(mocks.mutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        sessionToken: "verified-session",
+        body: "",
+        attachmentIds: ["attachment-photo"],
+      }),
+    ),
+  );
 });

@@ -1,6 +1,13 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import {
+  AttachmentFileIcon,
+  AttachmentPreviewCard,
+  AttachmentTypeBadge,
+  AttachmentUploader,
+} from "@/features/attachments/components";
+import { formatAttachmentSize } from "@/features/attachments/lib";
 import { getReadableChatError } from "@/features/chat/lib/errors";
 import { SocialSession, useSocialSession } from "@/features/newsfeed/session";
 import { api, type TConvexId } from "@repo/convex-client";
@@ -8,9 +15,24 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import { ArrowLeft, Check, Loader2, MessageCircle, Plus, Send, Users, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Loader2,
+  MessageCircle,
+  Paperclip,
+  Plus,
+  Send,
+  Users,
+  X,
+} from "lucide-react";
 import { Component, useEffect, useMemo, useState } from "react";
 
+import type {
+  TAttachmentProtectionSummary,
+  TAttachmentType,
+  TDraftAttachment,
+} from "@/features/attachments/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 type TConversation = TConvexDoc<"conversations"> & {
@@ -18,9 +40,15 @@ type TConversation = TConvexDoc<"conversations"> & {
   participantProfiles: Array<{ walletAddress: string; displayName: string; avatarUrl?: string }>;
 };
 type TMessage = TConvexDoc<"messages"> & {
-  attachments: Array<TConvexDoc<"attachments"> & { url?: string | null }>;
+  attachments: Array<
+    TConvexDoc<"attachments"> & {
+      url?: string | null;
+      protection?: TAttachmentProtectionSummary;
+    }
+  >;
   senderProfile?: { walletAddress: string; displayName: string; avatarUrl?: string } | null;
 };
+type TMessageAttachment = TMessage["attachments"][number];
 type TPerson = { userId: TConvexId<"users">; name: string; headline?: string; avatarUrl?: string };
 
 class MessagesErrorBoundary extends Component<
@@ -61,6 +89,77 @@ class MessagesErrorBoundary extends Component<
 
 function shortWallet(wallet: string) {
   return `${wallet.slice(0, 5)}…${wallet.slice(-4)}`;
+}
+
+function MessageAttachment({ attachment }: { attachment: TMessageAttachment }) {
+  const href = attachment.externalUrl ?? attachment.url ?? undefined;
+
+  if (
+    attachment.protection?.isProtected ||
+    (attachment.type !== "image" && attachment.type !== "video")
+  ) {
+    return <AttachmentPreviewCard attachment={attachment} readOnly />;
+  }
+
+  if (attachment.type === "image" && attachment.url) {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className="block overflow-hidden rounded-md border bg-background"
+      >
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          loading="lazy"
+          className="max-h-72 w-full bg-muted/40 object-contain"
+        />
+        <span className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
+          <span className="truncate text-xs font-medium">{attachment.name}</span>
+          <AttachmentTypeBadge type={attachment.type as TAttachmentType} />
+        </span>
+      </a>
+    );
+  }
+
+  if (attachment.type === "video" && attachment.url) {
+    return (
+      <figure className="overflow-hidden rounded-md border bg-background">
+        {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- Chat uploads do not collect caption tracks yet. */}
+        <video
+          controls
+          preload="metadata"
+          className="max-h-72 w-full bg-black"
+          aria-label={attachment.name}
+        >
+          <source src={attachment.url} type={attachment.mimeType ?? undefined} />
+        </video>
+        <figcaption className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
+          <span className="truncate text-xs font-medium">{attachment.name}</span>
+          <AttachmentTypeBadge type={attachment.type as TAttachmentType} />
+        </figcaption>
+      </figure>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target={href ? "_blank" : undefined}
+      rel={href ? "noreferrer" : undefined}
+      className="flex min-w-48 items-center gap-2 rounded-md border bg-background px-3 py-2 hover:border-primary/50"
+    >
+      <AttachmentFileIcon type={attachment.type as TAttachmentType} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium">{attachment.name}</span>
+        <span className="block truncate text-[0.68rem] text-muted-foreground">
+          {[formatAttachmentSize(attachment.size), attachment.mimeType].filter(Boolean).join(" · ")}
+        </span>
+      </span>
+      <AttachmentTypeBadge type={attachment.type as TAttachmentType} />
+    </a>
+  );
 }
 
 function conversationLabel(conversation: TConversation, wallet: string) {
@@ -427,9 +526,21 @@ function ConversationPane({
   const sendMessage = useMutation(api.conversations.sendMessage);
   const deleteMessage = useMutation(api.conversations.softDeleteMessage);
   const [body, setBody] = useState("");
+  const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
+  const [showAttachments, setShowAttachments] = useState(false);
   const [replyTo, setReplyTo] = useState<TMessage | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const readyAttachmentIds = useMemo(
+    () =>
+      attachments
+        .filter((attachment) => attachment.status === "ready")
+        .map((attachment) => attachment.id as TConvexId<"attachments">),
+    [attachments],
+  );
+  const hasUploadingAttachments = attachments.some(
+    (attachment) => attachment.status === "uploading",
+  );
   const { results, status, loadMore } = usePaginatedQuery(
     api.conversations.getMessagesPage,
     token ? { conversationId: conversation._id, sessionToken: token } : "skip",
@@ -454,18 +565,20 @@ function ConversationPane({
   }, [conversation._id, conversation.lastMessageId, markRead, token]);
 
   const submit = async () => {
-    if (!body.trim()) return;
+    if (!body.trim() && readyAttachmentIds.length === 0) return;
     setSending(true);
     setError("");
     try {
       await sendMessage({
         conversationId: conversation._id,
         sessionToken: token,
-        body,
-        attachmentIds: [],
+        body: body.trim(),
+        attachmentIds: readyAttachmentIds,
         ...(replyTo ? { replyToMessageId: replyTo._id } : {}),
       });
       setBody("");
+      setAttachments([]);
+      setShowAttachments(false);
       setReplyTo(null);
     } catch (caught) {
       setError(getReadableChatError(caught, "Message could not be sent."));
@@ -567,6 +680,13 @@ function ConversationPane({
                 <p className="text-sm break-words whitespace-pre-wrap">
                   {message.status === "deleted" ? <i>Message deleted.</i> : message.body}
                 </p>
+                {message.status !== "deleted" && message.attachments.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    {message.attachments.map((attachment) => (
+                      <MessageAttachment key={attachment._id} attachment={attachment} />
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mt-2 flex items-center justify-between gap-4 text-[0.68rem] text-muted-foreground">
                   <time dateTime={new Date(message.createdAt).toISOString()}>
                     {new Date(message.createdAt).toLocaleString()}
@@ -617,14 +737,35 @@ function ConversationPane({
             </button>
           </div>
         ) : null}
+        {showAttachments ? (
+          <div className="mb-3 max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-2">
+            <AttachmentUploader
+              value={attachments}
+              onChange={setAttachments}
+              disabled={sending}
+              context="chat"
+            />
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={() => setShowAttachments((value) => !value)}
+            disabled={sending}
+            aria-label={showAttachments ? "Hide attachment uploader" : "Attach files or media"}
+            aria-expanded={showAttachments}
+          >
+            <Paperclip className="size-4" />
+          </Button>
           <Textarea
             value={body}
             onChange={(event) => setBody(event.target.value.slice(0, 4000))}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                void submit();
+                if (!hasUploadingAttachments) void submit();
               }
             }}
             rows={2}
@@ -637,7 +778,11 @@ function ConversationPane({
             type="button"
             size="icon"
             onClick={() => void submit()}
-            disabled={sending || !body.trim()}
+            disabled={
+              sending ||
+              hasUploadingAttachments ||
+              (!body.trim() && readyAttachmentIds.length === 0)
+            }
             aria-label="Send message"
           >
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -649,7 +794,7 @@ function ConversationPane({
               {error}
             </p>
           ) : (
-            <span>Text only</span>
+            <span>Attach files, photos, or videos</span>
           )}
           <span>{body.length}/4000</span>
         </div>

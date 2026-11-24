@@ -758,7 +758,7 @@ export function AttachmentUploader({
             label="Attachment storage notice"
             message={
               context === "chat"
-                ? "Work chat files are stored off-chain and linked to messages after sending."
+                ? "Chat files are stored off-chain and linked to messages after sending."
                 : context === "dispute"
                   ? "Evidence is stored off-chain and linked to this dispute after submission."
                   : "Attachments are stored off-chain and linked to the job after the post is created."
@@ -768,7 +768,7 @@ export function AttachmentUploader({
             label="Attachment visibility notice"
             message={
               context === "chat"
-                ? "Work chat files are visible to the client and assigned freelancer on that work."
+                ? "Chat files are visible to current conversation members after sending."
                 : context === "dispute"
                   ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
                   : "Job attachments become visible on the public job detail page after they are linked."

@@ -40,7 +40,7 @@ type TWalletContextValue = {
   authSession: TAuthSession | null;
   isConnected: boolean;
   address: string | null;
-  connectWallet: () => Promise<string | null>;
+  connectWallet: (onNotice?: (message: string) => void) => Promise<string | null>;
   disconnectWallet: () => Promise<void>;
   checkFundingStatus: (address?: string) => Promise<boolean | null>;
   fundTestnetAccount: () => Promise<void>;
@@ -132,6 +132,7 @@ export function WalletContextProvider({
   const [authSession, setAuthSession] = useState<TAuthSession | null>(null);
   const hasAttemptedWalletRestoreRef = useRef(false);
   const activeWalletAddressRef = useRef<string | null>(DEFAULT_STATE.walletAddress);
+  const previousWalletAddressRef = useRef<string | null>(DEFAULT_STATE.walletAddress);
   const [wallet] = useState<IWalletClient>(() => walletClient ?? new LazyStellarWalletClient());
   const [auth] = useState<IWalletAuthService>(() => walletAuthService ?? new StellarAuthService());
   const [friendbot] = useState<IWalletFriendbotService>(
@@ -140,6 +141,56 @@ export function WalletContextProvider({
   const [fundingService] = useState<IWalletFundingService>(
     () => walletFundingService ?? new HorizonAccountService(),
   );
+
+  const broadcastAuthEvent = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem("highrable-auth-event", String(Date.now()));
+    } catch {
+      // Cross-tab invalidation is best effort when browser storage is unavailable.
+    }
+  }, []);
+
+  const refreshPersistedSession = useCallback(async () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/session", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as
+        | (Partial<TAuthSession> & {
+            authenticated?: boolean;
+            address?: string;
+            status?: string;
+            onboardingEligible?: boolean;
+          })
+        | null;
+      if (!response.ok || !data?.authenticated || !data.address || !data.expiresAt) {
+        setAuthSession(null);
+        return;
+      }
+      if (activeWalletAddressRef.current && activeWalletAddressRef.current !== data.address) {
+        setAuthSession(null);
+        return;
+      }
+      setAuthSession({
+        address: data.address,
+        walletType: data.walletType!,
+        authMethod: data.authMethod!,
+        expiresAt: data.expiresAt,
+        profile: data.profile ?? null,
+      });
+    } catch {
+      // A transient session check must not expose protected UI or restore stale data.
+      setAuthSession(null);
+    }
+  }, []);
 
   useEffect(() => {
     activeWalletAddressRef.current = walletState.walletAddress;
@@ -391,55 +442,63 @@ export function WalletContextProvider({
     walletState.walletAddress,
   ]);
 
-  const connectWallet = useCallback(async (): Promise<string | null> => {
-    setWalletState((currentValue) => ({
-      ...currentValue,
-      status: "connecting",
-      isConnecting: true,
-      friendbotError: null,
-      friendbotSuccess: false,
-      error: null,
-    }));
-
-    try {
-      const account: TWalletAccount = await wallet.connect();
-      setConnectedWalletState(account, {
-        isCheckingFunding: account.isTestnet,
-        isFundingWithFriendbot: false,
-        isFunded: null,
+  const connectWallet = useCallback(
+    async (onNotice?: (message: string) => void): Promise<string | null> => {
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        status: "connecting",
+        isConnecting: true,
         friendbotError: null,
         friendbotSuccess: false,
-        lastFriendbotResponse: null,
-        lastTxStatus: "idle",
-      });
+        error: null,
+      }));
 
-      if (account.isTestnet) {
-        await checkFundingStatus(account.address);
-      } else {
-        setWalletState((currentValue) => ({
-          ...currentValue,
-          isCheckingFunding: false,
+      try {
+        const account: TWalletAccount = await wallet.connect(onNotice);
+        setConnectedWalletState(account, {
+          isCheckingFunding: account.isTestnet,
+          isFundingWithFriendbot: false,
           isFunded: null,
-        }));
+          friendbotError: null,
+          friendbotSuccess: false,
+          lastFriendbotResponse: null,
+          lastTxStatus: "idle",
+        });
+
+        if (account.isTestnet) {
+          await checkFundingStatus(account.address);
+        } else {
+          setWalletState((currentValue) => ({
+            ...currentValue,
+            isCheckingFunding: false,
+            isFunded: null,
+          }));
+        }
+        return account.address;
+      } catch (error) {
+        setWalletState({
+          ...DEFAULT_STATE,
+          status: "error",
+          error: toErrorMessage(error),
+        });
+        return null;
       }
-      return account.address;
-    } catch (error) {
-      setWalletState({
-        ...DEFAULT_STATE,
-        status: "error",
-        error: toErrorMessage(error),
-      });
-      return null;
-    }
-  }, [checkFundingStatus, setConnectedWalletState, wallet]);
+    },
+    [checkFundingStatus, setConnectedWalletState, wallet],
+  );
 
   const disconnectWallet = useCallback(async () => {
     setWalletState((currentValue) => ({ ...currentValue, status: "disconnecting" }));
 
     try {
       await wallet.disconnect();
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      }).catch(() => undefined);
       setWalletState({ ...DEFAULT_STATE });
       setAuthSession(null);
+      broadcastAuthEvent();
     } catch (error) {
       setWalletState((currentValue) => ({
         ...currentValue,
@@ -447,7 +506,7 @@ export function WalletContextProvider({
         error: toErrorMessage(error),
       }));
     }
-  }, [wallet]);
+  }, [broadcastAuthEvent, wallet]);
 
   const refreshWalletState = useCallback(async () => {
     if (!walletState.walletAddress) {
@@ -560,19 +619,63 @@ export function WalletContextProvider({
 
   const authenticateWallet = useCallback(async () => {
     try {
-      await ensureWalletSession();
+      const session = await ensureWalletSession();
+      setAuthSession(session);
+      await refreshPersistedSession();
       setWalletState((currentValue) => ({ ...currentValue, error: null }));
     } catch (error) {
       setWalletState((currentValue) => ({
         ...currentValue,
         error: toErrorMessage(error),
       }));
+      throw error;
     }
-  }, [ensureWalletSession]);
+  }, [ensureWalletSession, refreshPersistedSession]);
 
-  const logoutWallet = useCallback(() => {
+  const logoutWallet = useCallback(async () => {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    }).catch(() => undefined);
     setAuthSession(null);
-  }, []);
+    broadcastAuthEvent();
+  }, [broadcastAuthEvent]);
+
+  useEffect(() => {
+    void refreshPersistedSession();
+    const handleFocus = () => void refreshPersistedSession();
+    const handleSessionRefresh = () => void refreshPersistedSession();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "highrable-auth-event") {
+        setAuthSession(null);
+        void refreshPersistedSession();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("highrable-auth-session-refresh", handleSessionRefresh);
+    window.addEventListener("storage", handleStorage);
+    const interval = window.setInterval(() => void refreshPersistedSession(), 30_000);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("highrable-auth-session-refresh", handleSessionRefresh);
+      window.removeEventListener("storage", handleStorage);
+      window.clearInterval(interval);
+    };
+  }, [refreshPersistedSession]);
+
+  useEffect(() => {
+    const previousAddress = previousWalletAddressRef.current;
+    const nextAddress = walletState.walletAddress;
+    if (previousAddress && nextAddress && previousAddress !== nextAddress) {
+      void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(
+        () => undefined,
+      );
+      setAuthSession(null);
+      broadcastAuthEvent();
+    }
+    previousWalletAddressRef.current = nextAddress;
+    activeWalletAddressRef.current = nextAddress;
+  }, [broadcastAuthEvent, walletState.walletAddress]);
 
   useEffect(() => {
     if (hasAttemptedWalletRestoreRef.current) {

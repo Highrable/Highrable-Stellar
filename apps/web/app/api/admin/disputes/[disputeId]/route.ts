@@ -8,7 +8,12 @@ import type { TConvexId } from "@repo/convex-client/server";
 import type { NextRequest } from "next/server";
 
 const ParamsSchema = z.object({
-  disputeId: z.string().min(1),
+  disputeId: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z0-9_-]+$/),
 });
 
 export const runtime = "nodejs";
@@ -18,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ disputeId: string }> },
 ) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const client = createAdminConvexClient();
     const params = ParamsSchema.parse(await context.params);
 

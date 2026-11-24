@@ -1,7 +1,14 @@
 import { defineSchema } from "convex/server";
 
+import {
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
+} from "./admin/schema";
 import applications from "./applications/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
+import { authChallenges, authRateLimits, authSessions } from "./auth/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
 import { conversationReads, conversations, messages } from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
@@ -9,11 +16,25 @@ import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
+import {
+  newsfeedCleanupCursors,
+  newsfeedUploads,
+  newsfeedMediaGrants,
+  newsfeedComments,
+  newsfeedModerationActions,
+  newsfeedPostLikes,
+  newsfeedPosts,
+  newsfeedRateLimitWindows,
+  newsfeedReports,
+  newsfeedRequestDeduplication,
+} from "./newsfeed/schema";
+import registryRegistrations from "./registry/schema";
 import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
+import { avatarUploadIntents } from "./users/schema";
 import waitlistEntries from "./waitlist/schema";
 import workAgreements, {
   workAgreementEvents,
@@ -22,6 +43,10 @@ import workAgreements, {
 import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
+  authChallenges,
+  authSessions,
+  authRateLimits,
+  avatarUploadIntents,
   attachments,
   attachmentAccessLogs,
   cancellationRequests,
@@ -36,6 +61,7 @@ export default defineSchema({
   escrows,
   jobReports,
   reputationRecords,
+  registryRegistrations,
   revisionRequests,
   transactions,
   waitlistEntries,
@@ -43,9 +69,23 @@ export default defineSchema({
   workAgreementEvents,
   workAgreementVersions,
   workSubmissions,
+  newsfeedPosts,
+  newsfeedCleanupCursors,
+  newsfeedUploads,
+  newsfeedMediaGrants,
+  newsfeedComments,
+  newsfeedPostLikes,
+  newsfeedReports,
+  newsfeedModerationActions,
+  newsfeedRequestDeduplication,
+  newsfeedRateLimitWindows,
   deadlineReminders,
   notifications,
   deadlineAuditEvents,
   disputes,
   disputeEvents,
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
 });

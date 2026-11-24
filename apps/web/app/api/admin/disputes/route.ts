@@ -20,6 +20,7 @@ const SearchSchema = z.object({
     ])
     .optional(),
   onChainStatus: z.enum(["not_marked", "marking", "marked", "mark_failed"]).optional(),
+  assignmentFilter: z.enum(["unassigned", "mine", "all"]).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
@@ -27,7 +28,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const client = createAdminConvexClient();
     const parsed = SearchSchema.parse(
       Object.fromEntries(new URL(request.url).searchParams.entries()),
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       adminApiSecret: adminContext.adminApiSecret,
       ...(parsed.status ? { status: parsed.status } : {}),
       ...(parsed.onChainStatus ? { onChainStatus: parsed.onChainStatus } : {}),
+      ...(parsed.assignmentFilter ? { assignmentFilter: parsed.assignmentFilter } : {}),
       ...(parsed.limit !== undefined ? { limit: parsed.limit } : {}),
     });
 

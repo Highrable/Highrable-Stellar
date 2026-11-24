@@ -1,9 +1,11 @@
 "use client";
 
 import { parseWalletAddressParam } from "@/core/seo";
+import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { ProductPageHero } from "@/features/common";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { ModeSwitchCard } from "@/features/mode";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
 import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
@@ -27,6 +29,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
+  const { authSession } = useWallet();
   const profileData = useQuery(
     api.profiles.getFreelancerProfile,
     decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
@@ -45,20 +48,12 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
-  const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
+  const canEdit =
+    isSameWallet(walletIdentity.walletAddress, profile.walletAddress) &&
+    authSession?.address === profile.walletAddress;
 
   return (
     <div className="space-y-8">
-      <ProductPageHero
-        label="Freelancer Profile"
-        title={
-          <>
-            Wallet-based <span className="hr-v2-gradient-text">Work History</span>
-          </>
-        }
-        description="Completed work and reviews are verified through real paid Stellar escrow transactions — harder to fake than standard marketplace ratings."
-      />
-
       <FreelancerProfileHeader
         profile={profile}
         stats={stats}
@@ -66,11 +61,18 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         onEdit={() => setIsEditing(true)}
       />
 
+      {canEdit ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WalletStatusCard />
+          <ModeSwitchCard />
+        </div>
+      ) : null}
+
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
-              Edit profile
+              Edit Profile
             </ResponsiveDialogTitle>
             <ResponsiveDialogDescription className="hr-text-secondary text-sm">
               Keep these fields aligned with your public onboarding identity.
@@ -87,12 +89,6 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
           </ResponsiveDialogBody>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      {stats.completedContracts === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-muted/20 p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
-          This freelancer does not have escrow-verified paid work yet.
-        </p>
-      ) : null}
 
       <FreelancerReputationSection
         stats={stats}

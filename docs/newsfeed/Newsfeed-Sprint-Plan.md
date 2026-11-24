@@ -56,13 +56,13 @@ Agreed product behavior:
 
 Each sprint allocates approximately eight development days and two days for testing, fixes, and documentation.
 
-| Sprint | Stories and deliverables | Acceptance criteria |
-| --- | --- | --- |
-| **1 — Verified identity and access** | **NF-01:** External-wallet and passkey session support. **NF-02:** Session status, expiration, logout, and wallet-switch handling. **NF-03:** Protect profile-name updates used by the feed. **NF-04:** Protected route and first-tab navigation behind a release flag. | Both login methods resolve to the correct profile. Forged wallet arguments and expired sessions fail. Guests receive no feed data. Disconnect clears cached feed content. Tab is first in both desktop/mobile mode menus only for eligible signed-in users. |
-| **2 — Text community feed** | **NF-05:** Post composer, list, detail, edit/delete. **NF-06:** Names, avatars, immutable mode badges. **NF-07:** Likes and paginated comments. **NF-08:** Reports and basic moderator queue with hide/restore actions and audit records. | A freelancer post appears to clients and vice versa. Mode switching does not change existing badges. Only authors edit their content. Duplicate retries do not create duplicate posts or likes. Hidden/deleted posts disappear from lists and detail access. **Text beta release.** |
-| **3 — Photos and camera capture** | **NF-09:** Validated photo upload and previews. **NF-10:** Native photo capture and upload fallback. **NF-11:** Protected media reads, upload ownership, orphan cleanup, and accessibility descriptions. | Four-photo and size limits enforced server-side. Users cannot attach another user’s upload. Guest media requests fail. Cancelled uploads are cleaned up. Failed uploads preserve draft text. **Photo release.** |
-| **4 — Bounded video** | **NF-12:** Video upload, native capture, preview, duration/format validation. **NF-13:** Protected playback with seeking/range support. **NF-14:** Failure recovery and cross-browser verification. | Supported videos play and seek on target browsers. Oversized, too-long, or incompatible files receive clear errors. Media remains inaccessible after post removal. Camera cancellation returns safely to the composer. **Video release.** |
-| **5 — Launch hardening and convenience** | **NF-15:** Saved posts and authenticated copy-link sharing. **NF-16:** Per-user posting/comment/upload rate limits and quotas. **NF-17:** Performance, accessibility, regression checks, operational monitoring, and release documentation. | Saved posts remain private to the saving user. Shared links require login. Load targets pass. Moderators can review reports and remove content. **General release.** |
+| Sprint                                   | Stories and deliverables                                                                                                                                                                                                                                                | Acceptance criteria                                                                                                                                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 — Verified identity and access**     | **NF-01:** External-wallet and passkey session support. **NF-02:** Session status, expiration, logout, and wallet-switch handling. **NF-03:** Protect profile-name updates used by the feed. **NF-04:** Protected route and first-tab navigation behind a release flag. | Both login methods resolve to the correct profile. Forged wallet arguments and expired sessions fail. Guests receive no feed data. Disconnect clears cached feed content. Tab is first in both desktop/mobile mode menus only for eligible signed-in users.                         |
+| **2 — Text community feed**              | **NF-05:** Post composer, list, detail, edit/delete. **NF-06:** Names, avatars, immutable mode badges. **NF-07:** Likes and paginated comments. **NF-08:** Reports and basic moderator queue with hide/restore actions and audit records.                               | A freelancer post appears to clients and vice versa. Mode switching does not change existing badges. Only authors edit their content. Duplicate retries do not create duplicate posts or likes. Hidden/deleted posts disappear from lists and detail access. **Text beta release.** |
+| **3 — Photos and camera capture**        | **NF-09:** Validated photo upload and previews. **NF-10:** Native photo capture and upload fallback. **NF-11:** Protected media reads, upload ownership, orphan cleanup, and accessibility descriptions.                                                                | Four-photo and size limits enforced server-side. Users cannot attach another user’s upload. Guest media requests fail. Cancelled uploads are cleaned up. Failed uploads preserve draft text. **Photo release.**                                                                     |
+| **4 — Bounded video**                    | **NF-12:** Video upload, native capture, preview, duration/format validation. **NF-13:** Protected playback with seeking/range support. **NF-14:** Failure recovery and cross-browser verification.                                                                     | Supported videos play and seek on target browsers. Oversized, too-long, or incompatible files receive clear errors. Media remains inaccessible after post removal. Camera cancellation returns safely to the composer. **Video release.**                                           |
+| **5 — Launch hardening and convenience** | **NF-15:** Saved posts and authenticated copy-link sharing. **NF-16:** Per-user posting/comment/upload rate limits and quotas. **NF-17:** Performance, accessibility, regression checks, operational monitoring, and release documentation.                             | Saved posts remain private to the saving user. Shared links require login. Load targets pass. Moderators can review reports and remove content. **General release.**                                                                                                                |
 
 Basic rate limits must accompany each earlier release; Sprint 5 tunes them using beta evidence.
 
@@ -70,15 +70,15 @@ Defer ranked recommendations, follows, reactions beyond Like, nested replies, no
 
 ## Bottlenecks and Mitigations
 
-| Bottleneck | Repository evidence or risk | Planned response |
-| --- | --- | --- |
-| **Identity spoofing — launch blocker** | Profile mutations contain TODOs about trusting supplied wallet addresses; upload issuance also accepts wallet arguments. | Establish verified sessions and protect identity writes before publishing the feed. Audit shared endpoints for ways to bypass feed controls. |
+| Bottleneck                                 | Repository evidence or risk                                                                                                           | Planned response                                                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identity spoofing — launch blocker**     | Profile mutations contain TODOs about trusting supplied wallet addresses; upload issuance also accepts wallet arguments.              | Establish verified sessions and protect identity writes before publishing the feed. Audit shared endpoints for ways to bypass feed controls.                     |
 | **Passkey authentication — schedule risk** | Current wallet identity includes passkey accounts, while the inspected session verification flow verifies Stellar message signatures. | Implement verified passkey-to-account binding and challenge validation in Sprint 1. Persist single-use challenges; do not rely on process-local replay tracking. |
-| **Private media delivery** | Standard storage URLs are bearer links. Existing attachments lack a feed parent/access category. | Dedicated authenticated media path, ownership checks, private caching, and removal enforcement. Test download and video-range requests separately. |
-| **Video compatibility and bandwidth** | Native camera formats vary; unrestricted video increases processing and delivery costs. | Keep bounded formats and limits. Reject unsupported captures clearly. Defer transcoding and longer video. |
-| **Feed growth** | Unbounded reads, per-card profile queries, and loading every comment will increase latency. | Indexed pagination, bounded author hydration, stored aggregate counts, lazy media, and separately paginated comments. |
-| **Abuse and storage growth** | Posting and uploads create spam, moderation, and abandoned-file workloads. | Reports, moderator controls, per-user quotas, upload expiration, and scheduled cleanup from the relevant release. |
-| **Solo delivery capacity** | Authentication, media, UI, and QA share one owner. | Release incrementally; re-estimate after Sprint 1. Do not compress the security gate to preserve a date. |
+| **Private media delivery**                 | Standard storage URLs are bearer links. Existing attachments lack a feed parent/access category.                                      | Dedicated authenticated media path, ownership checks, private caching, and removal enforcement. Test download and video-range requests separately.               |
+| **Video compatibility and bandwidth**      | Native camera formats vary; unrestricted video increases processing and delivery costs.                                               | Keep bounded formats and limits. Reject unsupported captures clearly. Defer transcoding and longer video.                                                        |
+| **Feed growth**                            | Unbounded reads, per-card profile queries, and loading every comment will increase latency.                                           | Indexed pagination, bounded author hydration, stored aggregate counts, lazy media, and separately paginated comments.                                            |
+| **Abuse and storage growth**               | Posting and uploads create spam, moderation, and abandoned-file workloads.                                                            | Reports, moderator controls, per-user quotas, upload expiration, and scheduled cleanup from the relevant release.                                                |
+| **Solo delivery capacity**                 | Authentication, media, UI, and QA share one owner.                                                                                    | Release incrementally; re-estimate after Sprint 1. Do not compress the security gate to preserve a date.                                                         |
 
 ## Validation, Release, and Defaults
 
@@ -110,14 +110,14 @@ Sprint 5 is an additive hardening and convenience sprint. It does not change Ste
 
 Keep the existing flags and add two narrowly scoped convenience flags:
 
-| Flag | Default | Enabled behavior | Rollback |
-| --- | --- | --- | --- |
-| `NEWSFEED_ENABLED` | `false` | Enables the protected Newsfeed shell and server boundary. | Set to `false` to withdraw Newsfeed completely. |
-| `NEWSFEED_TEXT_ENABLED` | `false` | Enables feed, detail, comments, likes, reports, saves, and authenticated links when the parent flag is enabled. | Set to `false` to stop all Newsfeed text operations. |
-| `NEWSFEED_PHOTOS_ENABLED` | `false` | Enables photo reservations, transfer, protected reads, and photo UI. | Set to `false`; retain records and cleanup. |
-| `NEWSFEED_VIDEO_ENABLED` | `false` | Enables bounded video reservations, transfer, protected range reads, and video UI. | Set to `false`; retain records and cleanup. |
-| `NEWSFEED_SAVED_ENABLED` | `false` | Enables save/unsave controls and the authenticated saved-post list. | Set to `false`; hide controls/list and fail save writes closed. |
-| `NEWSFEED_SHARING_ENABLED` | `false` | Enables authenticated copy-link controls. | Set to `false`; hide controls. Existing links remain login-gated. |
+| Flag                       | Default | Enabled behavior                                                                                                | Rollback                                                          |
+| -------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `NEWSFEED_ENABLED`         | `false` | Enables the protected Newsfeed shell and server boundary.                                                       | Set to `false` to withdraw Newsfeed completely.                   |
+| `NEWSFEED_TEXT_ENABLED`    | `false` | Enables feed, detail, comments, likes, reports, saves, and authenticated links when the parent flag is enabled. | Set to `false` to stop all Newsfeed text operations.              |
+| `NEWSFEED_PHOTOS_ENABLED`  | `false` | Enables photo reservations, transfer, protected reads, and photo UI.                                            | Set to `false`; retain records and cleanup.                       |
+| `NEWSFEED_VIDEO_ENABLED`   | `false` | Enables bounded video reservations, transfer, protected range reads, and video UI.                              | Set to `false`; retain records and cleanup.                       |
+| `NEWSFEED_SAVED_ENABLED`   | `false` | Enables save/unsave controls and the authenticated saved-post list.                                             | Set to `false`; hide controls/list and fail save writes closed.   |
+| `NEWSFEED_SHARING_ENABLED` | `false` | Enables authenticated copy-link controls.                                                                       | Set to `false`; hide controls. Existing links remain login-gated. |
 
 The convenience flags are subordinate to `NEWSFEED_ENABLED` and `NEWSFEED_TEXT_ENABLED`. The Convex deployment and Next.js environment must agree before a flag is considered enabled. A flag change is a release-control action, not a schema rollback. Additive tables, counters, protected-media routes, and cleanup continue running after a rollback.
 
@@ -167,13 +167,13 @@ Share telemetry is privacy-safe: record only method (`web_share` or `clipboard`)
 
 Preserve these server-side per-user rolling one-minute limits:
 
-| Operation | Per minute | Daily launch quota | Counter event |
-| --- | ---: | ---: | --- |
-| Posts | 5 | 50 | Accepted post publication only |
-| Comments | 20 | 200 | Accepted comment creation only |
-| Likes | 60 | — | Accepted like/unlike mutation |
-| Reports | 10 | — | Accepted report creation; an idempotent open-report retry does not consume another slot |
-| Upload reservations | 10 | 40 | Accepted reservation; cancelled/expired reservations still count for the UTC day |
+| Operation           | Per minute | Daily launch quota | Counter event                                                                           |
+| ------------------- | ---------: | -----------------: | --------------------------------------------------------------------------------------- |
+| Posts               |          5 |                 50 | Accepted post publication only                                                          |
+| Comments            |         20 |                200 | Accepted comment creation only                                                          |
+| Likes               |         60 |                  — | Accepted like/unlike mutation                                                           |
+| Reports             |         10 |                  — | Accepted report creation; an idempotent open-report retry does not consume another slot |
+| Upload reservations |         10 |                 40 | Accepted reservation; cancelled/expired reservations still count for the UTC day        |
 
 Retain the eight-active-unattached-upload limit and the four-photo/one-video post limits. The post media invariant remains atomic: a post cannot contain both photos and video, and invalid media never consumes a publication quota because no write is committed.
 
@@ -237,15 +237,15 @@ The existing marketplace, onboarding, profile, wallet, authentication, and deplo
 
 Create a dashboard or retain documented log queries for these privacy-safe event families:
 
-| Signal | Required fields | Initial launch alert/target |
-| --- | --- | --- |
-| Feed latency and errors | route family, page type, duration, status class, page size, flag state | p95 API under 1 s; alert after 5 minutes above 1 s or 5xx above 2% |
-| Authentication failures | route family, failure class, status, flag state | alert on a sustained 2× baseline or any cross-account authorization failure |
-| Save/share failures | operation, method, outcome, error class, duration, flag state | alert above 5% for 10 minutes; no post IDs or URLs |
-| Rate-limit/quota responses | operation, scope, limit, retry duration, route family | alert on a 2× beta baseline or unexpected operations being limited |
-| Upload/playback failures | kind, phase, status/error class, duration, bytes/range class | alert above 5% for 10 minutes; preserve current upload/playback baselines |
-| Storage and cleanup | scanned/deleted records, bytes, oldest backlog age, cron outcome | alert above 80% storage or cleanup backlog older than 24 hours |
-| Moderation queue | open count, oldest age, action outcome | page the moderator owner when the oldest open report exceeds 24 hours |
+| Signal                     | Required fields                                                        | Initial launch alert/target                                                 |
+| -------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Feed latency and errors    | route family, page type, duration, status class, page size, flag state | p95 API under 1 s; alert after 5 minutes above 1 s or 5xx above 2%          |
+| Authentication failures    | route family, failure class, status, flag state                        | alert on a sustained 2× baseline or any cross-account authorization failure |
+| Save/share failures        | operation, method, outcome, error class, duration, flag state          | alert above 5% for 10 minutes; no post IDs or URLs                          |
+| Rate-limit/quota responses | operation, scope, limit, retry duration, route family                  | alert on a 2× beta baseline or unexpected operations being limited          |
+| Upload/playback failures   | kind, phase, status/error class, duration, bytes/range class           | alert above 5% for 10 minutes; preserve current upload/playback baselines   |
+| Storage and cleanup        | scanned/deleted records, bytes, oldest backlog age, cron outcome       | alert above 80% storage or cleanup backlog older than 24 hours              |
+| Moderation queue           | open count, oldest age, action outcome                                 | page the moderator owner when the oldest open report exceeds 24 hours       |
 
 Use event names such as `newsfeed_feed_read`, `newsfeed_auth_failure`, `newsfeed_save`, `newsfeed_share`, `newsfeed_limit_rejected`, `newsfeed_media_upload`, `newsfeed_media_read`, `newsfeed_cleanup`, and `newsfeed_moderation`. Fields are bounded enums, counts, durations, sizes, status classes, and flag/build identifiers. Hash or omit actor identifiers; never log post/comment text, media bytes, filenames, storage URLs, session credentials, wallet addresses, or secrets. The dashboard must separate synthetic acceptance traffic from real beta traffic.
 

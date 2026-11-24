@@ -101,7 +101,10 @@ describe("registry gated onboarding", () => {
     await t.mutation(saveProfileDraftRef, profileDraft(FIRST_WALLET, "new-user"));
 
     await expect(
-      t.mutation(completeOnboardingRef, { serviceSecret: SERVICE_SECRET, walletAddress: FIRST_WALLET }),
+      t.mutation(completeOnboardingRef, {
+        serviceSecret: SERVICE_SECRET,
+        walletAddress: FIRST_WALLET,
+      }),
     ).rejects.toThrow("Verify your on-chain wallet registration");
     const user = await t.run((ctx) =>
       ctx.db

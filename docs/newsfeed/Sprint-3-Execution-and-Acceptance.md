@@ -40,13 +40,13 @@ Shared attachment association, avatar finalization/profile validation, avatar UR
 
 ## Automated evidence
 
-| Check                                | Result                                                                                         |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Frontend suite                       | 48 files / 593 tests passed. After the final access-restoration fix, all six focused photo composer/display tests passed.                                |
-| Backend suite                        | 28 files / 556 tests passed, including 12 photo lifecycle/decoder tests.      |
-| Frontend/backend TypeScript          | Passed.                                                     |
-| Production `pnpm --filter web build` | Passed. Turbopack initially required a sandbox permission retry to start its local CSS worker. |
-| Lint                                 | Frontend/backend lint passed with no errors; existing frontend warnings remain. No warnings in the added photo files.    |
+| Check                                | Result                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Frontend suite                       | 48 files / 593 tests passed. After the final access-restoration fix, all six focused photo composer/display tests passed. |
+| Backend suite                        | 28 files / 556 tests passed, including 12 photo lifecycle/decoder tests.                                                  |
+| Frontend/backend TypeScript          | Passed.                                                                                                                   |
+| Production `pnpm --filter web build` | Passed. Turbopack initially required a sandbox permission retry to start its local CSS worker.                            |
+| Lint                                 | Frontend/backend lint passed with no errors; existing frontend warnings remain. No warnings in the added photo files.     |
 
 `packages/backend/tests/newsfeed/photos.test.ts` covers four-photo publication, ordered retry fingerprints, five/duplicate/description rejection, ownership, session revocation, service-secret rejection, replay, reservation limits, cancellation/finalization ordering, expiration, compensation, hide/restore/delete read behavior, flags, HTTP origin denial, validated HTTP upload/read and cross-domain orphan preservation. `photo-decoding.test.ts` covers supported formats, forged metadata independence, exact 10 MB, oversize/empty/malformed/truncated/unsupported images and excessive pixels. Existing text-feed tests remain green.
 
@@ -74,7 +74,6 @@ Rollback by disabling `NEWSFEED_PHOTOS_ENABLED` in Convex immediately and in the
 
 Days 1–2: lifecycle/auth/storage audit. Days 3–4: byte validation/finalization/cleanup. Days 5–6: composer/capture. Days 7–8: protected display/moderation/idempotency. Days 9–10: automated regression and device/deployed acceptance. Re-estimate if unresolved Sprint 2 access failures consume implementation time. The absent `docs/obsidian/` vault was not recreated.
 
-
 ## Follow-up acceptance attempt
 
 Local production-build checks were executed using Playwright-managed Chromium, Firefox and WebKit. All three engines rendered the Newsfeed sign-in gate without feed content. Request-context checks against the running server returned 401 for guests at posts/access/upload/media/moderation-media endpoints and 403 for foreign-Origin photo requests. Configuration returned the expected temporary process-only flags. See [machine-readable browser evidence](evidence/sprint-3-local-browser-access.json). These results cover the local guest boundary, not deployed authenticated behavior, physical Safari/iOS/Android capture or a screen-reader audit.
@@ -82,7 +81,6 @@ Local production-build checks were executed using Playwright-managed Chromium, F
 Two additional cryptographic acceptance tests passed in `apps/web/core/wallet/server/signature.test.ts`: real Ed25519 signatures in raw and Freighter-prefixed forms (hex/base64), plus rejection of wrong wallets, modified challenges, malformed addresses and malformed signatures. Lint passed for the added tests. These are signature-verifier checks, not wallet-extension or passkey login smoke tests.
 
 Environment discovery found a configured **development** Convex target. Read-only deployment inspection returned no newsfeed/auth service configuration; the local web environment also lacks `HIGHRABLE_AUTH_SERVICE_SECRET` and the photo settings. No deployment secret, flag or user data was changed. Signed-in/deployed 10 MB tests and operational measurements remain blocked until the acceptance target is selected and its authentication/photo configuration is prepared. Physical-device and real wallet/passkey checks remain pending. Do not enable the release flag based on the local evidence alone.
-
 
 ## Configured development deployment acceptance
 

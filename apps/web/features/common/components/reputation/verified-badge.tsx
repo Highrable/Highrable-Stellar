@@ -1,3 +1,4 @@
+import { V2_BADGE_ACCENT_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { cn } from "@repo/ui/lib/utils";
 import { ShieldCheck } from "lucide-react";
@@ -10,7 +11,7 @@ export interface IVerifiedBadgeProps {
 
 export function VerifiedBadge({
   label = "Verified Review",
-  description = "This reputation signal is backed by a paid Highrable payment hold completion.",
+  description = "This reputation signal is backed by a paid Highrable escrow completion.",
   className,
 }: IVerifiedBadgeProps) {
   return (
@@ -19,7 +20,8 @@ export function VerifiedBadge({
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1 rounded-sm text-xs font-medium text-emerald-700 underline decoration-emerald-200 decoration-dotted underline-offset-4 hover:decoration-current focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all hover:opacity-80 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-hidden",
+            V2_BADGE_ACCENT_CLASS,
             className,
           )}
           aria-label={`${label}. Tap for verification details.`}
@@ -28,8 +30,14 @@ export function VerifiedBadge({
           {label}
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" sideOffset={8} className="max-w-xs p-4 text-sm leading-relaxed">
-        <p className="hr-text-accent text-xs font-medium">{label}</p>
+      <PopoverContent
+        side="top"
+        sideOffset={8}
+        className="hr-panel hr-hard-shadow max-w-xs p-4 text-sm leading-relaxed"
+      >
+        <p className="hr-text-accent font-mono text-[0.65rem] font-medium tracking-[0.08em] uppercase">
+          {label}
+        </p>
         <p className="hr-text-secondary mt-2 text-xs">{description}</p>
       </PopoverContent>
     </Popover>

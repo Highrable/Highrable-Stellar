@@ -1,10 +1,9 @@
 "use client";
 
-import { withModeHref } from "@/features/mode";
 import GradientWaves from "@repo/ui/components/highrable/gradient-waves";
-import { useThemeMode } from "@repo/ui/hooks/use-theme-mode";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { EDITORIAL_CONTAINER_CLASS } from "./editorial-layout";
 import { V2AnnouncementMarquee, V2Reveal } from "./v2-animated-elements";
@@ -13,14 +12,14 @@ function HeroLaunchActions() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center gap-3 sm:flex-row">
       <Link
-        href={withModeHref("/jobs", "freelancer")}
+        href="/jobs"
         className="hr-button-hover-shadow flex min-h-11 items-center justify-center gap-2 rounded-lg bg-linear-to-r from-[#FF8703] to-[#FE6002] px-6 py-3 font-mono text-xs font-bold tracking-widest text-white uppercase transition-opacity hover:opacity-90"
       >
         Find Work
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
       <Link
-        href={withModeHref("/post-job", "client")}
+        href="/post-job"
         className="hr-button-hover-shadow hr-text-accent flex min-h-11 items-center justify-center rounded-lg border border-highrable-orange-3 px-6 py-3 font-mono text-xs font-bold tracking-widest uppercase transition-colors hover:bg-transparent"
       >
         Post a Job
@@ -31,7 +30,16 @@ function HeroLaunchActions() {
 
 /** Full-screen editorial hero with the marketplace actions. */
 export function V2Hero() {
-  const { isDarkMode } = useThemeMode();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateColorScheme = () => setIsDarkMode(colorScheme.matches);
+
+    updateColorScheme();
+    colorScheme.addEventListener("change", updateColorScheme);
+    return () => colorScheme.removeEventListener("change", updateColorScheme);
+  }, []);
 
   return (
     <section

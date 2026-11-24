@@ -32,4 +32,3 @@ export function getConvexClient(): ConvexReactClient {
 }
 
 export { api };
-export * from "./newsfeed";

@@ -6,17 +6,11 @@ import { toTokenUnits } from "@/core/stellar/amounts";
 import { bytesToHex } from "@/core/stellar/hashes";
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
-  assertPasskeyFeatureEnabled,
   getSmartAccountConfig,
   KNOWN_INCOMPATIBLE_SMART_ACCOUNT_WASM_HASHES,
   SMART_ACCOUNT_KIT_TESTNET_DEFAULTS,
   SMART_ACCOUNT_KIT_VERSION,
 } from "@/core/stellar/smart-account-config";
-import {
-  contextRuleCanAuthorize,
-  parseContextRule,
-  readDefaultContextRule,
-} from "@/core/stellar/smart-account-context-rules";
 import {
   clearSmartAccountLocalSession,
   connectFreshPasskeySmartAccount,
@@ -40,11 +34,9 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 
-import type { TStellarExecutionPhase } from "./transaction";
-import type { TStellarSubmissionIdentity } from "./transaction";
 import type { ContextRule, ContextRuleType, ContractSigner } from "smart-account-kit";
 
-export type TPasskeyExecutionStatus = "success" | "failed" | "pending";
+export type TPasskeyExecutionStatus = "success" | "failed";
 
 export interface IPasskeySmartAccountExecutionResult {
   readonly txHash: string;
@@ -52,7 +44,6 @@ export interface IPasskeySmartAccountExecutionResult {
   readonly result?: unknown;
   readonly returnValue?: xdr.ScVal;
   readonly errorMessage?: string;
-  readonly submissionIdentity?: TStellarSubmissionIdentity;
 }
 
 export interface IPasskeySmartAccountExecutionParams {
@@ -63,9 +54,6 @@ export interface IPasskeySmartAccountExecutionParams {
   readonly args: readonly xdr.ScVal[];
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
-  readonly executionReadiness?: IPasskeyEscrowExecutionReadiness;
-  readonly onPhase?: (phase: TStellarExecutionPhase) => void;
-  readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
 }
 
 export type TPasskeyFeePath = "relayer" | "classic_source_account" | "missing";
@@ -89,21 +77,9 @@ export interface IPasskeyEscrowExecutionReadiness {
 const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 const DEFAULT_CONTEXT_RULE_ID = 0;
-type TVerifiedPasskeyReadinessContext = {
-  readonly smartAccountAddress: string;
-  readonly rpcUrl: string;
-  readonly networkPassphrase: string;
-  readonly configuredWasmHash: string;
-  readonly verifiedWasmHash: string;
-  readonly usesRelayer: boolean;
-  readonly classicSourceAddress?: string;
-  readonly feePath: TPasskeyFeePath;
-};
-const verifiedPasskeyReadiness = new WeakMap<
-  IPasskeyEscrowExecutionReadiness,
-  TVerifiedPasskeyReadinessContext
->();
 export const SMART_ACCOUNT_COMPATIBILITY_ERROR_MESSAGE = `Connected passkey smart account is not compatible with smart-account-kit ${SMART_ACCOUNT_KIT_VERSION}. Use NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH=${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app, clear the old local passkey session, then create a new passkey smart account.`;
+type TCallContractContextRuleType = Extract<ContextRuleType, { tag: "CallContract" }>;
+type TCreateContractContextRuleType = Extract<ContextRuleType, { tag: "CreateContract" }>;
 
 async function resetStalePasskeySessionIfNeeded(error: unknown): Promise<void> {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -182,68 +158,6 @@ function createPasskeyExecutionReadiness(
   };
 }
 
-function bindPasskeyReadinessToExecution(
-  readiness: IPasskeyEscrowExecutionReadiness,
-  config: NonNullable<ReturnType<typeof getSmartAccountConfig>>,
-  smartAccountAddress: string,
-  verifiedWasmHash: string,
-): IPasskeyEscrowExecutionReadiness {
-  const boundReadiness = {
-    ...readiness,
-  };
-  verifiedPasskeyReadiness.set(boundReadiness, {
-    smartAccountAddress,
-    rpcUrl: config.rpcUrl,
-    networkPassphrase: config.networkPassphrase,
-    configuredWasmHash: normalizeWasmHash(config.accountWasmHash),
-    verifiedWasmHash: normalizeWasmHash(verifiedWasmHash),
-    usesRelayer: readiness.usesRelayer,
-    classicSourceAddress: readiness.classicSourceAddress,
-    feePath: readiness.feePath,
-  });
-  return boundReadiness;
-}
-
-function readinessMatchesExecution(
-  readiness: IPasskeyEscrowExecutionReadiness | undefined,
-  params: IPasskeySmartAccountExecutionParams,
-  smartAccountAddress: string,
-  kit: ReturnType<typeof getSmartAccountKit>,
-): readiness is IPasskeyEscrowExecutionReadiness {
-  const context = readiness ? verifiedPasskeyReadiness.get(readiness) : undefined;
-  const config = getSmartAccountConfig();
-  const classicSourceAddress = CLASSIC_ACCOUNT_PATTERN.test(kit.deployerPublicKey)
-    ? kit.deployerPublicKey
-    : undefined;
-  const hasRelayer = Boolean(config?.relayerUrl) || kit.relayer !== null;
-  const feePath = hasRelayer
-    ? "relayer"
-    : classicSourceAddress
-      ? "classic_source_account"
-      : "missing";
-
-  return Boolean(
-    readiness?.canExecute &&
-    context &&
-    config &&
-    kit.isConnected &&
-    kit.contractId === smartAccountAddress &&
-    context.smartAccountAddress === smartAccountAddress &&
-    context.rpcUrl === params.rpcUrl &&
-    context.networkPassphrase === params.networkPassphrase &&
-    context.configuredWasmHash === normalizeWasmHash(config.accountWasmHash) &&
-    context.verifiedWasmHash === context.configuredWasmHash &&
-    context.usesRelayer === hasRelayer &&
-    context.classicSourceAddress === classicSourceAddress &&
-    context.feePath === feePath &&
-    readiness.usesRelayer === context.usesRelayer &&
-    readiness.classicSourceAddress === context.classicSourceAddress &&
-    readiness.feePath === context.feePath &&
-    config.rpcUrl === params.rpcUrl &&
-    config.networkPassphrase === params.networkPassphrase,
-  );
-}
-
 function toReadablePasskeyError(error: unknown): string {
   const message =
     error instanceof Error
@@ -319,17 +233,6 @@ function toReadablePasskeyError(error: unknown): string {
   }
 
   return message;
-}
-
-function notifyPasskeyExecutionPhase(
-  onPhase: ((phase: TStellarExecutionPhase) => void) | undefined,
-  phase: TStellarExecutionPhase,
-): void {
-  try {
-    onPhase?.(phase);
-  } catch {
-    // Phase reporting is observational and must never alter smart-account routing.
-  }
 }
 
 function normalizeWasmHash(value: string): string {
@@ -937,15 +840,7 @@ async function signAuthEntryWithAuthPayload(
 
 async function signAndSubmitWithAuthPayload(
   assembledTransaction: stellarContract.AssembledTransaction<xdr.ScVal>,
-  onPhase?: (phase: TStellarExecutionPhase) => void,
-  onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>,
-  onSubmissionStarted?: () => void,
-): Promise<{
-  readonly success: boolean;
-  readonly hash: string;
-  readonly error?: string;
-  readonly submissionIdentity: TStellarSubmissionIdentity;
-}> {
+): Promise<{ readonly success: boolean; readonly hash: string; readonly error?: string }> {
   const kit = getSmartAccountKit() as unknown as TLegacyCompatibleSmartAccountKit;
   const config = getSmartAccountConfig();
 
@@ -973,7 +868,6 @@ async function signAndSubmitWithAuthPayload(
   }
 
   const rules = await readConnectedContextRules(kit, config);
-  notifyPasskeyExecutionPhase(onPhase, "signing");
   const signedAuthEntries = await Promise.all(
     authEntries.map((authEntry) =>
       signAuthEntryWithAuthPayload(kit, authEntry, rules, kit.credentialId!),
@@ -1014,31 +908,47 @@ async function signAndSubmitWithAuthPayload(
   const normalizedTx = TransactionBuilder.fromXDR(resimTx.toXDR(), kit.networkPassphrase);
   const preparedTx = rpc.assembleTransaction(normalizedTx as Transaction, resimResult).build();
   const submissionOptions = {};
-  const isFeeSponsored = kit.shouldUseFeeSponsoring(submissionOptions);
 
-  if (!isFeeSponsored || kit.hasSourceAccountAuth(preparedTx)) {
+  if (!kit.shouldUseFeeSponsoring(submissionOptions) || kit.hasSourceAccountAuth(preparedTx)) {
     preparedTx.sign(kit.deployerKeypair);
   }
 
-  const timeBounds = (
-    preparedTx as unknown as { timeBounds?: { maxTime?: string | number | bigint } }
-  ).timeBounds;
-  const transactionValidUntil = Number(timeBounds?.maxTime ?? 0);
-  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
-    throw new Error("Signed passkey transaction did not include an expiry time.");
-  }
-  const submissionIdentity: TStellarSubmissionIdentity = {
-    transactionHash: Buffer.from(preparedTx.hash()).toString("hex"),
-    transactionValidUntil,
-    ...(isFeeSponsored ? { identityType: "inner_transaction" } : {}),
-  };
-  await onSigned?.(submissionIdentity);
+  return await kit.sendAndPoll(preparedTx, submissionOptions);
+}
 
-  notifyPasskeyExecutionPhase(onPhase, "submission");
-  onSubmissionStarted?.();
-  notifyPasskeyExecutionPhase(onPhase, "confirmation");
-  const result = await kit.sendAndPoll(preparedTx, submissionOptions);
-  return { ...result, submissionIdentity };
+function contextRuleTypesEqual(left: ContextRuleType, right: ContextRuleType): boolean {
+  if (left.tag !== right.tag) {
+    return false;
+  }
+
+  switch (left.tag) {
+    case "Default":
+      return true;
+    case "CallContract": {
+      const rightCallContractType = right as TCallContractContextRuleType;
+      return left.values[0] === rightCallContractType.values[0];
+    }
+    case "CreateContract": {
+      const rightCreateContractType = right as TCreateContractContextRuleType;
+      const leftValue = left.values[0];
+      const rightValue = rightCreateContractType.values[0];
+
+      if (leftValue.byteLength !== rightValue.byteLength) {
+        return false;
+      }
+
+      return leftValue.every((byte, index) => byte === rightValue[index]);
+    }
+    default:
+      return false;
+  }
+}
+
+function contextRuleCanAuthorize(
+  ruleType: ContextRuleType,
+  requestedType: ContextRuleType,
+): boolean {
+  return ruleType.tag === "Default" || contextRuleTypesEqual(ruleType, requestedType);
 }
 
 type TContextRule = {
@@ -1055,6 +965,128 @@ type TSmartAccountWalletWithContextRuleFallback = {
   }) => Promise<{ result: TContextRule[] }>;
   __highrableContextRulesFallbackInstalled?: boolean;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTuple(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+function toBuffer(value: unknown): Buffer | null {
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+
+  if (value instanceof Uint8Array) {
+    return Buffer.from(value);
+  }
+
+  return null;
+}
+
+function parseContextRuleType(value: unknown): ContextRuleType | null {
+  if (!isTuple(value) || typeof value[0] !== "string") {
+    return null;
+  }
+
+  switch (value[0]) {
+    case "Default":
+      return { tag: "Default", values: undefined };
+    case "CallContract":
+      return typeof value[1] === "string"
+        ? { tag: "CallContract", values: [sanitizeContractId(value[1], "Context rule contract")] }
+        : null;
+    case "CreateContract": {
+      const wasmHash = toBuffer(value[1]);
+      return wasmHash ? { tag: "CreateContract", values: [wasmHash] } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function parseContractSigner(value: unknown): ContractSigner | null {
+  if (!isTuple(value) || typeof value[0] !== "string") {
+    return null;
+  }
+
+  switch (value[0]) {
+    case "Delegated":
+      return typeof value[1] === "string"
+        ? { tag: "Delegated", values: [sanitizeClassicAccount(value[1], "Delegated signer")] }
+        : null;
+    case "External": {
+      if (typeof value[1] !== "string") {
+        return null;
+      }
+
+      const keyData = toBuffer(value[2]);
+      return keyData
+        ? {
+            tag: "External",
+            values: [sanitizeContractId(value[1], "External signer verifier"), keyData],
+          }
+        : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function parseContextRule(value: unknown): ContextRule | null {
+  if (!isRecord(value) || !isTuple(value.signers)) {
+    return null;
+  }
+
+  const contextType = parseContextRuleType(value.context_type);
+  const id = typeof value.id === "number" ? value.id : null;
+  const name = typeof value.name === "string" ? value.name : null;
+  const signers = value.signers.map(parseContractSigner);
+
+  if (!contextType || id === null || name === null || signers.some((signer) => signer === null)) {
+    return null;
+  }
+
+  return {
+    context_type: contextType,
+    id,
+    name,
+    policies: [],
+    signers: signers as ContractSigner[],
+    valid_until: typeof value.valid_until === "number" ? value.valid_until : undefined,
+  };
+}
+
+async function readDefaultContextRule(params: {
+  readonly rpcUrl: string;
+  readonly networkPassphrase: string;
+  readonly contractId: string;
+  readonly sourceAccount: string;
+}): Promise<ContextRule | null> {
+  const server = createRpcServer(params.rpcUrl);
+  const smartAccount = new Contract(params.contractId);
+  const transaction = new TransactionBuilder(new Account(params.sourceAccount, "0"), {
+    fee: BASE_FEE,
+    networkPassphrase: params.networkPassphrase,
+  })
+    .addOperation(
+      smartAccount.call(
+        "get_context_rule",
+        nativeToScVal(DEFAULT_CONTEXT_RULE_ID, { type: "u32" }),
+      ),
+    )
+    .setTimeout(30)
+    .build();
+  const simulation = await server.simulateTransaction(transaction);
+
+  if (rpc.Api.isSimulationError(simulation) || !simulation.result?.retval) {
+    return null;
+  }
+
+  return parseContextRule(scValToNative(simulation.result.retval));
+}
 
 function installContextRulesCompatibilityFallback(
   kit: ReturnType<typeof getSmartAccountKit>,
@@ -1164,7 +1196,7 @@ async function buildSmartAccountExecuteTransaction(params: {
 
 export async function assertSmartAccountKitCompatibility(
   kit: ReturnType<typeof getSmartAccountKit>,
-): Promise<string> {
+): Promise<void> {
   if (!kit.wallet) {
     throw new Error("Reconnect your passkey smart account to continue.");
   }
@@ -1198,7 +1230,6 @@ export async function assertSmartAccountKitCompatibility(
   }
 
   installContextRulesCompatibilityFallback(kit);
-  return deployedWasmHash;
 }
 
 export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscrowExecutionReadiness> {
@@ -1250,7 +1281,13 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 
   if (kit.isConnected) {
     try {
-      connectedAccountWasmHash = await assertSmartAccountKitCompatibility(kit);
+      await assertSmartAccountKitCompatibility(kit);
+      if (kit.contractId) {
+        connectedAccountWasmHash = await readSmartAccountWasmHash({
+          rpcUrl: config.rpcUrl,
+          contractId: kit.contractId,
+        }).catch(() => undefined);
+      }
     } catch (error) {
       return createPasskeyExecutionReadiness({
         canExecute: false,
@@ -1291,23 +1328,18 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
             "Mainnet passkey escrow is blocked until readiness issues are resolved.",
         ];
 
-    return bindPasskeyReadinessToExecution(
-      createPasskeyExecutionReadiness({
-        canExecute: canExecute && relayerMissingReasons.length === 0,
-        network: readiness.network,
-        hasRelayer: true,
-        ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
-        hasClassicSourceAccount: Boolean(classicSourceAddress),
-        ...(classicSourceAddress ? { classicSourceAddress } : {}),
-        classicSourceIsFunded: false,
-        feePath: "relayer",
-        missingReasons: relayerMissingReasons,
-        warnings: readiness.warnings,
-      }),
-      config,
-      kit.contractId ?? "",
-      connectedAccountWasmHash ?? "",
-    );
+    return createPasskeyExecutionReadiness({
+      canExecute: canExecute && relayerMissingReasons.length === 0,
+      network: readiness.network,
+      hasRelayer: true,
+      ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
+      hasClassicSourceAccount: Boolean(classicSourceAddress),
+      ...(classicSourceAddress ? { classicSourceAddress } : {}),
+      classicSourceIsFunded: false,
+      feePath: "relayer",
+      missingReasons: relayerMissingReasons,
+      warnings: readiness.warnings,
+    });
   }
 
   if (!classicSourceAddress) {
@@ -1344,22 +1376,17 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
           ]
         : missingReasons;
 
-    return bindPasskeyReadinessToExecution(
-      createPasskeyExecutionReadiness({
-        canExecute: readinessMissingReasons.length === 0,
-        network: readiness.network,
-        hasRelayer: false,
-        hasClassicSourceAccount: true,
-        classicSourceAddress,
-        classicSourceIsFunded: true,
-        feePath: readinessMissingReasons.length === 0 ? "classic_source_account" : "missing",
-        missingReasons: readinessMissingReasons,
-        warnings: readiness.warnings,
-      }),
-      config,
-      kit.contractId ?? "",
-      connectedAccountWasmHash ?? "",
-    );
+    return createPasskeyExecutionReadiness({
+      canExecute: readinessMissingReasons.length === 0,
+      network: readiness.network,
+      hasRelayer: false,
+      hasClassicSourceAccount: true,
+      classicSourceAddress,
+      classicSourceIsFunded: true,
+      feePath: readinessMissingReasons.length === 0 ? "classic_source_account" : "missing",
+      missingReasons: readinessMissingReasons,
+      warnings: readiness.warnings,
+    });
   } catch {
     const readiness = evaluateSmartAccountMainnetReadiness({
       connectedAccountAddress: kit.contractId,
@@ -1394,7 +1421,6 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 export async function executeWithPasskeySmartAccount(
   params: IPasskeySmartAccountExecutionParams,
 ): Promise<IPasskeySmartAccountExecutionResult> {
-  assertPasskeyFeatureEnabled();
   const smartAccountAddress = sanitizeContractId(
     params.smartAccountAddress,
     "Smart account address",
@@ -1412,17 +1438,9 @@ export async function executeWithPasskeySmartAccount(
     }
   }
 
-  let submissionIdentity: TStellarSubmissionIdentity | undefined;
-  let submissionAttempted = false;
   try {
-    const readiness = readinessMatchesExecution(
-      params.executionReadiness,
-      params,
-      smartAccountAddress,
-      kit,
-    )
-      ? params.executionReadiness
-      : await getPasskeyEscrowExecutionReadiness();
+    await assertSmartAccountKitCompatibility(kit);
+    const readiness = await getPasskeyEscrowExecutionReadiness();
     if (!readiness.canExecute) {
       throw new Error(
         readiness.reason ??
@@ -1434,7 +1452,6 @@ export async function executeWithPasskeySmartAccount(
       "Classic source account",
     );
 
-    notifyPasskeyExecutionPhase(params.onPhase, "simulation");
     const assembledTransaction = await buildSmartAccountExecuteTransaction({
       smartAccountAddress,
       contractId,
@@ -1445,23 +1462,12 @@ export async function executeWithPasskeySmartAccount(
       networkPassphrase: params.networkPassphrase,
     });
 
-    const result = await signAndSubmitWithAuthPayload(
-      assembledTransaction,
-      params.onPhase,
-      async (identity) => {
-        submissionIdentity = identity;
-        await params.onSigned?.(identity);
-      },
-      () => {
-        submissionAttempted = true;
-      },
-    );
+    const result = await signAndSubmitWithAuthPayload(assembledTransaction);
     if (!result.success) {
       return {
         txHash: result.hash,
         status: "failed",
         errorMessage: toReadablePasskeyError(result.error ?? `${params.actionLabel} failed.`),
-        submissionIdentity: result.submissionIdentity,
       };
     }
 
@@ -1475,16 +1481,14 @@ export async function executeWithPasskeySmartAccount(
       status: "success",
       returnValue,
       result: returnValue ? scValToNative(returnValue) : undefined,
-      submissionIdentity: result.submissionIdentity,
     };
   } catch (error) {
     await resetStalePasskeySessionIfNeeded(error);
 
     return {
-      txHash: submissionIdentity?.transactionHash ?? "",
-      status: submissionAttempted ? "pending" : "failed",
+      txHash: "",
+      status: "failed",
       errorMessage: toReadablePasskeyError(error),
-      ...(submissionIdentity ? { submissionIdentity } : {}),
     };
   }
 }

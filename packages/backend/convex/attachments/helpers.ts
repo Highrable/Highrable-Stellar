@@ -19,13 +19,7 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
-import {
-  assertCurrentDisputeAccess,
-  isActiveDisputeStatus,
-  resolveCurrentDisputeWork,
-} from "../disputes/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "../disputes/schema";
-import { assertSharedStorage } from "../newsfeed/photos";
 
 const MB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MB;
@@ -459,13 +453,6 @@ export async function assertCanAttachToParent(
     if (!dispute || dispute.status === "cancelled") {
       throw new NotFoundError("Dispute was not found.");
     }
-    if (!isActiveDisputeStatus(dispute.status)) {
-      throw new ForbiddenError("This dispute is not accepting new responses.");
-    }
-    await assertCurrentDisputeAccess(ctx, dispute, walletAddress);
-    if (input.ownerRole !== "client" && input.ownerRole !== "freelancer") {
-      throw new ForbiddenError("Dispute attachments must be owned by a participant.");
-    }
     if (dispute.clientWallet !== walletAddress && dispute.freelancerWallet !== walletAddress) {
       throw new ForbiddenError("You do not have permission to attach files to this dispute.");
     }
@@ -516,46 +503,6 @@ async function canViewParentJob(ctx: QueryCtx, parentId: string, viewerWallet?: 
   );
 }
 
-export async function assertDisputeAttachmentAssociation(
-  ctx: QueryCtx,
-  attachment: Pick<
-    Doc<"attachments">,
-    "parentType" | "parentId" | "uploadedByWallet" | "ownerRole"
-  > & { status: TAttachmentPolicyInput["status"] },
-  expectedDisputeId?: Id<"disputes">,
-) {
-  if (attachment.parentType !== "dispute" || !attachment.parentId) {
-    throw new NotFoundError("Attachment not found.");
-  }
-
-  const disputeId = ctx.db.normalizeId("disputes", attachment.parentId);
-  if (!disputeId) {
-    throw new NotFoundError("Attachment not found.");
-  }
-  if (expectedDisputeId !== undefined && disputeId !== expectedDisputeId) {
-    throw new ForbiddenError("Attachment is linked to a different dispute.");
-  }
-  const dispute = await ctx.db.get(disputeId);
-  if (!dispute || attachment.status !== "active") {
-    throw new NotFoundError("Attachment not found.");
-  }
-
-  await resolveCurrentDisputeWork(ctx, dispute);
-
-  const uploadedByWallet = normalizeWalletAddress(attachment.uploadedByWallet);
-  const expectedUploader =
-    attachment.ownerRole === "client"
-      ? normalizeWalletAddress(dispute.clientWallet)
-      : attachment.ownerRole === "freelancer"
-        ? normalizeWalletAddress(dispute.freelancerWallet)
-        : null;
-  if (expectedUploader === null || uploadedByWallet !== expectedUploader) {
-    throw new ForbiddenError("This attachment is not owned by a dispute participant.");
-  }
-
-  return dispute;
-}
-
 export async function resolveAttachmentViewerRole(
   ctx: QueryCtx,
   attachment: TAttachmentPolicyInput,
@@ -566,18 +513,6 @@ export async function resolveAttachmentViewerRole(
   }
 
   const normalizedViewerWallet = normalizeWalletAddress(viewerWallet);
-
-  if (attachment.parentType === "dispute") {
-    try {
-      const dispute = await assertDisputeAttachmentAssociation(ctx, attachment);
-      await assertCurrentDisputeAccess(ctx, dispute, normalizedViewerWallet);
-      return isSameWallet(attachment.uploadedByWallet, normalizedViewerWallet)
-        ? "owner"
-        : "dispute_participant";
-    } catch {
-      return null;
-    }
-  }
 
   if (isSameWallet(attachment.uploadedByWallet, normalizedViewerWallet)) {
     return "owner";
@@ -644,6 +579,18 @@ export async function resolveAttachmentViewerRole(
     if (isSameWallet(revision.clientWallet, normalizedViewerWallet)) return "client";
     if (isSameWallet(revision.freelancerWallet, normalizedViewerWallet)) {
       return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "dispute" && attachment.parentId) {
+    const dispute = await ctx.db.get(attachment.parentId as Id<"disputes">);
+    if (!dispute) return null;
+    if (
+      isSameWallet(dispute.clientWallet, normalizedViewerWallet) ||
+      isSameWallet(dispute.freelancerWallet, normalizedViewerWallet)
+    ) {
+      return "dispute_participant";
     }
     return null;
   }
@@ -1008,10 +955,7 @@ export async function serializeAttachmentForViewer(
     ...attachment,
     url:
       !policy.isProtected && attachment.storageId
-        ? await (async () => {
-            await assertSharedStorage(ctx, attachment.storageId!);
-            return ctx.storage.getUrl(attachment.storageId!);
-          })()
+        ? await ctx.storage.getUrl(attachment.storageId)
         : null,
     protection: {
       mode: policy.protectionMode,
@@ -1033,23 +977,16 @@ export async function assertCanViewAttachment(
   ctx: QueryCtx,
   attachment: {
     uploadedByWallet: string;
-    ownerRole: TAttachmentOwnerRole;
     parentType: TAttachmentParentType;
     parentId?: string;
     visibility: TAttachmentVisibility;
-    status: TAttachmentPolicyInput["status"];
+    status: string;
   },
   viewerWallet?: string,
-  expectedDisputeId?: Id<"disputes">,
 ) {
   if (attachment.status !== "active") {
     throw new NotFoundError("Attachment not found.");
   }
-
-  const dispute =
-    attachment.parentType === "dispute"
-      ? await assertDisputeAttachmentAssociation(ctx, attachment, expectedDisputeId)
-      : null;
 
   if (
     attachment.visibility === "public" &&
@@ -1066,9 +1003,6 @@ export async function assertCanViewAttachment(
   }
 
   const normalizedViewerWallet = normalizeWalletAddress(viewerWallet);
-  if (dispute) {
-    await assertCurrentDisputeAccess(ctx, dispute, normalizedViewerWallet);
-  }
   if (attachment.uploadedByWallet === normalizedViewerWallet) {
     return;
   }

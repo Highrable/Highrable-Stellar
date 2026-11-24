@@ -2,9 +2,11 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import React from "react";
+
+import type { TDisputeReasonCategory } from "../types";
 
 import { formatDisputeDate, getDisputeReasonLabel } from "../lib";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "./dispute-status-badge";
@@ -15,69 +17,54 @@ export function DisputeList() {
     api.disputes.getDisputesForWallet,
     walletIdentity.walletAddress ? { walletAddress: walletIdentity.walletAddress } : "skip",
   );
-  const visibleDisputes = disputes?.filter(
-    (dispute) =>
-      dispute.clientWallet.toUpperCase() === walletIdentity.walletAddress?.toUpperCase() ||
-      dispute.freelancerWallet.toUpperCase() === walletIdentity.walletAddress?.toUpperCase(),
-  );
 
   if (!walletIdentity.walletAddress) {
-    return <p className="hr-text-secondary text-sm">Connect your wallet to view disputes.</p>;
-  }
-
-  if (visibleDisputes === undefined) {
     return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading disputes...
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
+        Connect your wallet to view disputes.
       </p>
     );
   }
 
-  if (visibleDisputes.length === 0) {
+  if (disputes === undefined) {
     return (
-      <p className="hr-text-secondary rounded-lg border border-dashed px-4 py-5 text-sm">
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm">Loading disputes...</p>
+    );
+  }
+
+  if (disputes.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
         No disputes found for this wallet.
       </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-3">
-      {visibleDisputes.map((dispute) => {
-        const isClient =
-          dispute.clientWallet.toUpperCase() === walletIdentity.walletAddress?.toUpperCase();
-
-        return (
-          <li
-            key={dispute._id}
-            className="hr-clickable-card grid gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:px-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-          >
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <span className="hr-text-muted font-mono text-xs">{dispute.disputeNumber}</span>
-                <Link
-                  href={`/disputes/${dispute._id}`}
-                  className="hr-card-link hr-text-primary text-base font-medium"
-                >
-                  {dispute.title}
-                </Link>
-              </div>
-              <p className="hr-text-secondary text-xs">
-                {getDisputeReasonLabel(dispute.reasonCategory)} · Opened{" "}
-                {formatDisputeDate(dispute.openedAt)} ·{" "}
-                <span>{`Your role: ${isClient ? "Client" : "Freelancer"}`}</span>
+    <div className="space-y-3">
+      {disputes.map((dispute) => (
+        <article key={dispute._id} className="rounded-lg border border-[#e8e8e8] bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-xs text-[#5f5f5f] uppercase">{dispute.disputeNumber}</p>
+              <h2 className="mt-1 text-lg font-semibold text-[#0a0a0a]">{dispute.title}</h2>
+              <p className="mt-1 text-sm text-[#5f5f5f]">
+                {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)} ·{" "}
+                {formatDisputeDate(dispute.openedAt)}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 md:justify-end">
+            <div className="flex flex-wrap gap-2">
               <DisputeStatusBadge status={dispute.status} />
-              <DisputeOnChainStatusBadge
-                status={dispute.onChainStatus}
-                transactionHash={dispute.transactionHash}
-              />
+              <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
             </div>
-          </li>
-        );
-      })}
-    </ul>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <AppButton asChild variant="secondary" size="sm">
+              <Link href={`/disputes/${dispute._id}`}>View Dispute</Link>
+            </AppButton>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }

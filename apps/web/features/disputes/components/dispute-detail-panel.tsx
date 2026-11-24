@@ -4,33 +4,28 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import { normalizeStellarError } from "@/core/stellar/transaction";
-import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
-import { showWarningToast, WalletAddressTile } from "@/features/common";
+import { showWarningToast } from "@/features/common";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import type { TDisputeReasonCategory } from "../types";
-import type { TLocalMarkOutcome } from "./dispute-marking-status";
-import type { TParticipantMarkRecordingContext } from "./participant-marking";
 import type { TConvexId } from "@repo/convex-client";
 
-import { formatDisputeDate, getDisputeReasonLabel, isTerminalDisputeStatus } from "../lib";
-import { DisputeMarkingStatus, getDisputeMarkingPresentation } from "./dispute-marking-status";
-import { DisputeParticipantActions } from "./dispute-participant-actions";
+import { formatDisputeDate, getDisputeReasonLabel } from "../lib";
+import { DisputeResponseComposer } from "./dispute-response-composer";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "./dispute-status-badge";
-import { ParticipantDisputeTimeline } from "./dispute-timeline";
-import {
-  createParticipantMarkingScopeKey,
-  getParticipantTransactionHash,
-  isParticipantOutcomeUncertain,
-} from "./participant-marking";
+import { DisputeTimeline } from "./dispute-timeline";
 
 function createClientRequestId(escrowId: string): string {
   const uniqueId =
@@ -50,8 +45,8 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   const updateMilestoneEscrowStatus = useMutation(api.milestones.updateMilestoneEscrowStatus);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
-  const permission = useQuery(
-    api.disputes.canViewDispute,
+  const dispute = useQuery(
+    api.disputes.getDispute,
     walletIdentity.walletAddress
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
@@ -59,9 +54,9 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         }
       : "skip",
   );
-  const dispute = useQuery(
-    api.disputes.getDispute,
-    walletIdentity.walletAddress && permission?.allowed
+  const timeline = useQuery(
+    api.disputes.getDisputeTimeline,
+    walletIdentity.walletAddress
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
           viewerWallet: walletIdentity.walletAddress,
@@ -70,183 +65,24 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   );
   const agreementContext = useQuery(
     api.work_agreements.getAgreementContextForDispute,
-    walletIdentity.walletAddress && permission?.allowed
+    walletIdentity.walletAddress
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
           viewerWallet: walletIdentity.walletAddress,
         }
       : "skip",
   );
-  const executionContextKey = createParticipantMarkingScopeKey({
-    caseId: disputeId,
-    parentId: disputeId,
-    escrowId: dispute?.onChainEscrowId ?? "",
-    walletAddress: walletIdentity.walletAddress,
-    walletType: walletIdentity.walletType,
-    connectedWalletAddress: address,
-    isConnected: walletIdentity.isConnected && walletState.isConnected,
-    network: walletState.network,
-    isTestnet: walletState.isTestnet,
-    canWriteContracts: walletState.canWriteContracts,
-    hasSigner: Boolean(signTransaction),
-    permission: permission?.allowed,
-  });
-  type TExecutionToken = { readonly generation: number; readonly operationId: string };
-  type TScopedLocalMarkOutcome = TLocalMarkOutcome & { readonly scopeKey: string };
-  const contextKeyRef = useRef(executionContextKey);
-  const generationRef = useRef(0);
-  const mountedRef = useRef(true);
-  const executionRef = useRef<TExecutionToken | null>(null);
-  const retryInFlight = useRef(false);
-  const [retryPhase, setRetryPhase] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [localOutcome, setLocalOutcome] = useState<TScopedLocalMarkOutcome | null>(null);
-
-  if (contextKeyRef.current !== executionContextKey) {
-    contextKeyRef.current = executionContextKey;
-    generationRef.current += 1;
-    executionRef.current = null;
-    retryInFlight.current = false;
-  }
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      generationRef.current += 1;
-      executionRef.current = null;
-      retryInFlight.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    setRetryPhase(null);
-    setRetryError(null);
-    setLocalOutcome(null);
-  }, [executionContextKey]);
-
-  const isCurrent = (): boolean =>
-    mountedRef.current && contextKeyRef.current === executionContextKey;
-  const isExecutionCurrent = (token: TExecutionToken): boolean =>
-    isCurrent() && generationRef.current === token.generation && executionRef.current === token;
-  const assertExecutionCurrent = (token: TExecutionToken): void => {
-    if (!isExecutionCurrent(token)) {
-      throw new Error("Dispute marking context changed; stopping the obsolete attempt.");
-    }
-  };
-  const visibleLocalOutcome =
-    localOutcome?.scopeKey === executionContextKey && localOutcome.disputeId === dispute?._id
-      ? localOutcome
-      : null;
-
-  const recordConfirmedMark = async (
-    recordingContext: TParticipantMarkRecordingContext,
-    token: TExecutionToken,
-  ): Promise<boolean> => {
-    if (!isExecutionCurrent(token)) return false;
-    setRetryPhase("Recording confirmed transaction...");
-    try {
-      assertExecutionCurrent(token);
-      await markSucceeded({
-        disputeId: recordingContext.disputeId as TConvexId<"disputes">,
-        actorWallet: recordingContext.actorWallet,
-        actorWalletType: recordingContext.actorWalletType,
-        transactionHash: recordingContext.transactionHash,
-        stellarExpertUrl: getTxExplorerUrl(recordingContext.transactionHash),
-      });
-      assertExecutionCurrent(token);
-      await updateTransactionStatus({
-        clientRequestId: recordingContext.clientRequestId,
-        txHash: recordingContext.transactionHash,
-        status: "success",
-      });
-      assertExecutionCurrent(token);
-      if (recordingContext.milestoneId) {
-        await updateMilestoneEscrowStatus({
-          milestoneId: recordingContext.milestoneId as TConvexId<"milestones">,
-          escrowId: recordingContext.onChainEscrowId,
-          status: "disputed",
-          txHash: recordingContext.transactionHash,
-          txType: "mark_disputed",
-        });
-      } else {
-        await updateEscrowStatus({
-          escrowId: recordingContext.onChainEscrowId,
-          status: "disputed",
-          txHash: recordingContext.transactionHash,
-          txType: "mark_disputed",
-        });
-      }
-      assertExecutionCurrent(token);
-      setLocalOutcome(null);
-      setRetryError(null);
-      return true;
-    } catch (error) {
-      if (!isExecutionCurrent(token)) return false;
-      setLocalOutcome({
-        kind: "confirmed_sync_pending",
-        disputeId: recordingContext.disputeId,
-        transactionHash: recordingContext.transactionHash,
-        recordingContext,
-        recordingFailed: true,
-        scopeKey: executionContextKey,
-      });
-      setRetryError(
-        `Stellar confirmed the transaction, but Highrable could not finish recording it: ${normalizeStellarError(error)}`,
-      );
-      return false;
-    }
-  };
-
-  const handleRetryRecording = async () => {
-    if (
-      executionRef.current ||
-      !isCurrent() ||
-      !visibleLocalOutcome ||
-      visibleLocalOutcome.kind !== "confirmed_sync_pending" ||
-      !visibleLocalOutcome.recordingFailed
-    ) {
-      return;
-    }
-    const token: TExecutionToken = {
-      generation: generationRef.current,
-      operationId: visibleLocalOutcome.recordingContext.clientRequestId,
-    };
-    executionRef.current = token;
-    retryInFlight.current = true;
-    setRetryError(null);
-    try {
-      await recordConfirmedMark(visibleLocalOutcome.recordingContext, token);
-    } finally {
-      if (executionRef.current === token) {
-        executionRef.current = null;
-        retryInFlight.current = false;
-        if (isCurrent()) setRetryPhase(null);
-      }
-    }
-  };
 
   const handleRetryMarkDisputed = async () => {
     const setRetryWarning = (message: string) => {
-      if (!isCurrent()) return;
       setRetryError(message);
       showWarningToast(message);
     };
 
-    if (executionRef.current || retryInFlight.current || !isCurrent()) return;
     if (!dispute || !walletIdentity.walletAddress || !walletIdentity.walletType) {
       setRetryWarning("Missing wallet identity for retry.");
-      return;
-    }
-
-    if (
-      !getDisputeMarkingPresentation(
-        dispute.onChainStatus,
-        dispute.transactionHash,
-        visibleLocalOutcome,
-        isTerminalDisputeStatus(dispute.status),
-      ).canRetry
-    ) {
       return;
     }
 
@@ -255,60 +91,39 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
       return;
     }
 
-    let config: ReturnType<typeof getRequiredEscrowActionConfig>;
-    try {
-      config = getRequiredEscrowActionConfig();
-    } catch (error) {
-      setRetryWarning(normalizeStellarError(error));
-      return;
+    const config = getRequiredEscrowActionConfig();
+
+    if (walletIdentity.walletType === "passkey_smart_account") {
+      const readiness = await getPasskeyEscrowExecutionReadiness();
+      if (!readiness.canExecute) {
+        setRetryWarning(
+          readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
+        );
+        return;
+      }
+    } else {
+      if (!address || !walletState.isConnected) {
+        setRetryWarning("Connect a Stellar wallet before retrying.");
+        return;
+      }
+      if (!walletState.isTestnet) {
+        setRetryWarning("Switch wallet to Stellar Testnet before retrying.");
+        return;
+      }
+      if (walletState.canWriteContracts === false) {
+        setRetryWarning("Current wallet cannot sign escrow contract actions right now.");
+        return;
+      }
     }
 
-    const actorWallet = walletIdentity.walletAddress;
-    const actorWalletType = walletIdentity.walletType;
-    const clientRequestId = createClientRequestId(dispute.onChainEscrowId);
-    const token: TExecutionToken = {
-      generation: generationRef.current,
-      operationId: clientRequestId,
-    };
-    executionRef.current = token;
-    retryInFlight.current = true;
-    setRetryPhase("Checking wallet readiness...");
+    setIsRetrying(true);
     setRetryError(null);
 
-    let knownHash: string | undefined;
-    let mayHaveSubmitted = false;
-    let transactionCreated = false;
-    let markingStarted = false;
+    const clientRequestId = createClientRequestId(dispute.onChainEscrowId);
     try {
-      assertExecutionCurrent(token);
-      if (actorWalletType === "passkey_smart_account") {
-        const readiness = await getPasskeyEscrowExecutionReadiness();
-        assertExecutionCurrent(token);
-        if (!readiness.canExecute) {
-          throw new Error(
-            readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
-          );
-        }
-      } else {
-        if (
-          !address ||
-          !walletState.isConnected ||
-          address.toUpperCase() !== actorWallet.toUpperCase()
-        ) {
-          throw new Error("Connect the wallet for this dispute before retrying.");
-        }
-        if (!isWalletOnConfiguredNetwork(walletState)) {
-          throw new Error(getWalletNetworkMismatchMessage("marking the escrow disputed"));
-        }
-        if (walletState.canWriteContracts === false) {
-          throw new Error("Current wallet cannot sign escrow contract actions right now.");
-        }
-      }
-      assertExecutionCurrent(token);
-      setRetryPhase("Preparing dispute marking...");
       await createTransaction({
-        walletAddress: actorWallet,
-        walletType: actorWalletType,
+        walletAddress: walletIdentity.walletAddress,
+        walletType: walletIdentity.walletType,
         type: "mark_disputed",
         clientRequestId,
         escrowId: dispute.onChainEscrowId,
@@ -316,300 +131,209 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
         status: "pending",
       });
-      assertExecutionCurrent(token);
-      transactionCreated = true;
+
       await markStarted({
         disputeId: dispute._id,
-        actorWallet,
-        actorWalletType,
+        actorWallet: walletIdentity.walletAddress,
+        actorWalletType: walletIdentity.walletType,
       });
-      assertExecutionCurrent(token);
-      markingStarted = true;
 
-      const guardedSignTransaction = async (
-        xdr: string,
-        options?: { requiresServerSession?: boolean },
-      ): Promise<string> => {
-        void options;
-        assertExecutionCurrent(token);
-        const signedXdr = await signTransaction(xdr);
-        assertExecutionCurrent(token);
-        return signedXdr;
-      };
       const result = await markDisputedOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: actorWallet,
-        signTransaction: guardedSignTransaction,
-        walletType: actorWalletType,
+        sourceAddress: walletIdentity.walletAddress,
+        signTransaction,
+        walletType: walletIdentity.walletType,
         operationId: clientRequestId,
-        caller: actorWallet,
+        caller: walletIdentity.walletAddress,
         escrowId: dispute.onChainEscrowId,
-        onSigned: async ({ transactionHash }) => {
-          assertExecutionCurrent(token);
-          knownHash = transactionHash;
-          await updateTransactionStatus({
-            clientRequestId,
-            txHash: transactionHash,
-            status: "pending",
-          });
-          assertExecutionCurrent(token);
-        },
-        onPhase: (phase) => {
-          if (!isExecutionCurrent(token)) return;
-          setRetryPhase(
-            {
-              simulation: "Simulating transaction...",
-              signing: "Waiting for wallet signature...",
-              submission: "Submitting transaction...",
-              confirmation: "Waiting for Stellar confirmation...",
-            }[phase],
-          );
-          if (phase === "submission" || phase === "confirmation") mayHaveSubmitted = true;
-        },
       });
-      assertExecutionCurrent(token);
-      const recordingContext: TParticipantMarkRecordingContext = {
-        disputeId: dispute._id,
-        actorWallet,
-        actorWalletType,
-        transactionHash: result.txHash,
+
+      await updateTransactionStatus({
         clientRequestId,
-        onChainEscrowId: dispute.onChainEscrowId,
-        ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
-        ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
-      };
-      setLocalOutcome({
-        kind: "confirmed_sync_pending",
-        disputeId: dispute._id,
-        transactionHash: result.txHash,
-        recordingContext,
-        scopeKey: executionContextKey,
+        txHash: result.txHash,
+        status: "success",
       });
-      await recordConfirmedMark(recordingContext, token);
-    } catch (error) {
-      if (!isExecutionCurrent(token)) return;
-      const errorMessage = normalizeStellarError(error);
-      const failedTxHash = knownHash ?? getParticipantTransactionHash(error);
-      const uncertain = isParticipantOutcomeUncertain({
-        error,
-        mayHaveSubmitted,
-        transactionHash: failedTxHash,
-      });
-      const outcomeUncertain = uncertain;
-      if (transactionCreated) {
-        try {
-          assertExecutionCurrent(token);
-          await updateTransactionStatus({
-            clientRequestId,
-            ...(failedTxHash ? { txHash: failedTxHash } : {}),
-            status: outcomeUncertain ? "pending" : "failed",
-            errorMessage,
-          });
-          assertExecutionCurrent(token);
-        } catch {
-          if (!isExecutionCurrent(token)) return;
-        }
+
+      if (dispute.milestoneId) {
+        await updateMilestoneEscrowStatus({
+          milestoneId: dispute.milestoneId,
+          escrowId: dispute.onChainEscrowId,
+          status: "disputed",
+          txHash: result.txHash,
+          txType: "mark_disputed",
+        });
+      } else {
+        await updateEscrowStatus({
+          escrowId: dispute.onChainEscrowId,
+          status: "disputed",
+          txHash: result.txHash,
+          txType: "mark_disputed",
+        });
       }
-      if (!outcomeUncertain && markingStarted) {
+
+      await markSucceeded({
+        disputeId: dispute._id,
+        actorWallet: walletIdentity.walletAddress,
+        actorWalletType: walletIdentity.walletType,
+        transactionHash: result.txHash,
+        stellarExpertUrl: getTxExplorerUrl(result.txHash),
+      });
+    } catch (error) {
+      const errorMessage = normalizeStellarError(error);
+      const failedTxHash =
+        typeof error === "object" &&
+        error !== null &&
+        "txHash" in error &&
+        typeof error.txHash === "string"
+          ? error.txHash
+          : undefined;
+
+      try {
+        await updateTransactionStatus({
+          clientRequestId,
+          ...(failedTxHash ? { txHash: failedTxHash } : {}),
+          status: isPendingStellarTransactionError(error) ? "pending" : "failed",
+          errorMessage,
+        });
+      } catch {
+        // Best-effort transaction status update.
+      }
+
+      if (!isPendingStellarTransactionError(error)) {
         try {
-          assertExecutionCurrent(token);
           await markFailed({
             disputeId: dispute._id,
-            actorWallet,
-            actorWalletType,
+            actorWallet: walletIdentity.walletAddress,
+            actorWalletType: walletIdentity.walletType,
             errorMessage,
+            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
           });
-          assertExecutionCurrent(token);
         } catch {
-          if (!isExecutionCurrent(token)) return;
+          // Best-effort dispute failure event update.
         }
       }
-      if (outcomeUncertain) {
-        setLocalOutcome({
-          kind: "pending",
-          disputeId: dispute._id,
-          ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-          ...(failedTxHash
-            ? {
-                recordingContext: {
-                  disputeId: dispute._id,
-                  actorWallet,
-                  actorWalletType,
-                  transactionHash: failedTxHash,
-                  clientRequestId,
-                  onChainEscrowId: dispute.onChainEscrowId,
-                  ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
-                  ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
-                },
-              }
-            : {}),
-          scopeKey: executionContextKey,
-        });
-        setRetryError(`Transaction outcome is uncertain: ${errorMessage}`);
-      } else {
-        setRetryError(`Escrow marking failed before submission: ${errorMessage}`);
-      }
+
+      setRetryError(errorMessage);
     } finally {
-      if (executionRef.current === token) {
-        executionRef.current = null;
-        retryInFlight.current = false;
-        if (isCurrent()) setRetryPhase(null);
-      }
+      setIsRetrying(false);
     }
   };
 
   if (!walletIdentity.walletAddress) {
-    return <p className="hr-text-secondary text-sm">Connect your wallet to view this dispute.</p>;
-  }
-
-  if (permission === undefined) {
     return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading dispute...
-      </p>
-    );
-  }
-
-  if (!permission.allowed) {
-    return (
-      <p
-        className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
-        role="alert"
-      >
-        {permission.reason === "Dispute not found."
-          ? "Dispute not found."
-          : "You do not have access to this dispute."}
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
+        Connect your wallet to view this dispute.
       </p>
     );
   }
 
   if (dispute === undefined) {
     return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading dispute...
-      </p>
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm">Loading dispute...</p>
     );
   }
 
   if (dispute === null) {
     return (
-      <p
-        className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
-        role="alert"
-      >
-        Dispute not found.
+      <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Dispute not found or you do not have access.
       </p>
     );
   }
 
   return (
     <div className="space-y-6">
-      <header className="space-y-3 border-b pb-5">
-        <Link
-          href="/disputes"
-          className="hr-text-muted inline-flex text-sm hover:text-foreground hover:underline"
-        >
-          ← All disputes
-        </Link>
-        <div className="space-y-2">
-          <p className="hr-text-muted font-mono text-xs">{dispute.disputeNumber}</p>
-          <h1 className="hr-text-primary font-sans text-2xl leading-tight font-semibold tracking-tight">
-            {dispute.title}
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <section className="rounded-lg border border-[#e8e8e8] bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-xs text-[#5f5f5f] uppercase">{dispute.disputeNumber}</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">{dispute.title}</h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <DisputeStatusBadge status={dispute.status} />
-            <DisputeOnChainStatusBadge
-              status={dispute.onChainStatus}
-              transactionHash={dispute.transactionHash}
-              localOutcome={visibleLocalOutcome?.kind}
-            />
+            <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
           </div>
         </div>
-      </header>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 space-y-8">
-          <section aria-labelledby="dispute-statement-title" className="space-y-2">
-            <h2 id="dispute-statement-title" className="hr-text-primary text-base font-semibold">
-              What happened
-            </h2>
-            <p className="hr-text-primary max-w-3xl text-sm leading-relaxed whitespace-pre-wrap">
-              {dispute.description}
-            </p>
-          </section>
-
-          <DisputeMarkingStatus
-            status={dispute.onChainStatus}
-            transactionHash={dispute.transactionHash}
-            localOutcome={visibleLocalOutcome}
-            retryPhase={retryPhase}
-            retryError={retryError}
-            onRetry={() => void handleRetryMarkDisputed()}
-            onRetryRecording={() => void handleRetryRecording()}
-            terminal={isTerminalDisputeStatus(dispute.status)}
-          />
-
-          <DisputeParticipantActions
-            disputeId={dispute._id}
-            viewerWallet={walletIdentity.walletAddress}
-          />
-
-          <section aria-labelledby="dispute-evidence-title" className="space-y-2">
-            <h2 id="dispute-evidence-title" className="hr-text-primary text-base font-semibold">
-              Evidence
-            </h2>
-            <AttachmentList attachments={dispute.attachments ?? []} readOnly />
-          </section>
-
-          <section aria-labelledby="dispute-timeline-title" className="space-y-3">
-            <h2 id="dispute-timeline-title" className="hr-text-primary text-base font-semibold">
-              Timeline
-            </h2>
-            <ParticipantDisputeTimeline
-              disputeId={dispute._id}
-              viewerWallet={walletIdentity.walletAddress}
-            />
-          </section>
+        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+          <p>
+            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
+            <br />
+            {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
+          </p>
+          <p>
+            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Opened</span>
+            <br />
+            {formatDisputeDate(dispute.openedAt)}
+          </p>
+          <p className="break-all">
+            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Client</span>
+            <br />
+            {dispute.clientWallet}
+          </p>
+          <p className="break-all">
+            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Freelancer</span>
+            <br />
+            {dispute.freelancerWallet}
+          </p>
         </div>
-
-        <aside className="space-y-6 lg:border-l lg:pl-6">
-          <section aria-labelledby="dispute-facts-title" className="space-y-3">
-            <h2 id="dispute-facts-title" className="hr-text-primary text-sm font-semibold">
-              Case details
-            </h2>
-            <dl className="space-y-1.5 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="hr-text-secondary">Reason</dt>
-                <dd className="hr-text-primary text-right">
-                  {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="hr-text-secondary">Opened</dt>
-                <dd className="hr-text-primary text-right">
-                  {formatDisputeDate(dispute.openedAt)}
-                </dd>
-              </div>
-            </dl>
-            <WalletAddressTile address={dispute.clientWallet} label="Client" />
-            <WalletAddressTile address={dispute.freelancerWallet} label="Freelancer" />
-          </section>
-
-          <section aria-labelledby="dispute-agreement-title" className="space-y-3 border-t pt-5">
-            <div>
-              <h2 id="dispute-agreement-title" className="hr-text-primary text-sm font-semibold">
-                Agreement
-              </h2>
-              <p className="hr-text-secondary mt-0.5 text-xs">
-                The job terms both sides agreed to.
-              </p>
+        <p className="mt-4 text-sm whitespace-pre-wrap text-[#3f3f3f]">{dispute.description}</p>
+        {dispute.transactionHash ? (
+          <div className="mt-4">
+            <AppButton asChild variant="secondary" size="sm">
+              <a href={dispute.stellarExpertUrl ?? "#"} target="_blank" rel="noreferrer">
+                View Stellar Transaction
+              </a>
+            </AppButton>
+          </div>
+        ) : dispute.onChainStatus === "mark_failed" ? (
+          <div className="mt-4 space-y-3 rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-sm text-red-700">
+              Dispute evidence was saved, but on-chain escrow dispute marking failed. Retry
+              required.
+            </p>
+            {retryError ? <p className="text-sm text-red-700">{retryError}</p> : null}
+            <div className="flex justify-end">
+              <AppButton
+                type="button"
+                size="sm"
+                onClick={() => void handleRetryMarkDisputed()}
+                disabled={isRetrying}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRetrying ? "Retrying..." : "Retry mark_disputed"}
+              </AppButton>
             </div>
-            <AgreementReferenceCard context={agreementContext} />
-          </section>
-        </aside>
-      </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">
+        <h2 className="mb-3 text-lg font-semibold text-[#0a0a0a]">
+          Agreement Context for Platform-Reviewed Dispute
+        </h2>
+        <AgreementReferenceCard context={agreementContext} />
+      </section>
+
+      <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">
+        <h2 className="text-lg font-semibold text-[#0a0a0a]">Evidence</h2>
+        <div className="mt-3">
+          <AttachmentList attachments={dispute.attachments ?? []} readOnly />
+        </div>
+      </section>
+
+      <DisputeResponseComposer dispute={dispute} />
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-[#0a0a0a]">Dispute Evidence Timeline</h2>
+          <AppButton asChild variant="secondary" size="sm">
+            <Link href="/disputes">All Disputes</Link>
+          </AppButton>
+        </div>
+        <DisputeTimeline events={timeline} isLoading={timeline === undefined} />
+      </section>
     </div>
   );
 }

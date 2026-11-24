@@ -17,7 +17,6 @@ import {
   requireWalletRequestContext,
   WalletRequestAuthError,
 } from "@/core/wallet/server/request-auth";
-import { SameOriginError } from "@/core/wallet/server/same-origin";
 import { VeloError } from "@carts1024/velo-sdk";
 import { api } from "@repo/convex-client/server";
 import { NextResponse } from "next/server";
@@ -28,7 +27,7 @@ import type { NextRequest } from "next/server";
 export const runtime = "nodejs";
 
 function errorResponse(error: unknown): NextResponse {
-  if (error instanceof WalletRequestAuthError || error instanceof SameOriginError) {
+  if (error instanceof WalletRequestAuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 
@@ -56,7 +55,7 @@ function errorResponse(error: unknown): NextResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const { walletAddress } = await requireWalletRequestContext(request);
+    const { walletAddress } = requireWalletRequestContext(request);
     const body = GasSubmissionBodySchema.parse(
       await readBoundedJson(request, MAX_GAS_REQUEST_BYTES),
     );

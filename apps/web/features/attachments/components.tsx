@@ -16,6 +16,7 @@ import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import {
   HighrableV2Badge,
+  HighrableV2Bullet,
   HighrableV2IconNotice,
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -45,7 +46,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import React, { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import type {
   TAttachmentProtectionSummary,
@@ -126,7 +127,6 @@ interface IAttachmentUploaderProps {
   readonly onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
   readonly disabled?: boolean;
   readonly ownerRole?: "client" | "freelancer";
-  readonly context?: "job" | "dispute";
 }
 
 function getAttachmentLabel(type: TAttachmentType): string {
@@ -178,7 +178,7 @@ export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
 
 export function AttachmentTypeBadge({ type }: IAttachmentTypeBadgeProps) {
   return (
-    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted">
+    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-muted">
       {getAttachmentLabel(type)}
     </Badge>
   );
@@ -355,9 +355,7 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
   if (attachments.length === 0) {
     return (
       <div className="hr-text-secondary flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-4 font-sans text-sm">
-        <span aria-hidden="true" className="hr-text-muted">
-          ·
-        </span>
+        <HighrableV2Bullet tone="muted" aria-hidden="true" />
         <span>No attachments added.</span>
       </div>
     );
@@ -384,7 +382,6 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
 // Link attachment input
 
 export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputProps) {
-  const urlId = useId();
   const [url, setUrl] = useState("");
   const [type, setType] = useState<"link" | "video_link">("link");
   const [error, setError] = useState<string | null>(null);
@@ -413,12 +410,12 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
   return (
     <div className="space-y-2">
-      <Label className="sr-only" htmlFor={urlId}>
+      <Label className="sr-only" htmlFor="link-attachment-url">
         Link URL
       </Label>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]">
         <AppInput
-          id={urlId}
+          id="link-attachment-url"
           value={url}
           disabled={disabled || isAdding}
           onChange={(event) => {
@@ -426,6 +423,7 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
             setError(null);
           }}
           placeholder="https://example.com/reference"
+          aria-label="Attachment URL"
           maxLength={MAX_EXTERNAL_URL_LENGTH}
           className="w-full"
         />
@@ -480,14 +478,9 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
   return (
     <div
       role="button"
-      tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled}
-      aria-label="Upload attachments"
-      onClick={() => {
-        if (!disabled) inputRef.current?.click();
-      }}
+      tabIndex={0}
+      onClick={() => inputRef.current?.click()}
       onKeyDown={(event) => {
-        if (disabled) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           inputRef.current?.click();
@@ -517,8 +510,7 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
         multiple
         accept={ACCEPTED_ATTACHMENT_TYPES}
         className="hidden"
-        disabled={disabled}
-        tabIndex={-1}
+        aria-label="Upload attachments"
         onChange={(event) => handleFiles(event.target.files)}
       />
 
@@ -548,9 +540,7 @@ export function AttachmentUploader({
   onChange,
   disabled,
   ownerRole = "client",
-  context = "job",
 }: IAttachmentUploaderProps) {
-  const protectedPreviewId = useId();
   const walletIdentity = useHighrableWalletIdentity();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const saveUploadedAttachment = useMutation(api.attachments.saveUploadedAttachment);
@@ -744,19 +734,11 @@ export function AttachmentUploader({
         <div className="flex items-center gap-1.5">
           <HighrableV2IconNotice
             label="Attachment storage notice"
-            message={
-              context === "dispute"
-                ? "Evidence is stored off-chain and linked to this dispute after submission."
-                : "Attachments are stored off-chain and linked to the job after the post is created."
-            }
+            message="Attachments are stored off-chain and linked to the job after the post is created."
           />
           <HighrableV2IconNotice
             label="Attachment visibility notice"
-            message={
-              context === "dispute"
-                ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
-                : "Job attachments become visible on the public job detail page after they are linked."
-            }
+            message="Job attachments become visible on the public job detail page after they are linked."
           />
           {!walletIdentity.walletAddress ? (
             <HighrableV2IconNotice
@@ -777,7 +759,7 @@ export function AttachmentUploader({
       {/* Protected preview toggle */}
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
         <label
-          htmlFor={protectedPreviewId}
+          htmlFor="attachment-protected-preview"
           className="hr-text-primary flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold"
         >
           <ShieldCheck className="h-4 w-4 shrink-0 text-highrable-text-accent" aria-hidden="true" />
@@ -789,7 +771,7 @@ export function AttachmentUploader({
             message="New uploads use protected preview, restricted download, visible watermarking, and access logging."
           />
           <AppSwitch
-            id={protectedPreviewId}
+            id="attachment-protected-preview"
             aria-label="Enable content protection controls"
             checked={useProtectedPreview}
             disabled={disabled}
@@ -813,7 +795,7 @@ export function AttachmentUploader({
 
       {/* Upload/action error */}
       {error ? (
-        <div className="flex items-center gap-2 border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-600">
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           <HighrableV2IconNotice label="Attachment action error" tone="danger" message={error} />
           <span>Attachment action failed</span>
         </div>

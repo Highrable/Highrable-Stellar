@@ -1,6 +1,12 @@
-import { redirect } from "next/navigation";
+import { buildPageMetadata, getStaticSeoRoute } from "@/core/seo";
+import { JobsPage } from "@/features/jobs";
 
-/** Browsing and applying now live on the single Jobs and applications page. */
+import type { Metadata } from "next";
+
+const routeSeo = getStaticSeoRoute("jobs");
+
+export const metadata: Metadata = buildPageMetadata(routeSeo);
+
 export default function JobsRoutePage() {
-  redirect("/marketplace");
+  return <JobsPage />;
 }

@@ -101,14 +101,14 @@ export function Footer() {
     <HighrableV2Footer
       brand={{
         description:
-          "A Stellar-native freelance marketplace for payment-backed work, faster digital dollar payouts, and portable on the network reputation.",
+          "A Stellar-native freelance marketplace for escrow-backed work, faster stablecoin payouts, and portable on-chain reputation.",
         logoSrc: "/logo/highrable-landscape.png",
         logoAlt: "Highrable logo",
         socialLinks: SOCIAL_LINKS,
       }}
       sections={FOOTER_SECTIONS}
       network={{
-        label: "Built On",
+        label: "Built on",
         name: "Stellar Network",
         logoSrc: "/logo/stellar/Stellar_Symbol.png",
         logoAlt: "Stellar Network",

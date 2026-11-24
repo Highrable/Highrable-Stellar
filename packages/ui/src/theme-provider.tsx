@@ -10,8 +10,8 @@ function ThemeProvider({ children }: Pick<ThemeProviderProps, "children">) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="light"
+      enableSystem={false}
       storageKey={THEME_STORAGE_KEY}
       disableTransitionOnChange
     >

@@ -1,7 +1,7 @@
-import { StatusText } from "@/features/common/components/status-text";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
+import { badgeVariants } from "@repo/ui/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
-import React from "react";
+import { cn } from "@repo/ui/lib/utils";
 
 import type { TMarketplaceStatus } from "@/features/marketplace/lib/escrow-status";
 
@@ -10,7 +10,10 @@ interface IStatusBadgeProps {
   readonly ariaLabel?: string;
 }
 
-/** Job, payment-hold or milestone status. Tapping it explains what the status means. */
+/**
+ * Semantic status indicator with accessible labeling and description.
+ * Implements: Semantic HTML, accessibility (aria-label, title), consistency.
+ */
 export function StatusBadge({ label, ariaLabel }: IStatusBadgeProps) {
   const meta = getMarketplaceStatusMeta(label);
   const accessibleLabel = ariaLabel ?? `Status: ${meta.label}. Tap for details.`;
@@ -20,15 +23,19 @@ export function StatusBadge({ label, ariaLabel }: IStatusBadgeProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="rounded-sm underline decoration-border decoration-dotted underline-offset-4 hover:decoration-current focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+          className={cn(
+            badgeVariants({ variant: "outline" }),
+            "font-mono text-[0.65rem] tracking-[0.06em] uppercase",
+            meta.badgeClassName,
+          )}
           aria-label={accessibleLabel}
         >
-          <StatusText tone={meta.tone}>{meta.label}</StatusText>
+          {meta.label}
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" sideOffset={8} className="max-w-xs text-sm leading-relaxed">
-        <p className="font-medium">{meta.label}</p>
-        <p className="mt-1 text-muted-foreground">{meta.description}</p>
+        <p className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">{meta.label}</p>
+        <p className="mt-2 text-muted-foreground">{meta.description}</p>
       </PopoverContent>
     </Popover>
   );

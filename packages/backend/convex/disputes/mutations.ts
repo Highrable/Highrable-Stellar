@@ -6,7 +6,7 @@ import type { TWalletType } from "../users/schema";
 
 import { mutation } from "../_generated/server";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
 import { walletTypeValidator } from "../users/schema";
 import {
@@ -24,25 +24,15 @@ import {
   createDisputeEvent,
   createDisputeNotification,
   createDisputeSystemMessage,
-  assertDisputeTransactionHashDoesNotConflict,
-  clearDisputeOnChainMarkError,
   getDisputeReasonLabel,
   getDisputeRole,
   getStellarExpertUrl,
   isActiveDisputeStatus,
-  isTerminalDisputeStatus,
   sanitizeDisputeDescription,
   sanitizeDisputeMessage,
-  sanitizeOptionalDisputeResponseRequestId,
-  sanitizeOptionalDisputeTransactionHash,
   sanitizeDisputeTitle,
   sanitizeOptionalProofHash,
-  setDisputeOnChainMarkError,
-  validateDisputeDeadlineEventIds,
   validateDisputeAttachmentIds,
-  validateDisputeMessageIds,
-  validateDisputeRevisionRequestIds,
-  validateDisputeWorkSubmissionIds,
   validateRelatedIds,
 } from "./helpers";
 import {
@@ -79,6 +69,11 @@ async function changeDisputeStatusInternal(
 ) {
   const dispute = await getDisputeOrThrow(ctx, args.disputeId);
   const actorWallet = normalizeWalletAddress(args.actorWallet);
+  const isParticipant =
+    actorWallet === dispute.clientWallet || actorWallet === dispute.freelancerWallet;
+  if (!isParticipant) {
+    throw new ForbiddenError("Only authorized dispute participants can update this dispute.");
+  }
   if (
     args.status === "resolved_client" ||
     args.status === "resolved_freelancer" ||
@@ -86,7 +81,6 @@ async function changeDisputeStatusInternal(
   ) {
     throw new ForbiddenError("Resolution actions require moderator tools in a future phase.");
   }
-  const actorRole = getDisputeRole(actorWallet, dispute);
 
   const oldStatus = dispute.status;
   const now = Date.now();
@@ -101,7 +95,7 @@ async function changeDisputeStatusInternal(
     type: args.status === "cancelled" ? "cancelled" : "status_changed",
     actorWallet,
     actorWalletType: args.actorWalletType,
-    actorRole,
+    actorRole: getDisputeRole(actorWallet, dispute),
     message:
       args.message !== undefined
         ? sanitizeDisputeMessage(args.message)
@@ -172,59 +166,16 @@ export const createDispute = mutation({
     escrowContractId: v.optional(v.string()),
     metadata: v.optional(v.any()),
   },
-  returns: v.id("disputes"),
   handler: async (ctx, args) => {
     const title = sanitizeDisputeTitle(args.title);
     const description = sanitizeDisputeDescription(args.description);
-    const rawEvidenceAttachmentIds = args.evidenceAttachmentIds ?? [];
-    const relatedWorkSubmissionIds = validateRelatedIds(
-      args.relatedWorkSubmissionIds ?? [],
-      "Proof references",
-    );
-    const relatedRevisionRequestIds = validateRelatedIds(
-      args.relatedRevisionRequestIds ?? [],
-      "Revision references",
-    );
-    const relatedMessageIds =
-      args.relatedMessageIds !== undefined
-        ? validateRelatedIds(args.relatedMessageIds, "Message references")
-        : undefined;
-    const relatedDeadlineEventIds =
-      args.relatedDeadlineEventIds !== undefined
-        ? validateRelatedIds(args.relatedDeadlineEventIds, "Deadline references")
-        : undefined;
+    const evidenceAttachmentIds = args.evidenceAttachmentIds ?? [];
     const { parent, openedByWallet, openedByRole } = await assertCanOpenDispute(ctx, args);
 
-    const evidenceAttachmentIds = await validateDisputeAttachmentIds(ctx, {
-      attachmentIds: rawEvidenceAttachmentIds,
+    await validateDisputeAttachmentIds(ctx, {
+      attachmentIds: evidenceAttachmentIds,
       walletAddress: openedByWallet,
     });
-
-    const validatedWorkSubmissionIds = await validateDisputeWorkSubmissionIds(ctx, {
-      submissionIds: relatedWorkSubmissionIds,
-      parent,
-    });
-    const validatedRevisionRequestIds = await validateDisputeRevisionRequestIds(ctx, {
-      revisionRequestIds: relatedRevisionRequestIds,
-      parent,
-    });
-    const validatedMessageIds =
-      relatedMessageIds !== undefined
-        ? await validateDisputeMessageIds(ctx, {
-            messageIds: relatedMessageIds,
-            relatedSubmissionIds: validatedWorkSubmissionIds,
-            parent,
-          })
-        : undefined;
-    const validatedDeadlineEventIds =
-      relatedDeadlineEventIds !== undefined
-        ? await validateDisputeDeadlineEventIds(ctx, {
-            deadlineEventIds: relatedDeadlineEventIds,
-            parent,
-          })
-        : undefined;
-    const proofHash = sanitizeOptionalProofHash(args.proofHash);
-    const escrowContractId = optionalNonEmptyString(args.escrowContractId, "escrowContractId");
 
     const now = Date.now();
     const agreement = parent.jobId ? await getAcceptedAgreementForJob(ctx, parent.jobId) : null;
@@ -241,7 +192,9 @@ export const createDispute = mutation({
       ...(parent.milestoneId !== undefined ? { milestoneId: parent.milestoneId } : {}),
       escrowId: parent.escrowId,
       onChainEscrowId: parent.onChainEscrowId,
-      ...(escrowContractId !== undefined ? { escrowContractId } : {}),
+      ...(optionalNonEmptyString(args.escrowContractId, "escrowContractId") !== undefined
+        ? { escrowContractId: optionalNonEmptyString(args.escrowContractId, "escrowContractId") }
+        : {}),
       clientWallet: parent.clientWallet,
       freelancerWallet: parent.freelancerWallet,
       openedByWallet,
@@ -251,18 +204,33 @@ export const createDispute = mutation({
       title,
       description,
       evidenceAttachmentIds,
-      relatedWorkSubmissionIds: validatedWorkSubmissionIds,
-      relatedRevisionRequestIds: validatedRevisionRequestIds,
+      relatedWorkSubmissionIds: validateRelatedIds(
+        args.relatedWorkSubmissionIds ?? [],
+        "Proof references",
+      ),
+      relatedRevisionRequestIds: validateRelatedIds(
+        args.relatedRevisionRequestIds ?? [],
+        "Revision references",
+      ),
       ...(agreement ? { agreementId: agreement._id } : {}),
       ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
       ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
         ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
         : {}),
-      ...(validatedMessageIds !== undefined ? { relatedMessageIds: validatedMessageIds } : {}),
-      ...(validatedDeadlineEventIds !== undefined
-        ? { relatedDeadlineEventIds: validatedDeadlineEventIds }
+      ...(args.relatedMessageIds !== undefined
+        ? { relatedMessageIds: validateRelatedIds(args.relatedMessageIds, "Message references") }
         : {}),
-      ...(proofHash !== undefined ? { proofHash } : {}),
+      ...(args.relatedDeadlineEventIds !== undefined
+        ? {
+            relatedDeadlineEventIds: validateRelatedIds(
+              args.relatedDeadlineEventIds,
+              "Deadline references",
+            ),
+          }
+        : {}),
+      ...(sanitizeOptionalProofHash(args.proofHash) !== undefined
+        ? { proofHash: sanitizeOptionalProofHash(args.proofHash) }
+        : {}),
       status: "open",
       onChainStatus: "not_marked",
       openedAt: now,
@@ -344,52 +312,24 @@ export const markDisputeOnChainStarted = mutation({
     actorWallet: v.string(),
     actorWalletType: walletTypeValidator,
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet,
+      actorWallet: args.actorWallet,
       dispute,
     });
-
-    if (isTerminalDisputeStatus(dispute.status)) {
-      throw new ConflictError("Terminal disputes cannot start on-chain marking.");
-    }
-
-    if (dispute.onChainStatus === "marking") {
-      return true;
-    }
-    if (dispute.onChainStatus === "marked") {
-      throw new ConflictError("A confirmed on-chain dispute cannot be reopened.");
-    }
-    if (dispute.onChainStatus === "not_marked" && dispute.transactionHash !== undefined) {
-      throw new ConflictError(
-        "An on-chain mark with a recorded transaction hash requires reconciliation before retrying.",
-      );
-    }
-    if (dispute.onChainStatus === "mark_failed" && dispute.transactionHash !== undefined) {
-      throw new ConflictError(
-        "A failed on-chain mark with a recorded transaction hash requires reconciliation before retrying.",
-      );
-    }
-
-    const isRetry = dispute.onChainStatus === "mark_failed";
 
     await ctx.db.patch(dispute._id, {
       onChainStatus: "marking",
       updatedAt: Date.now(),
-      ...(isRetry ? { metadata: clearDisputeOnChainMarkError(dispute.metadata) } : {}),
     });
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_started",
-      actorWallet,
+      actorWallet: args.actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message: isRetry
-        ? "On-chain dispute marking retry started."
-        : "On-chain dispute marking started.",
+      message: "On-chain dispute marking started.",
     });
     return true;
   },
@@ -403,52 +343,31 @@ export const markDisputeOnChainSucceeded = mutation({
     transactionHash: v.string(),
     stellarExpertUrl: v.optional(v.string()),
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet,
+      actorWallet: args.actorWallet,
       dispute,
     });
-    const transactionHash = sanitizeOptionalDisputeTransactionHash(args.transactionHash);
+    const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
     if (!transactionHash) {
       throw new BadRequestError("transactionHash is required.");
     }
-    const stellarExpertUrl = optionalNonEmptyString(args.stellarExpertUrl, "stellarExpertUrl");
-    assertDisputeTransactionHashDoesNotConflict(dispute.transactionHash, transactionHash);
-
-    if (dispute.onChainStatus === "marked") {
-      if (dispute.transactionHash !== transactionHash) {
-        throw new ConflictError(
-          "A confirmed on-chain dispute can only accept its recorded transaction hash.",
-        );
-      }
-      return true;
-    }
-    if (isTerminalDisputeStatus(dispute.status)) {
-      throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
-    }
-    if (dispute.onChainStatus === "not_marked") {
-      throw new ConflictError("On-chain dispute marking must start before it can succeed.");
-    }
-
     const now = Date.now();
-    const resolvedStellarExpertUrl = stellarExpertUrl ?? getStellarExpertUrl(transactionHash);
+    const stellarExpertUrl = args.stellarExpertUrl ?? getStellarExpertUrl(transactionHash);
 
     await ctx.db.patch(dispute._id, {
       onChainStatus: "marked",
-      ...(dispute.transactionHash === undefined ? { transactionHash } : {}),
-      stellarExpertUrl: resolvedStellarExpertUrl,
+      transactionHash,
+      stellarExpertUrl,
       markedDisputedAt: now,
       updatedAt: now,
-      metadata: clearDisputeOnChainMarkError(dispute.metadata),
     });
 
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_succeeded",
-      actorWallet,
+      actorWallet: args.actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
       message: "On-chain update: Escrow was marked as disputed.",
@@ -489,77 +408,49 @@ export const markDisputeOnChainFailed = mutation({
     errorMessage: v.string(),
     transactionHash: v.optional(v.string()),
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet,
+      actorWallet: args.actorWallet,
       dispute,
     });
-    const transactionHash = sanitizeOptionalDisputeTransactionHash(args.transactionHash);
-    const errorMessage = sanitizeDisputeMessage(args.errorMessage);
-    assertDisputeTransactionHashDoesNotConflict(dispute.transactionHash, transactionHash);
-
-    if (dispute.onChainStatus === "marked") {
-      return true;
-    }
-    if (dispute.onChainStatus === "mark_failed") {
-      if (dispute.transactionHash === undefined && transactionHash !== undefined) {
-        if (isTerminalDisputeStatus(dispute.status)) {
-          throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
-        }
-        await ctx.db.patch(dispute._id, { transactionHash });
-      }
-      return true;
-    }
-    if (isTerminalDisputeStatus(dispute.status)) {
-      throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
-    }
-    if (dispute.onChainStatus === "not_marked") {
-      throw new ConflictError("On-chain dispute marking must start before it can fail.");
-    }
-
-    const effectiveTransactionHash = dispute.transactionHash ?? transactionHash;
-    const failureGuidance =
-      effectiveTransactionHash !== undefined
-        ? "The recorded transaction hash requires reconciliation before retrying."
-        : "Retry only if the operation was not submitted; otherwise, reconcile its outcome first.";
-
+    const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
     await ctx.db.patch(dispute._id, {
       onChainStatus: "mark_failed",
       ...(transactionHash !== undefined ? { transactionHash } : {}),
       updatedAt: Date.now(),
-      metadata: setDisputeOnChainMarkError(dispute.metadata, errorMessage),
+      metadata: {
+        ...(typeof dispute.metadata === "object" && dispute.metadata !== null
+          ? dispute.metadata
+          : {}),
+        onChainMarkError: sanitizeDisputeMessage(args.errorMessage),
+      },
     });
 
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_failed",
-      actorWallet,
+      actorWallet: args.actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message: `Dispute evidence was saved, but on-chain escrow dispute marking failed. ${failureGuidance}`,
-      ...(effectiveTransactionHash !== undefined
-        ? { transactionHash: effectiveTransactionHash }
-        : {}),
-      metadata: { errorMessage },
+      message:
+        "Dispute evidence was saved, but on-chain escrow dispute marking failed. Retry required.",
+      ...(transactionHash !== undefined ? { transactionHash } : {}),
+      metadata: { errorMessage: sanitizeDisputeMessage(args.errorMessage) },
     });
     const updated = await getDisputeOrThrow(ctx, args.disputeId);
     await createDisputeSystemMessage(ctx, {
       dispute: updated,
       eventType: "dispute_on_chain_mark_failed",
-      body: `Dispute update: on-chain dispute marking failed. ${failureGuidance}`,
-      ...(effectiveTransactionHash !== undefined
-        ? { transactionHash: effectiveTransactionHash }
-        : {}),
+      body: "Dispute update: on-chain dispute marking failed. Retry required.",
+      ...(transactionHash !== undefined ? { transactionHash } : {}),
     });
     await createDisputeNotification(ctx, {
       dispute: updated,
       recipientWallet: updated.openedByWallet,
       type: "dispute_on_chain_mark_failed",
       title: "On-chain dispute mark failed",
-      body: `Dispute evidence was saved, but on-chain marking failed. ${failureGuidance}`,
+      body: "Dispute evidence was saved, but on-chain marking failed. Please retry.",
     });
 
     return true;
@@ -574,23 +465,21 @@ export const addDisputeEvidence = mutation({
     attachmentIds: v.array(v.id("attachments")),
     message: v.optional(v.string()),
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorRole = await assertCanRespondToDispute(ctx, dispute, args.actorWallet);
-    const message = args.message !== undefined ? sanitizeDisputeMessage(args.message) : undefined;
-    const attachmentIds = await validateDisputeAttachmentIds(ctx, {
+    const actorRole = assertCanRespondToDispute(dispute, args.actorWallet);
+    await validateDisputeAttachmentIds(ctx, {
       attachmentIds: args.attachmentIds,
       walletAddress: args.actorWallet,
       parentId: dispute._id,
     });
     await attachEvidenceToDispute(ctx, {
-      attachmentIds,
+      attachmentIds: args.attachmentIds,
       disputeId: dispute._id,
     });
 
     const evidenceAttachmentIds = Array.from(
-      new Set([...dispute.evidenceAttachmentIds, ...attachmentIds]),
+      new Set([...dispute.evidenceAttachmentIds, ...args.attachmentIds]),
     );
     await ctx.db.patch(dispute._id, {
       evidenceAttachmentIds,
@@ -603,9 +492,10 @@ export const addDisputeEvidence = mutation({
       actorWallet: args.actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message:
-        message ?? `${actorRole === "client" ? "Client" : "Freelancer"} added dispute evidence.`,
-      attachmentIds,
+      message: args.message
+        ? sanitizeDisputeMessage(args.message)
+        : `${actorRole === "client" ? "Client" : "Freelancer"} added dispute evidence.`,
+      attachmentIds: args.attachmentIds,
     });
 
     const recipientWallet =
@@ -633,46 +523,17 @@ export const addDisputeResponse = mutation({
     responderWalletType: walletTypeValidator,
     message: v.string(),
     attachmentIds: v.optional(v.array(v.id("attachments"))),
-    requestId: v.optional(v.string()),
   },
-  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const responderRole = await assertCanRespondToDispute(ctx, dispute, args.responderWallet);
-    const responderWallet = normalizeWalletAddress(args.responderWallet);
-    const message = sanitizeDisputeMessage(args.message);
-    const requestId = sanitizeOptionalDisputeResponseRequestId(args.requestId);
+    const responderRole = assertCanRespondToDispute(dispute, args.responderWallet);
+    const attachmentIds = args.attachmentIds ?? [];
 
-    const attachmentIds = await validateDisputeAttachmentIds(ctx, {
-      attachmentIds: args.attachmentIds ?? [],
+    await validateDisputeAttachmentIds(ctx, {
+      attachmentIds,
       walletAddress: args.responderWallet,
       parentId: dispute._id,
     });
-
-    if (requestId !== undefined) {
-      const existingResponse = await ctx.db
-        .query("disputeEvents")
-        .withIndex("by_dispute_actor_requestId", (q) =>
-          q
-            .eq("disputeId", dispute._id)
-            .eq("actorWallet", responderWallet)
-            .eq("requestId", requestId),
-        )
-        .first();
-
-      if (existingResponse) {
-        const matches =
-          existingResponse.message === message &&
-          existingResponse.actorWalletType === args.responderWalletType &&
-          existingResponse.attachmentIds.length === attachmentIds.length &&
-          existingResponse.attachmentIds.every(
-            (attachmentId, index) => attachmentId === attachmentIds[index],
-          );
-        if (matches) return true;
-        throw new ConflictError("requestId was already used for a different dispute response.");
-      }
-    }
-
     await attachEvidenceToDispute(ctx, { attachmentIds, disputeId: dispute._id });
     const evidenceAttachmentIds = Array.from(
       new Set([...dispute.evidenceAttachmentIds, ...attachmentIds]),
@@ -688,9 +549,8 @@ export const addDisputeResponse = mutation({
       actorWallet: args.responderWallet,
       actorWalletType: args.responderWalletType,
       actorRole: responderRole,
-      message,
+      message: sanitizeDisputeMessage(args.message),
       attachmentIds,
-      ...(requestId !== undefined ? { requestId } : {}),
     });
 
     const recipientWallet =

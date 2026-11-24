@@ -1,7 +1,6 @@
 "use client";
 
-import { StatusText } from "@/features/common/components/status-text";
-import React from "react";
+import { Badge } from "@repo/ui/components/ui/badge";
 
 import type { TConvexDoc } from "@repo/convex-client";
 
@@ -14,7 +13,7 @@ const STATUS_LABELS: Record<TConvexDoc<"cancellationRequests">["status"], string
   pending_freelancer_response: "Freelancer response",
   approved_for_cancel: "Approved",
   rejected_by_freelancer: "Rejected",
-  cancel_pending_on_chain: "On the network pending",
+  cancel_pending_on_chain: "On-chain pending",
   cancelled_on_chain: "Cancelled",
   cancel_failed: "Retry needed",
   blocked: "Blocked",
@@ -25,12 +24,16 @@ const STATUS_LABELS: Record<TConvexDoc<"cancellationRequests">["status"], string
 export function CancellationStatusBadge({ status }: ICancellationStatusBadgeProps) {
   const tone =
     status === "cancelled_on_chain"
-      ? "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
       : status === "cancel_failed" || status === "blocked" || status === "rejected_by_freelancer"
-        ? "danger"
+        ? "border-red-200 bg-red-50 text-red-800"
         : status === "pending_freelancer_response" || status === "cancel_pending_on_chain"
-          ? "warning"
-          : "neutral";
+          ? "border-amber-200 bg-amber-50 text-amber-900"
+          : "border-[#d8d8d8] bg-white text-[#3f3f3f]";
 
-  return <StatusText tone={tone}>{STATUS_LABELS[status]}</StatusText>;
+  return (
+    <Badge variant="outline" className={`rounded-md font-mono text-[11px] ${tone}`}>
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
 }

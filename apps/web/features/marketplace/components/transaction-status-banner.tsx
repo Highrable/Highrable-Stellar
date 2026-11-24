@@ -22,7 +22,7 @@ export function TransactionStatusBanner({
     >
       {error ? (
         <p
-          className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-800"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:rounded-2xl"
           role="alert"
           aria-atomic="true"
         >
@@ -31,7 +31,7 @@ export function TransactionStatusBanner({
       ) : null}
       {success ? (
         <p
-          className="border-l-2 border-emerald-500 bg-emerald-50/60 py-2.5 pr-3 pl-3 text-sm text-emerald-900"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 sm:rounded-2xl"
           role="status"
           aria-atomic="true"
         >
@@ -43,10 +43,10 @@ export function TransactionStatusBanner({
           href={txExplorerUrl}
           target="_blank"
           rel="noreferrer"
-          className="hr-mode-text inline-flex text-sm hover:underline"
+          className="inline-flex font-mono text-sm font-medium tracking-[0.04em] text-highrable-orange-3 hover:text-highrable-orange-2 hover:underline"
           aria-label="View transaction in Stellar Testnet Explorer (opens in new window)"
         >
-          View transaction on Stellar
+          View on Stellar Explorer
         </a>
       ) : null}
     </div>

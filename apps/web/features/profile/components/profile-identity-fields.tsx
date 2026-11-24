@@ -21,17 +21,20 @@ interface IProfileIdentityFieldsProps {
   readonly onFieldChange: (field: keyof TProfileIdentityFormValues, value: string) => void;
   readonly onSkillsInputChange: (value: string) => void;
   readonly onAvatarFileChange: (file: File | null, validationError: string | null) => void;
-  /** Limits which sections are shown (used by stepped forms). Hidden sections stay mounted. */
-  readonly visibleSections?: readonly TProfileIdentitySection[];
 }
-
-export type TProfileIdentitySection = "name" | "identity" | "social" | "avatar";
 
 // Sub-components
 
 /** Thin labelled divider used as a section header */
 function SectionDivider({ label }: { label: string }) {
-  return <h3 className="hr-text-primary mb-3 font-sans text-sm font-semibold">{label}</h3>;
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <div className="h-2 w-2 bg-highrable-text-accent" />
+      <span className="font-mono text-sm font-semibold tracking-widest whitespace-nowrap text-highrable-text-accent uppercase">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 /** Input with a fixed prefix slot (e.g. "@" or "discord.gg/") */
@@ -68,18 +71,15 @@ export function ProfileIdentityFields({
   onFieldChange,
   onSkillsInputChange,
   onAvatarFileChange,
-  visibleSections,
 }: IProfileIdentityFieldsProps) {
-  const isVisible = (section: TProfileIdentitySection) =>
-    !visibleSections || visibleSections.includes(section);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Live handle hint
   const [handleFocused, setHandleFocused] = useState(false);
   const handleHint =
     handleFocused && values.publicHandle
-      ? `Shown on your profile as @${values.publicHandle.trim().toLowerCase()}`
-      : "3–32 characters: letters, numbers, underscores or hyphens.";
+      ? `Profile URL: /@${values.publicHandle}`
+      : "Your public-facing username.";
 
   // Parsed skill badges
   const skillBadges = skillsInput
@@ -98,8 +98,8 @@ export function ProfileIdentityFields({
   return (
     <div className="space-y-10">
       {/* Name */}
-      <section aria-labelledby="section-name" hidden={!isVisible("name")}>
-        <SectionDivider label="About You" />
+      <section aria-labelledby="section-name">
+        <SectionDivider label="Name" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="profile-first-name">First name</Label>
@@ -107,7 +107,7 @@ export function ProfileIdentityFields({
               id="profile-first-name"
               value={values.firstName}
               maxLength={60}
-              placeholder="First name"
+              placeholder="Ada"
               required
               onChange={(e) => onFieldChange("firstName", e.target.value)}
             />
@@ -116,13 +116,13 @@ export function ProfileIdentityFields({
           <div className="space-y-1.5">
             <Label htmlFor="profile-middle-name">
               Middle name{" "}
-              <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+              <span className="text-xs font-normal text-muted-foreground">optional</span>
             </Label>
             <Input
               id="profile-middle-name"
               value={values.middleName ?? ""}
               maxLength={60}
-              placeholder="Middle name"
+              placeholder="L."
               onChange={(e) => onFieldChange("middleName", e.target.value)}
             />
           </div>
@@ -133,7 +133,7 @@ export function ProfileIdentityFields({
               id="profile-last-name"
               value={values.lastName}
               maxLength={60}
-              placeholder="Last name"
+              placeholder="Lovelace"
               required
               onChange={(e) => onFieldChange("lastName", e.target.value)}
             />
@@ -142,17 +142,17 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Identity & skills */}
-      <section aria-labelledby="section-identity" hidden={!isVisible("identity")}>
-        <SectionDivider label="Username and skills" />
+      <section aria-labelledby="section-identity">
+        <SectionDivider label="Identity & skills" />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="profile-handle">Username</Label>
+            <Label htmlFor="profile-handle">Public handle</Label>
             <PrefixInput
               id="profile-handle"
               prefix="@"
               value={values.publicHandle}
               maxLength={32}
-              placeholder="Username"
+              placeholder="stellar_builder"
               required
               onChange={(e) => onFieldChange("publicHandle", e.target.value)}
               onFocus={() => setHandleFocused(true)}
@@ -162,15 +162,15 @@ export function ProfileIdentityFields({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-skills">Skills</Label>
+            <Label htmlFor="profile-skills">Core skills</Label>
             <Input
               id="profile-skills"
               value={skillsInput}
-              placeholder="e.g. Web design, Copywriting, React"
+              placeholder="Stellar, React, Smart contracts"
               required
               onChange={(e) => onSkillsInputChange(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Separate skills with commas. Up to 10.</p>
+            <p className="text-xs text-muted-foreground">Comma-separated, up to 10 skills.</p>
             {skillBadges.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {skillBadges.map((skill) => (
@@ -185,39 +185,45 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Social links */}
-      <section aria-labelledby="section-social" hidden={!isVisible("social")}>
-        <SectionDivider label="Social links (optional)" />
+      <section aria-labelledby="section-social">
+        <SectionDivider label="Social links" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="profile-discord">Discord</Label>
+            <Label htmlFor="profile-discord">
+              Discord <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </Label>
             <Input
               id="profile-discord"
               value={values.discordHandle ?? ""}
               maxLength={40}
-              placeholder="Discord username"
+              placeholder="username"
               onChange={(e) => onFieldChange("discordHandle", e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-x">X</Label>
+            <Label htmlFor="profile-x">
+              X <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </Label>
             <PrefixInput
               id="profile-x"
               prefix="@"
               value={values.xHandle ?? ""}
               maxLength={40}
-              placeholder="X username"
+              placeholder="handle"
               onChange={(e) => onFieldChange("xHandle", e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-github">GitHub</Label>
+            <Label htmlFor="profile-github">
+              GitHub <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </Label>
             <Input
               id="profile-github"
               value={values.githubUsername ?? ""}
               maxLength={40}
-              placeholder="GitHub username"
+              placeholder="username"
               onChange={(e) => onFieldChange("githubUsername", e.target.value)}
             />
           </div>
@@ -225,8 +231,8 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Avatar */}
-      <section aria-labelledby="section-avatar" hidden={!isVisible("avatar")}>
-        <SectionDivider label="Profile picture (optional)" />
+      <section aria-labelledby="section-avatar">
+        <SectionDivider label="Avatar" />
         <div className="flex flex-wrap items-center gap-4">
           {/* Preview */}
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
@@ -250,9 +256,9 @@ export function ProfileIdentityFields({
           {/* Info + actions */}
           <div className="space-y-1">
             <Label htmlFor="upload-avatar">
-              Photo{" "}
+              Upload a photo{" "}
               <span className="text-xs font-normal text-muted-foreground">
-                JPEG, PNG, WebP or GIF, up to 5 MB
+                JPEG, PNG, WebP or GIF · Max 5 MB
               </span>
             </Label>
 

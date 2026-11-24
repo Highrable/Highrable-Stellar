@@ -90,15 +90,15 @@ function formatFeePath(readiness: IPasskeyEscrowExecutionReadiness | null): stri
 
 function getReadinessCopy(readiness: IPasskeyEscrowExecutionReadiness | null): string {
   if (!readiness) {
-    return "Checking passkey payment hold execution readiness.";
+    return "Checking passkey escrow execution readiness.";
   }
 
   if (readiness.canExecute && readiness.feePath === "classic_source_account") {
-    return "Passkey payment hold is ready. Network fees will be paid by the configured classic source account.";
+    return "Passkey escrow is ready. Network fees will be paid by the configured classic source account.";
   }
 
   if (readiness.canExecute && readiness.feePath === "relayer") {
-    return "Passkey payment hold is ready. Network fees will be paid by the configured relayer.";
+    return "Passkey escrow is ready. Network fees will be paid by the configured relayer.";
   }
 
   if (readiness.missingReasons.length > 0) {
@@ -118,7 +118,6 @@ export function PasskeySmartAccountCard() {
     discoveredContracts,
     error,
     isSupported,
-    isEnabled,
     hasConfig,
     isContractPickerOpen,
     createPasskeyAccount,
@@ -195,10 +194,6 @@ export function PasskeySmartAccountCard() {
     void refreshWalletDetails();
   }, [refreshWalletDetails]);
 
-  if (!isEnabled) {
-    return null;
-  }
-
   if (!isSupported) {
     return (
       <section className="w-full rounded-2xl border border-gray-200 bg-linear-to-br from-white to-gray-50 p-6 shadow-md">
@@ -256,7 +251,7 @@ export function PasskeySmartAccountCard() {
           {isPasskeyConnected && smartAccountAddress ? (
             <div className="w-full space-y-5">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-lg border-transparent bg-highrable-orange-2 px-3 py-1 font-mono text-xs font-semibold text-[var(--mode-on)]">
+                <Badge className="rounded-lg border-transparent bg-gray-900 px-3 py-1 font-mono text-xs font-semibold text-white">
                   Smart Account
                 </Badge>
                 <Badge variant="outline" className="rounded-lg px-3 py-1 font-mono text-xs">
@@ -325,7 +320,7 @@ export function PasskeySmartAccountCard() {
                       Passkey Execution Status
                     </p>
                     <p className="mt-2 font-sans text-sm font-semibold text-gray-900">
-                      {feeReadiness?.canExecute ? "Ready to execute payment hold" : "Not ready"}
+                      {feeReadiness?.canExecute ? "Ready to execute escrow" : "Not ready"}
                     </p>
                   </div>
                   <div
@@ -352,7 +347,9 @@ export function PasskeySmartAccountCard() {
                       <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
                         Type
                       </p>
-                      <p className="mt-2 font-sans font-medium text-gray-900">passkey account</p>
+                      <p className="mt-2 font-sans font-medium text-gray-900">
+                        Passkey Smart Account
+                      </p>
                     </div>
                     <div>
                       <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
@@ -386,7 +383,7 @@ export function PasskeySmartAccountCard() {
                     </div>
                     <div>
                       <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                        Digital dollar readiness
+                        Stablecoin readiness
                       </p>
                       <p className="mt-2 font-sans font-medium text-gray-900">
                         {stablecoinBalance.balance === null
@@ -451,7 +448,7 @@ export function PasskeySmartAccountCard() {
                     className="flex-1 font-medium"
                     onClick={() => void refreshWalletDetails()}
                     disabled={isRefreshingWalletDetails}
-                    title="Refresh Balances and Status"
+                    title="Refresh balances and status"
                   >
                     <RefreshCw
                       className={`mr-1.5 h-4 w-4 ${isRefreshingWalletDetails ? "animate-spin" : ""}`}
@@ -471,7 +468,7 @@ export function PasskeySmartAccountCard() {
                     className="flex-1 font-medium"
                     onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
                     disabled={isCreating || isReconnecting || isRestoring}
-                    title="Switch to Another Passkey Account"
+                    title="Switch to another passkey account"
                   >
                     <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                     <span>Switch</span>
@@ -479,7 +476,7 @@ export function PasskeySmartAccountCard() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <AppButton type="button" size="icon" variant="outline" title="More Options">
+                      <AppButton type="button" size="icon" variant="outline" title="More options">
                         <MoreVertical className="h-4 w-4" aria-hidden="true" />
                       </AppButton>
                     </DropdownMenuTrigger>
@@ -630,7 +627,7 @@ export function PasskeySmartAccountCard() {
               <button
                 key={contract.contract_id}
                 type="button"
-                className="w-full rounded-xl border border-gray-300 bg-white p-4 text-left transition-all hover:border-highrable-orange-2/40 hover:bg-highrable-orange-2/5 hover:shadow-md focus:ring-2 focus:ring-ring/30 focus:outline-none"
+                className="w-full rounded-xl border border-gray-300 bg-white p-4 text-left transition-all hover:border-[#FF7003]/40 hover:bg-[#FF7003]/5 hover:shadow-md focus:ring-2 focus:ring-[#FF7003]/30 focus:outline-none"
                 aria-label={`Select contract ${contract.contract_id}`}
                 onClick={() =>
                   void runPasskeyUiAction(() =>

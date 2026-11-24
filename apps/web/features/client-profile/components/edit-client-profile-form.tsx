@@ -1,12 +1,13 @@
 "use client";
 
-import { updateClientProfile } from "@/core/member/client";
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 
 import type { TClientProfile } from "@/features/client-profile/types";
@@ -33,6 +34,7 @@ export function EditClientProfileForm({
   readonly onSaved: () => void;
   readonly onCancel: () => void;
 }) {
+  const updateProfile = useMutation(api.profiles.updateClientProfile);
   const [name, setName] = useState(profile.name ?? "");
   const [companyName, setCompanyName] = useState(profile.companyName ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
@@ -60,7 +62,8 @@ export function EditClientProfileForm({
 
     setStatus("saving");
     try {
-      await updateClientProfile({
+      await updateProfile({
+        walletAddress: profile.walletAddress,
         name,
         companyName,
         bio,
@@ -81,7 +84,7 @@ export function EditClientProfileForm({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="space-y-4 rounded-lg border border-[#e8e8e8] bg-white p-5"
+      className="space-y-4 rounded-2xl border border-[#e8e8e8] bg-white p-5 shadow-sm"
     >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -137,7 +140,7 @@ export function EditClientProfileForm({
       </div>
 
       {error ? (
-        <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </p>
       ) : null}

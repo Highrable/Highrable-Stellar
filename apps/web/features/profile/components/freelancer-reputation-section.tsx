@@ -1,14 +1,6 @@
 "use client";
 
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import {
-  RouteCallout,
-  RouteEmptyState,
-  StatCard,
-  WorkList,
-  WorkListRow,
-  WorkMeta,
-} from "@/features/common";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -17,11 +9,10 @@ import {
   getReviewCompletionType,
   getWorkTypeLabel,
 } from "@/features/profile/lib/profile-format";
-import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
-import { Star } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
+import { ArrowUpRight, ExternalLink, Star } from "lucide-react";
 import Link from "next/link";
-import React from "react";
 
 import type {
   TFreelancerProfileStats,
@@ -42,7 +33,11 @@ interface IStatItem {
   readonly helper: string;
 }
 
-type TReputationTab = readonly [value: "reviews" | "history", label: string, count: string];
+type TReputationTab = readonly [
+  value: "stats" | "reviews" | "history",
+  label: string,
+  count: string,
+];
 
 function getStatItems(stats: TFreelancerProfileStats): readonly IStatItem[] {
   const earnedValue = formatAssetAmountList(
@@ -54,13 +49,13 @@ function getStatItems(stats: TFreelancerProfileStats): readonly IStatItem[] {
     stats.averageRating === null ? "No ratings yet" : `${stats.averageRating.toFixed(1)} / 5`;
 
   return [
-    { label: "Completed", value: stats.completedContracts, helper: "Paid jobs and milestones" },
-    { label: "Quick jobs", value: stats.completedMicroGigs, helper: "Completed and paid" },
-    { label: "Milestones", value: stats.completedMilestones, helper: "Completed and paid" },
-    { label: "Earned", value: earnedValue, helper: "Released to this freelancer" },
-    { label: "On hold", value: pendingValue, helper: "Funded or handed in" },
+    { label: "Completed", value: stats.completedContracts, helper: "Released escrow contracts" },
+    { label: "Micro gigs", value: stats.completedMicroGigs, helper: "Released gig escrows" },
+    { label: "Milestones", value: stats.completedMilestones, helper: "Released milestone escrows" },
+    { label: "Earned", value: earnedValue, helper: "Released payments by asset" },
+    { label: "Pending escrow", value: pendingValue, helper: "Funded or submitted work" },
     {
-      label: "Average rating",
+      label: "Avg rating",
       value: ratingValue,
       helper: `${stats.totalReviews} verified review${stats.totalReviews === 1 ? "" : "s"}`,
     },
@@ -69,7 +64,7 @@ function getStatItems(stats: TFreelancerProfileStats): readonly IStatItem[] {
       value: stats.activeContracts,
       helper: `${stats.activeMilestones} active milestone${stats.activeMilestones === 1 ? "" : "s"}`,
     },
-    { label: "Reviews", value: stats.totalReviews, helper: "Left after payment release" },
+    { label: "Reviews", value: stats.totalReviews, helper: "Created after escrow release" },
   ];
 }
 
@@ -80,16 +75,36 @@ function normalizeRating(rating: number): number | null {
 }
 
 function ReputationEmptyState({ children }: { readonly children: ReactNode }) {
-  return <RouteEmptyState description={children} />;
+  return (
+    <p className="rounded-xl border border-dashed border-border bg-card p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
+      {children}
+    </p>
+  );
 }
 
 function StatsPanel({ stats }: { readonly stats: TFreelancerProfileStats }) {
   const items = getStatItems(stats);
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label} className="bg-card p-4">
-          <StatCard label={item.label} value={item.value} description={item.helper} />
+    <div className="grid rounded-xl border border-border bg-card shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+      {items.map((item, index) => (
+        <div
+          key={item.label}
+          className={cn(
+            "min-w-0 p-4 lg:p-5",
+            index < items.length - 1 ? "border-b border-border" : "",
+            "sm:odd:border-r sm:odd:border-border",
+            "lg:nth-child(4n):border-r-0 lg:nth-last-child(-n+4):border-b-0 lg:border-r lg:border-b lg:border-border",
+          )}
+        >
+          <p className="font-mono text-xs tracking-[0.08em] text-highrable-orange-3 uppercase">
+            {item.label}
+          </p>
+          <div className="wrap-break-words hr-text-primary mt-2 font-sans text-2xl leading-tight font-semibold">
+            {item.value}
+          </div>
+          <p className="mt-1.5 font-sans text-xs leading-relaxed text-muted-foreground">
+            {item.helper}
+          </p>
         </div>
       ))}
     </div>
@@ -111,7 +126,9 @@ function RatingStars({ rating }: { readonly rating: number | null }) {
           aria-hidden="true"
         />
       ))}
-      <span className="ml-1.5 text-xs text-muted-foreground">{rating}/5</span>
+      <span className="ml-1.5 font-mono text-[11px] font-medium text-muted-foreground">
+        {rating}/5
+      </span>
     </span>
   );
 }
@@ -124,13 +141,13 @@ function VerifiedReviewsPanel({
   if (reviews.length === 0) {
     return (
       <ReputationEmptyState>
-        No verified reviews yet. Reviews appear after paid payment hold completion.
+        No verified reviews yet. Reviews appear after paid escrow completion.
       </ReputationEmptyState>
     );
   }
 
   return (
-    <WorkList>
+    <div className="flex flex-col gap-4">
       {reviews.map((review) => {
         const safeRating = normalizeRating(review.rating);
         const title = review.milestoneTitle
@@ -138,54 +155,69 @@ function VerifiedReviewsPanel({
           : review.jobTitle;
 
         return (
-          <WorkListRow
+          <article
             key={review.escrowId}
-            href={`/marketplace/jobs/${review.jobId}`}
-            title={title}
-            amount={`${formatAmount(review.amount)} ${formatAsset(review.asset)}`}
-            amountLabel="Paid"
-            status={<RatingStars rating={safeRating} />}
-            meta={
-              <>
-                <span>
-                  {getReviewCompletionType(review.workType) === "milestone"
-                    ? "Milestone"
-                    : "Quick job"}
-                </span>
-                <WorkMeta label="Client">
+            className="rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl"
+          >
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-5 py-4 sm:px-6">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                {getReviewCompletionType(review.workType) === "milestone"
+                  ? "Milestone verified"
+                  : "Gig verified"}
+              </span>
+              <RatingStars rating={safeRating} />
+            </div>
+
+            <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_200px]">
+              <div className="min-w-0 space-y-2">
+                <Link
+                  href={`/marketplace/jobs/${review.jobId}`}
+                  className="hr-text-primary font-semibold transition-colors hover:text-highrable-orange-3"
+                >
+                  {title}
+                </Link>
+                <p className="hr-text-secondary font-sans text-sm leading-relaxed">
+                  {review.reviewText || "Review text was not provided for this verified payment."}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 text-sm lg:items-end lg:text-right">
+                <p className="hr-text-primary font-semibold">
+                  {formatAmount(review.amount)} {formatAsset(review.asset)}
+                </p>
+                <p className="text-muted-foreground">
+                  Client{" "}
                   <Link
                     href={`/clients/${encodeURIComponent(review.clientWallet)}`}
-                    className="font-mono hover:underline"
+                    className="font-medium text-highrable-orange-3 hover:underline"
                   >
                     {shortenWalletAddress(review.clientWallet)}
                   </Link>
-                </WorkMeta>
-                <Link
-                  href={`/proof/${encodeURIComponent(review.escrowId)}`}
-                  className="hr-mode-text hover:underline"
-                >
-                  Payment proof
-                </Link>
-                {review.txHash ? (
-                  <a
-                    href={getTxExplorerUrl(review.txHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
+                </p>
+                <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                  <Link
+                    href={`/proof/${encodeURIComponent(review.escrowId)}`}
+                    className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 hover:underline"
                   >
-                    Transaction
-                  </a>
-                ) : null}
-              </>
-            }
-          >
-            <p className="hr-text-secondary mt-2 text-sm leading-relaxed">
-              {review.reviewText || <span className="hr-text-muted">No written review.</span>}
-            </p>
-          </WorkListRow>
+                    Proof <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                  {review.txHash ? (
+                    <a
+                      href={getTxExplorerUrl(review.txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 hover:underline"
+                    >
+                      Transaction <ExternalLink className="inline h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </article>
         );
       })}
-    </WorkList>
+    </div>
   );
 }
 
@@ -197,57 +229,79 @@ function WorkHistoryPanel({
   if (contracts.length === 0) {
     return (
       <ReputationEmptyState>
-        No active or completed payment-backed contracts yet.
+        No active or completed escrow-backed contracts yet.
       </ReputationEmptyState>
     );
   }
 
   return (
-    <WorkList>
+    <div className="flex flex-col gap-4">
       {contracts.map((contract) => (
-        <WorkListRow
+        <article
           key={contract.escrowId}
-          href={`/marketplace/jobs/${contract.jobId}`}
-          title={contract.jobTitle}
-          subtitle={contract.milestoneTitle ? `Milestone: ${contract.milestoneTitle}` : undefined}
-          amount={`${formatAmount(contract.amount)} ${formatAsset(contract.asset)}`}
-          amountLabel="Amount"
-          status={<StatusBadge label={contract.status} />}
-          meta={
-            <>
-              <span>{getWorkTypeLabel(contract.workType)}</span>
-              <WorkMeta label="Client">
+          className="rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl"
+        >
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-5 py-4 sm:px-6">
+            <span className="hr-text-primary inline-flex items-center rounded-md border border-border/80 bg-muted/50 px-2.5 py-1 text-[11px] font-medium">
+              {getWorkTypeLabel(contract.workType)}
+            </span>
+            <StatusBadge label={contract.status} />
+          </div>
+
+          <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_200px]">
+            <div className="min-w-0 space-y-2">
+              <Link
+                href={`/marketplace/jobs/${contract.jobId}`}
+                className="hr-text-primary font-semibold transition-colors hover:text-highrable-orange-3"
+              >
+                {contract.jobTitle}
+              </Link>
+              {contract.milestoneTitle ? (
+                <p className="text-xs text-muted-foreground">
+                  Milestone: {contract.milestoneTitle}
+                </p>
+              ) : null}
+              <p className="text-sm text-muted-foreground">
+                Client{" "}
                 <Link
                   href={`/clients/${encodeURIComponent(contract.clientWallet)}`}
-                  className="font-mono hover:underline"
+                  className="font-medium text-highrable-orange-3 hover:underline"
                 >
                   {shortenWalletAddress(contract.clientWallet)}
                 </Link>
-              </WorkMeta>
-              <WorkMeta label="Updated">
-                {new Date(contract.updatedAt).toLocaleDateString()}
-              </WorkMeta>
-              <Link
-                href={`/proof/${encodeURIComponent(contract.escrowId)}`}
-                className="hr-mode-text hover:underline"
-              >
-                Payment proof
-              </Link>
-              {contract.releaseTxHash ? (
-                <a
-                  href={getTxExplorerUrl(contract.releaseTxHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline"
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 text-sm md:items-end md:text-right">
+              <p className="hr-text-primary font-semibold">
+                {formatAmount(contract.amount)} {formatAsset(contract.asset)}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                <Link
+                  href={`/proof/${encodeURIComponent(contract.escrowId)}`}
+                  className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 hover:underline"
                 >
-                  Release transaction
-                </a>
-              ) : null}
-            </>
-          }
-        />
+                  View proof <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+                {contract.releaseTxHash ? (
+                  <a
+                    href={getTxExplorerUrl(contract.releaseTxHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 hover:underline"
+                  >
+                    Release tx <ExternalLink className="inline h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                ) : null}
+              </div>
+              <p className="font-mono text-[11px] text-muted-foreground/60">
+                Updated {new Date(contract.updatedAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </article>
       ))}
-    </WorkList>
+    </div>
   );
 }
 
@@ -257,57 +311,96 @@ export function FreelancerReputationSection({
   contracts,
 }: IFreelancerReputationSectionProps) {
   const reputationTabs: readonly TReputationTab[] = [
+    ["stats", "Stats", stats.completedContracts.toString()],
     ["reviews", "Reviews", reviews.length.toString()],
     ["history", "Work history", contracts.length.toString()],
   ];
 
   return (
-    <div className="space-y-8">
-      <section aria-labelledby="freelancer-record-title" className="space-y-3">
-        <div className="flex items-center gap-1.5">
-          <h2 id="freelancer-record-title" className="hr-text-primary text-base font-semibold">
-            Track record
-          </h2>
-          <HighrableV2IconNotice
-            label="Where these numbers come from"
-            tone="neutral"
-            message="Every figure comes from a real, paid job on Highrable and is linked to its payment on Stellar."
-          />
+    <section className="space-y-5">
+      {/* Section card header — mirrors job-detail milestone progress card */}
+      <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+              Verified Reputation
+            </p>
+            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+              Escrow-backed work signal
+            </h2>
+            <p className="hr-text-secondary mt-1 font-sans text-sm">
+              Stats, reviews, and work history are backed by real Stellar escrow transactions —
+              clients can verify authenticity on-chain.
+            </p>
+          </div>
+          {stats.disputedContracts > 0 ? (
+            <span className="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+              {stats.disputedContracts} disputed
+            </span>
+          ) : null}
         </div>
-        {stats.disputedContracts > 0 ? (
-          <RouteCallout tone="warning">
-            {stats.disputedContracts} {stats.disputedContracts === 1 ? "job was" : "jobs were"}{" "}
-            disputed.
-          </RouteCallout>
-        ) : null}
-        <StatsPanel stats={stats} />
-      </section>
 
-      <section aria-labelledby="freelancer-work-title" className="space-y-3">
-        <h2 id="freelancer-work-title" className="sr-only">
-          Reviews and work history
-        </h2>
-        <Tabs defaultValue="reviews" className="gap-4">
-          <TabsList variant="line" className="h-auto w-full justify-start gap-6 border-b pb-0">
-            {reputationTabs.map(([value, label, count]) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="flex-none rounded-none px-0 py-2.5 text-sm data-[state=active]:font-medium data-[state=active]:after:bg-(--mode-solid)"
-              >
-                {label}
-                <span className="hr-text-muted ml-1.5 font-normal">{count}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="reviews">
-            <VerifiedReviewsPanel reviews={reviews} />
-          </TabsContent>
-          <TabsContent value="history">
-            <WorkHistoryPanel contracts={contracts} />
-          </TabsContent>
-        </Tabs>
-      </section>
-    </div>
+        <div className="mt-5 grid gap-5 border-t border-border/60 pt-5 text-sm sm:grid-cols-3">
+          <div>
+            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+              Completed
+            </p>
+            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
+              {stats.completedContracts}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+              Avg rating
+            </p>
+            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
+              {stats.averageRating === null
+                ? "No ratings yet"
+                : `${stats.averageRating.toFixed(1)} / 5`}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+              Verified reviews
+            </p>
+            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
+              {stats.totalReviews}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="stats" className="mt-8 gap-5">
+        <TabsList
+          variant="line"
+          className="h-auto w-full justify-start border-b border-border/60 pb-0"
+        >
+          {reputationTabs.map(([value, label, count]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className={cn(
+                "rounded-none px-0 py-3 pr-6 font-mono text-xs font-semibold tracking-[0.08em] uppercase",
+                "data-[state=active]:text-highrable-orange-3 data-[state=active]:after:bg-highrable-orange-3",
+              )}
+            >
+              {label}
+              <span className="ml-1.5 font-sans text-muted-foreground/60">{count}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="stats">
+          <StatsPanel stats={stats} />
+        </TabsContent>
+        <TabsContent value="reviews">
+          <VerifiedReviewsPanel reviews={reviews} />
+        </TabsContent>
+        <TabsContent value="history">
+          <WorkHistoryPanel contracts={contracts} />
+        </TabsContent>
+      </Tabs>
+    </section>
   );
 }

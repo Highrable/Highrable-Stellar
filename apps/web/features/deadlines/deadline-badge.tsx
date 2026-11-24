@@ -1,8 +1,4 @@
-import { StatusText } from "@/features/common/components/status-text";
-import React from "react";
-
 import type { TDeadlineStatus } from "./lib";
-import type { TStatusTone } from "@/features/common/components/status-text";
 
 import {
   computeDeadlineStatus,
@@ -12,19 +8,19 @@ import {
   getRemainingTimeLabel,
 } from "./lib";
 
-const STATUS_TONE: Record<TDeadlineStatus, TStatusTone> = {
-  no_deadline: "neutral",
-  upcoming: "neutral",
-  due_soon: "warning",
-  due_very_soon: "warning",
-  overdue: "danger",
-  submitted_on_time: "success",
-  submitted_late: "warning",
-  completed_on_time: "success",
-  completed_late: "warning",
-  cancelled: "neutral",
-  disputed: "danger",
-  released: "success",
+const STATUS_CLASS: Record<TDeadlineStatus, string> = {
+  no_deadline: "border-border bg-muted text-muted-foreground",
+  upcoming: "border-border bg-card hr-text-secondary",
+  due_soon: "border-amber-200 bg-amber-50 text-amber-800",
+  due_very_soon: "border-orange-300 bg-orange-50 text-orange-800",
+  overdue: "border-red-200 bg-red-50 text-red-700",
+  submitted_on_time: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  submitted_late: "border-amber-300 bg-amber-50 text-amber-900",
+  completed_on_time: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  completed_late: "border-amber-300 bg-amber-50 text-amber-900",
+  cancelled: "border-border bg-muted text-muted-foreground",
+  disputed: "border-red-200 bg-red-50 text-red-700",
+  released: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
 export function DeadlineBadge({
@@ -52,21 +48,29 @@ export function DeadlineBadge({
     escrowStatus,
     workStatus,
   });
-  const tone = STATUS_TONE[status];
+  const statusClass = STATUS_CLASS[status];
 
   if (compact) {
-    return <StatusText tone={tone}>{getDeadlineStatusLabel(status)}</StatusText>;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[10px] tracking-[0.06em] uppercase ${statusClass}`}
+      >
+        {getDeadlineStatusLabel(status)}
+      </span>
+    );
   }
 
   return (
-    <div className="space-y-0.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <StatusText tone={tone}>{getDeadlineStatusLabel(status)}</StatusText>
-        <span className="hr-text-secondary text-xs">{getRemainingTimeLabel(deadlineAt)}</span>
+    <div className={`rounded-lg border p-3 ${statusClass}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] tracking-[0.08em] uppercase">
+          {getDeadlineStatusLabel(status)}
+        </span>
+        <span className="font-mono text-[11px]">{getRemainingTimeLabel(deadlineAt)}</span>
       </div>
-      <p className="hr-text-secondary text-xs">
+      <p className="mt-1 text-xs">
         {formatDeadline(deadlineAt)}{" "}
-        <span className="hr-text-muted">({getLocalTimezoneLabel()})</span>
+        <span className="font-mono text-[11px]">({getLocalTimezoneLabel()})</span>
       </p>
     </div>
   );

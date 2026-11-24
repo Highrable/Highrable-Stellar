@@ -8,8 +8,8 @@ export default async function AdminDisputeDetailRoutePage({
   const { disputeId } = await params;
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <main className="mx-auto max-w-6xl px-4 py-10">
       <AdminDisputeDetailPage disputeId={disputeId} />
-    </div>
+    </main>
   );
 }

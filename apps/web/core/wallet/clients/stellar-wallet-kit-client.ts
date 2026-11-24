@@ -8,7 +8,6 @@ import {
   WALLET_NETWORK,
   WALLET_NETWORK_LABEL,
   WALLET_NETWORK_PASSPHRASE,
-  WALLETCONNECT_ENABLED,
   WALLETCONNECT_PROJECT_ID,
 } from "@/core/wallet/config";
 import {
@@ -32,10 +31,6 @@ import { WalletPersistenceService } from "../services/wallet-persistence-service
 
 const WALLET_CONNECT_MODULE_ID = "wallet_connect";
 const WALLET_RESTORE_RETRY_DELAYS_MS = [0, 150, 500, 1000] as const;
-const WALLET_CONNECT_READY_POLL_INTERVAL_MS = 100;
-const WALLET_CONNECT_READY_TIMEOUT_MS = 10_000;
-const WALLET_CONNECT_NOT_READY_MESSAGE =
-  "WalletConnect is still initializing and was left out of this picker. You can use another available wallet or retry in a moment.";
 
 declare const window:
   | (Window &
@@ -203,9 +198,6 @@ function normalizeWalletNetwork(network: string | null | undefined): {
 
 let walletKitInitialized = false;
 let walletKitIncludesWalletConnect = false;
-let walletConnectModule: WalletConnectModule | null = null;
-let walletConnectReadinessPromise: Promise<boolean> | null = null;
-let walletConnectionPromise: Promise<TWalletAccount> | null = null;
 const walletPersistenceService = new WalletPersistenceService();
 
 class SafeFreighterModule extends FreighterModule {
@@ -231,18 +223,23 @@ class SafeFreighterModule extends FreighterModule {
   }
 }
 
-function getWalletConnectModule(): WalletConnectModule | null {
-  if (!WALLETCONNECT_ENABLED || !WALLETCONNECT_PROJECT_ID) {
-    return null;
+function createWalletModules(includeWalletConnect: boolean): ModuleInterface[] {
+  const modules = defaultModules().map(
+    (module): ModuleInterface =>
+      module.productId === "freighter" ? new SafeFreighterModule() : module,
+  );
+
+  if (!includeWalletConnect || !WALLETCONNECT_PROJECT_ID) {
+    return modules;
   }
 
-  if (!walletConnectModule) {
-    const appOrigin =
-      typeof window !== "undefined" && window.location.origin
-        ? window.location.origin
-        : "https://highrable.local";
+  const appOrigin =
+    typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "https://highrable.local";
 
-    walletConnectModule = new WalletConnectModule({
+  modules.push(
+    new WalletConnectModule({
       projectId: WALLETCONNECT_PROJECT_ID,
       metadata: {
         name: "Highrable",
@@ -255,36 +252,19 @@ function getWalletConnectModule(): WalletConnectModule | null {
           ? WalletConnectTargetChain.PUBLIC
           : WalletConnectTargetChain.TESTNET,
       ],
-    });
-  }
-
-  return walletConnectModule;
-}
-
-function createWalletModules(includeWalletConnect: boolean): ModuleInterface[] {
-  const modules = defaultModules().map(
-    (module): ModuleInterface =>
-      module.productId === "freighter" ? new SafeFreighterModule() : module,
+    }),
   );
-
-  const walletConnect = includeWalletConnect ? getWalletConnectModule() : null;
-
-  if (walletConnect) {
-    modules.push(walletConnect);
-  }
 
   return modules;
 }
 
 function ensureKitInitialized(options: TWalletKitInitOptions): void {
-  const shouldIncludeWalletConnect = options.includeWalletConnect && WALLETCONNECT_ENABLED;
-
-  if (walletKitInitialized && walletKitIncludesWalletConnect === shouldIncludeWalletConnect) {
+  if (walletKitInitialized && (!options.includeWalletConnect || walletKitIncludesWalletConnect)) {
     return;
   }
 
   StellarWalletsKit.init({
-    modules: createWalletModules(shouldIncludeWalletConnect),
+    modules: createWalletModules(options.includeWalletConnect),
     network: WALLET_NETWORK === "mainnet" ? Networks.PUBLIC : Networks.TESTNET,
     theme: {
       background: "#ffffff",
@@ -312,63 +292,7 @@ function ensureKitInitialized(options: TWalletKitInitOptions): void {
   });
 
   walletKitInitialized = true;
-  walletKitIncludesWalletConnect = shouldIncludeWalletConnect;
-}
-
-async function pollWalletConnectReadiness(module: WalletConnectModule): Promise<boolean> {
-  const deadline = Date.now() + WALLET_CONNECT_READY_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    const remainingMs = deadline - Date.now();
-    const availability = await new Promise<boolean | null>((resolve) => {
-      const timeoutId = setTimeout(() => resolve(null), remainingMs);
-
-      Promise.resolve()
-        .then(() => module.isAvailable())
-        .then((isAvailable) => {
-          clearTimeout(timeoutId);
-          resolve(isAvailable);
-        })
-        .catch(() => {
-          clearTimeout(timeoutId);
-          resolve(false);
-        });
-    });
-
-    if (availability === true) {
-      return true;
-    }
-
-    if (availability === null) {
-      return false;
-    }
-
-    const nextPollDelayMs = Math.min(WALLET_CONNECT_READY_POLL_INTERVAL_MS, deadline - Date.now());
-
-    if (nextPollDelayMs <= 0) {
-      return false;
-    }
-
-    await wait(nextPollDelayMs);
-  }
-
-  return false;
-}
-
-function waitForWalletConnectReadiness(module: WalletConnectModule): Promise<boolean> {
-  if (!walletConnectReadinessPromise) {
-    walletConnectReadinessPromise = pollWalletConnectReadiness(module);
-  }
-
-  const readinessPromise = walletConnectReadinessPromise;
-
-  return readinessPromise.then((isReady) => {
-    if (!isReady && walletConnectReadinessPromise === readinessPromise) {
-      walletConnectReadinessPromise = null;
-    }
-
-    return isReady;
-  });
+  walletKitIncludesWalletConnect = options.includeWalletConnect && !!WALLETCONNECT_PROJECT_ID;
 }
 
 export class StellarWalletKitClient implements IWalletClient {
@@ -455,37 +379,10 @@ export class StellarWalletKitClient implements IWalletClient {
     );
   }
 
-  public connect(onNotice?: (message: string) => void): Promise<TWalletAccount> {
-    if (!walletConnectionPromise) {
-      walletConnectionPromise = this.connectOnce(onNotice).finally(() => {
-        walletConnectionPromise = null;
-      });
-    }
+  public async connect(): Promise<TWalletAccount> {
+    ensureKitInitialized({ includeWalletConnect: true });
 
-    return walletConnectionPromise;
-  }
-
-  private async connectOnce(onNotice?: (message: string) => void): Promise<TWalletAccount> {
-    let walletConnectTimedOut = false;
-
-    if (WALLETCONNECT_ENABLED) {
-      ensureKitInitialized({ includeWalletConnect: true });
-
-      const walletConnect = getWalletConnectModule();
-      const isWalletConnectReady = walletConnect
-        ? await waitForWalletConnectReadiness(walletConnect)
-        : false;
-
-      if (!isWalletConnectReady) {
-        walletConnectTimedOut = true;
-        onNotice?.(WALLET_CONNECT_NOT_READY_MESSAGE);
-        ensureKitInitialized({ includeWalletConnect: false });
-      }
-    } else {
-      ensureKitInitialized({ includeWalletConnect: false });
-    }
-
-    if (WALLET_NETWORK !== "local" && !WALLETCONNECT_PROJECT_ID) {
+    if (!WALLETCONNECT_PROJECT_ID) {
       console.warn(
         "WalletConnect is disabled because NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not configured in apps/web/.env.local.",
       );
@@ -496,9 +393,7 @@ export class StellarWalletKitClient implements IWalletClient {
       return this.resolveActiveWallet(response.address);
     } catch (error) {
       if (!isStaleWalletConnectSessionError(error)) {
-        throw new Error(
-          walletConnectTimedOut ? WALLET_CONNECT_NOT_READY_MESSAGE : getErrorMessage(error),
-        );
+        throw new Error(getErrorMessage(error));
       }
 
       await this.clearStaleWalletConnectState();
@@ -507,9 +402,7 @@ export class StellarWalletKitClient implements IWalletClient {
         const retryResponse = await StellarWalletsKit.authModal();
         return this.resolveActiveWallet(retryResponse.address);
       } catch (retryError) {
-        throw new Error(
-          walletConnectTimedOut ? WALLET_CONNECT_NOT_READY_MESSAGE : getErrorMessage(retryError),
-        );
+        throw new Error(getErrorMessage(retryError));
       }
     }
   }
@@ -548,17 +441,6 @@ export class StellarWalletKitClient implements IWalletClient {
 
     if (isWalletConnectModule(storedWalletSelection.walletId)) {
       try {
-        if (!WALLETCONNECT_ENABLED) {
-          return null;
-        }
-
-        ensureKitInitialized({ includeWalletConnect: true });
-        const walletConnect = getWalletConnectModule();
-
-        if (!walletConnect || !(await waitForWalletConnectReadiness(walletConnect))) {
-          return null;
-        }
-
         const selectedModule = await this.selectAvailableWalletModule(
           storedWalletSelection.walletId,
           { includeWalletConnect: true },

@@ -1,7 +1,8 @@
 "use client";
 
-import { AdminSessionGate, useAdminSessionAccess } from "@/features/admin/admin-session-gate";
-import { AdminMark } from "@/features/admin/components/admin-mark";
+import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AdminSessionGate } from "@/features/admin/admin-session-gate";
 import {
   AdminBreakdownMatrix,
   AdminDisputeQueue,
@@ -12,20 +13,16 @@ import {
 } from "@/features/admin/components/admin-operations-ui";
 import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
-import {
-  getDisputeOnChainStatusLabel,
-  getDisputeStatusLabel,
-  isDisputeOnChainStatus,
-  isDisputeStatus,
-} from "@/features/disputes/lib";
+import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminDashboardMetrics } from "@/features/admin/types";
 
-export function AdminDashboardContent() {
-  const { isOwner } = useAdminSessionAccess();
+export function AdminDashboardPage() {
+  const { role, isLoading: isRoleLoading } = useDashboardRole();
+  const { authSession } = useWallet();
   const [metrics, setMetrics] = useState<IAdminDashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +41,12 @@ export function AdminDashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (!isOwner) {
+    if (role !== "admin" || !authSession) {
       return;
     }
 
     void loadMetrics();
-  }, [isOwner, loadMetrics]);
+  }, [authSession, loadMetrics, role]);
 
   const platformMetrics = useMemo<readonly IAdminMetricItem[]>(() => {
     if (!metrics) {
@@ -87,35 +84,29 @@ export function AdminDashboardContent() {
 
     return [
       {
-        title: "Users by Role",
+        title: "Users By Role",
         description: "Access segmentation for client, freelancer, and admin wallets.",
         values: metrics.users.byRole,
       },
       {
-        title: "Jobs by Status",
+        title: "Jobs By Status",
         description: "Marketplace demand grouped by current work state.",
         values: metrics.jobs.byStatus,
       },
       {
-        title: "Escrows by Status",
+        title: "Escrows By Status",
         description: "Escrow-backed stats for funding, release, and dispute readiness.",
         values: metrics.escrows.byStatus,
       },
       {
-        title: "Disputes by Status",
+        title: "Disputes By Status",
         description: "Review queue state for open, waiting, and resolved cases.",
         values: metrics.disputes.byStatus,
-        formatLabel: (label) =>
-          isDisputeStatus(label) ? getDisputeStatusLabel(label) : formatBreakdownLabel(label),
       },
       {
-        title: "Disputes by On-Chain",
+        title: "Disputes By On-Chain",
         description: "On-chain marking state for dispute settlement integrity.",
         values: metrics.disputes.byOnChainStatus,
-        formatLabel: (label) =>
-          isDisputeOnChainStatus(label)
-            ? getDisputeOnChainStatusLabel(label)
-            : formatBreakdownLabel(label),
       },
     ];
   }, [metrics]);
@@ -137,36 +128,62 @@ export function AdminDashboardContent() {
         values: metrics.workSubmissions.byOnChainStatus,
       },
       {
-        title: "Revisions by Status",
+        title: "Revisions By Status",
         description: "Revision loop pressure across active work agreements.",
         values: metrics.revisions.byStatus,
       },
       {
-        title: "Reminders by Status",
+        title: "Reminders By Status",
         description: "Deadline reminder delivery state for overdue work prevention.",
         values: metrics.deadlineReminders.byStatus,
       },
     ];
   }, [metrics]);
 
+  if (isRoleLoading) {
+    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
+  }
+
+  if (role === null) {
+    return (
+      <WalletRequiredNotice
+        title="Admin Dashboard"
+        description="Connect the configured admin wallet to access platform operations."
+      />
+    );
+  }
+
+  if (role !== "admin") {
+    return (
+      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+        This route is restricted to the configured admin wallet.
+      </section>
+    );
+  }
+
+  if (!authSession) {
+    return <AdminSessionGate>{null}</AdminSessionGate>;
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <ProductPageHero
-          meta={<AdminMark />}
-          title="Overview"
-          description="Platform totals, lifecycle counts, and the newest dispute cases."
-        />
-        <div className="shrink-0">
-          <AppButton
-            variant="outline"
-            size="sm"
-            onClick={() => void loadMetrics()}
-            disabled={isLoading}
-          >
-            {isLoading ? "Refreshing..." : "Refresh"}
-          </AppButton>
-        </div>
+      <ProductPageHero
+        label="Platform Operations"
+        title={
+          <>
+            Highrable <span className="hr-v2-gradient-text">Admin Console</span>
+          </>
+        }
+        description="Monitor platform operations, review dispute pipeline health, and inspect lifecycle counts in one place."
+      />
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <AppButton asChild variant="secondary" size="sm">
+          <Link href="/admin/disputes">Open Dispute Console</Link>
+        </AppButton>
+        <AppButton size="sm" onClick={() => void loadMetrics()} disabled={isLoading}>
+          {isLoading ? "Refreshing..." : "Refresh Metrics"}
+        </AppButton>
       </div>
 
       {error ? <RouteCallout tone="danger">{error}</RouteCallout> : null}
@@ -177,7 +194,11 @@ export function AdminDashboardContent() {
         </RouteCallout>
       ) : (
         <div className="space-y-6">
-          <AdminSection title="Platform totals">
+          <AdminSection
+            label="Operations Snapshot"
+            title="Platform totals"
+            description="A compact read on the core platform objects before drilling into lifecycle health."
+          >
             <AdminMetricRail items={platformMetrics} />
           </AdminSection>
 
@@ -188,16 +209,24 @@ export function AdminDashboardContent() {
             </RouteCallout>
           ) : null}
 
-          <AdminSection title="Lifecycle breakdown">
+          <AdminSection
+            label="Escrow-backed Stats"
+            title="Lifecycle breakdown"
+            description="Grouped counts are organized by operational theme so unusual states are easier to scan."
+          >
             <AdminBreakdownMatrix groups={lifecycleGroups} />
           </AdminSection>
 
-          <AdminSection title="Work submissions and deadlines">
+          <AdminSection
+            label="Verified Reviews"
+            title="Work history health"
+            description="Submission, revision, and reminder activity that feeds escrow-backed reputation."
+          >
             <div className="space-y-5">
               <AdminMetricRail
                 items={[
                   {
-                    label: "Work Submissions",
+                    label: "Work submissions",
                     value: metrics.workSubmissions.total,
                     description: "Submitted deliverables available for review.",
                   },
@@ -223,11 +252,13 @@ export function AdminDashboardContent() {
           </AdminSection>
 
           <AdminSection
+            label="Work History"
             title="Recent disputes"
+            description="Newest review cases that may affect escrow settlement and portable reputation."
             action={
-              <Link href="/admin/disputes" className="hr-mode-text text-sm hover:underline">
-                All disputes
-              </Link>
+              <AppButton asChild variant="secondary" size="sm">
+                <Link href="/admin/disputes">View All</Link>
+              </AppButton>
             }
           >
             <AdminDisputeQueue
@@ -241,16 +272,4 @@ export function AdminDashboardContent() {
       )}
     </div>
   );
-}
-
-export function AdminDashboardPage() {
-  return (
-    <AdminSessionGate requiredCapability="owner">
-      <AdminDashboardContent />
-    </AdminSessionGate>
-  );
-}
-
-function formatBreakdownLabel(label: string): string {
-  return label.replaceAll("_", " ");
 }

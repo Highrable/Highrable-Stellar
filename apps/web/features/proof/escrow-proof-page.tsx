@@ -1,9 +1,9 @@
 "use client";
 
-import { ESCROW_CONTRACT_ID, STELLAR_NETWORK_PASSPHRASE } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   Collapsible,
   CollapsibleContent,
@@ -97,11 +97,7 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
 
       try {
         const result = (await (syncType === "escrow"
-          ? syncEscrowStatusAction({
-              escrowId: sanitizedEscrowId,
-              expectedEscrowContractId: ESCROW_CONTRACT_ID ?? "",
-              expectedNetworkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-            })
+          ? syncEscrowStatusAction({ escrowId: sanitizedEscrowId })
           : syncReputationRecordAction({ escrowId: sanitizedEscrowId }))) as TSyncResult;
         setSyncMessage(formatSyncMessage(result));
       } catch (error) {
@@ -155,9 +151,11 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
 
   if (proof === undefined) {
     return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading proof receipt...
-      </p>
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <p className="border border-[#e8e8e8] bg-white p-6 text-sm text-[#5f5f5f]">
+          Loading proof receipt...
+        </p>
+      </main>
     );
   }
 
@@ -166,7 +164,7 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <main className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
       <EscrowProofHeader proof={proof} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -183,26 +181,30 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
         <EscrowProofShareActions proof={proof} />
         <EscrowProofExplanationCard proofStatus={proof.proofStatus} />
       </ProofAdvancedDetails>
-    </div>
+    </main>
   );
 }
 
 function ProofAdvancedDetails({ children }: { readonly children: ReactNode }) {
   return (
-    <Collapsible className="rounded-lg border">
-      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 px-4 py-3 text-left">
-        <div>
-          <h2 className="hr-text-primary text-sm font-semibold">Share and explain this receipt</h2>
-          <p className="hr-text-secondary mt-0.5 text-sm">
-            Share links and a plain-English explanation of what this proof shows.
-          </p>
+    <Collapsible className="border border-[#e8e8e8] bg-white">
+      <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 p-5 text-left sm:p-6">
+        <div className="space-y-2">
+          <SectionLabel>More Options</SectionLabel>
+          <div>
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Share and explain</h2>
+            <p className="mt-1 text-sm leading-relaxed text-[#5f5f5f]">
+              Share controls and a plain-English explanation are available when someone needs more
+              context.
+            </p>
+          </div>
         </div>
         <ChevronDown
           className="h-5 w-5 shrink-0 text-[#7f7f7f] transition-transform group-data-[state=open]:rotate-180"
           aria-hidden="true"
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="border-t p-4">
+      <CollapsibleContent className="border-t border-[#e8e8e8] p-5 sm:p-6">
         <div className="grid gap-4 lg:grid-cols-2">{children}</div>
       </CollapsibleContent>
     </Collapsible>
@@ -210,5 +212,11 @@ function ProofAdvancedDetails({ children }: { readonly children: ReactNode }) {
 }
 
 function ProofNotFound() {
-  return <p className="hr-text-secondary text-sm">Proof receipt not found.</p>;
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <p className="border border-[#e8e8e8] bg-white p-6 text-sm text-[#5f5f5f]">
+        Proof receipt not found.
+      </p>
+    </main>
+  );
 }

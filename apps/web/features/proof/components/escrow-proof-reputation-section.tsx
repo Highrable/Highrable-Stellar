@@ -1,6 +1,7 @@
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import { StatusText } from "@/features/common";
-import { ExternalLink, Star } from "lucide-react";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
+import { ExternalLink, ShieldCheck, Star } from "lucide-react";
 
 import type { TEscrowProof } from "../types";
 import type { ReactNode } from "react";
@@ -45,7 +46,7 @@ export function EscrowProofReputationSection({
   if (proof.escrow.status !== "released") {
     return (
       <TrustInfoRow
-        title="Trust Badge Not Ready Yet"
+        title="Trust badge not ready yet"
         tone="muted"
         content={
           <p>
@@ -77,24 +78,28 @@ export function EscrowProofReputationSection({
 
   return (
     <TrustInfoRow
-      title="Verified Paid Work"
+      title="Verified paid work"
       tone="success"
       content={
-        <div className="space-y-4">
+        <div className="space-y-5">
           <p>
             This review is tied to paid work on Highrable, so it is harder to fake than a normal
             marketplace rating.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="hr-text-secondary text-xs">Rating</p>
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Rating
+              </p>
               <div className="mt-2 text-sm font-medium">
                 <RatingStars rating={reputationRecord.rating} />
               </div>
             </div>
 
             <div>
-              <p className="hr-text-secondary text-xs">Review</p>
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Review
+              </p>
               <p className="hr-text-primary mt-2 text-sm font-semibold">
                 {reputationRecord.reviewText ? "Written feedback included" : "Paid work confirmed"}
               </p>
@@ -102,27 +107,31 @@ export function EscrowProofReputationSection({
           </div>
 
           {reputationRecord.reviewText ? (
-            <div className="border-t pt-4">
-              <p className="hr-text-secondary text-xs">Client feedback</p>
-              <p className="hr-text-primary mt-1 text-sm leading-relaxed">
+            <div className="border-t border-gray-100 pt-5">
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Client feedback
+              </p>
+              <p className="hr-text-primary mt-2 text-sm leading-relaxed italic">
                 "{reputationRecord.reviewText}"
               </p>
             </div>
           ) : null}
 
-          <div className="border-t pt-4">
+          <div className="border-t border-gray-100 pt-5">
             {reputationRecord.txHash ? (
               <a
                 href={getTxExplorerUrl(reputationRecord.txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hr-mode-text inline-flex items-center gap-1 text-sm hover:underline"
+                className="hr-text-accent inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase transition-colors hover:opacity-80"
               >
-                Payment transaction on Stellar
-                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                View payment receipt
+                <ExternalLink className="h-3 w-3" />
               </a>
             ) : (
-              <p className="hr-text-muted text-xs">Transaction link not available</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                Receipt link not available
+              </p>
             )}
           </div>
         </div>
@@ -140,13 +149,33 @@ function TrustInfoRow({
   readonly content: ReactNode;
   readonly tone: "muted" | "warning" | "success";
 }) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-[#e8e8e8] bg-white text-[#7f7f7f]";
+
   return (
-    <section aria-labelledby="proof-reputation-title" className="space-y-2">
-      <h2 id="proof-reputation-title" className="hr-text-primary text-base font-semibold">
-        Reputation record
-      </h2>
-      <StatusText tone={tone === "muted" ? "neutral" : tone}>{title}</StatusText>
-      <div className="hr-text-secondary max-w-3xl text-sm leading-relaxed">{content}</div>
+    <section className="flex items-center justify-between gap-4 border-y border-[#e8e8e8] bg-white py-4">
+      <div>
+        <SectionLabel>Trust Badge</SectionLabel>
+        <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">{title}</h2>
+      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Open trust badge details"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border transition-colors hover:bg-[#fff7ed] ${toneClass}`}
+          >
+            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="left" sideOffset={10} className="max-w-md text-sm leading-relaxed">
+          {content}
+        </PopoverContent>
+      </Popover>
     </section>
   );
 }

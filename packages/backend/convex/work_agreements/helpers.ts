@@ -545,21 +545,6 @@ export async function getActiveAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) 
   );
 }
 
-export async function hasSelectedFreelancerForJob(ctx: QueryCtx, jobId: Id<"jobs">) {
-  const job = await ctx.db.get(jobId);
-  if (!job) return false;
-  if (job.selectedFreelancerWallet) return true;
-  if ((job.jobType ?? "micro_gig") !== "milestone_project") return false;
-
-  const milestones = await ctx.db
-    .query("milestones")
-    .withIndex("by_jobId_order", (q) => q.eq("jobId", jobId))
-    .order("asc")
-    .take(500);
-
-  return milestones.some((milestone) => Boolean(milestone.assignedFreelancerWallet));
-}
-
 export async function getCurrentAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) {
   const agreements = await ctx.db
     .query("workAgreements")
@@ -608,23 +593,18 @@ export async function assertCanViewWorkAgreement(
     throw new NotFoundError("Work agreement not found.");
   }
   const normalizedViewerWallet = normalizeWalletAddress(viewerWallet);
+  if (
+    isSameWallet(agreement.clientWallet, normalizedViewerWallet) ||
+    isSameWallet(agreement.freelancerWallet, normalizedViewerWallet)
+  ) {
+    return normalizedViewerWallet;
+  }
 
   const user = await ctx.db
     .query("users")
     .withIndex("by_walletAddress", (q) => q.eq("walletAddress", normalizedViewerWallet))
     .first();
   if (user?.role === "admin") {
-    return normalizedViewerWallet;
-  }
-
-  if (!(await hasSelectedFreelancerForJob(ctx, agreement.jobId))) {
-    throw new NotFoundError("Work agreement not found.");
-  }
-
-  if (
-    isSameWallet(agreement.clientWallet, normalizedViewerWallet) ||
-    isSameWallet(agreement.freelancerWallet, normalizedViewerWallet)
-  ) {
     return normalizedViewerWallet;
   }
 
@@ -1894,7 +1874,7 @@ export async function recordAgreementGuardBlockedAction(
   });
 }
 
-export async function assertAgreementLockedForProofSubmission(
+export async function assertAgreementAcceptedForProofSubmission(
   ctx: MutationCtx,
   input: {
     job: Doc<"jobs">;
@@ -1905,13 +1885,11 @@ export async function assertAgreementLockedForProofSubmission(
 ) {
   if (!requiresAcceptedAgreement(input.job)) return;
   const agreement = await getActiveAgreementByJob(ctx, input.job._id);
-  if (agreement?.status === "locked") return;
+  if (agreement && ACCEPTED_STATUSES.has(agreement.status)) return;
   const message =
     agreement?.status === "pending_acceptance"
       ? "The selected freelancer must accept the agreement before proof can be submitted."
-      : agreement?.status === "accepted"
-        ? "The client must lock the accepted agreement before proof can be submitted."
-        : "A work agreement must be locked before proof can be submitted.";
+      : "A work agreement must be accepted before proof can be submitted.";
   await recordAgreementGuardBlockedAction(ctx, {
     jobId: input.job._id,
     ...(input.escrowId ? { escrowId: input.escrowId } : {}),

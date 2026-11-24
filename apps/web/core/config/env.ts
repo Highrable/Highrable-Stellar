@@ -19,7 +19,6 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_STABLECOIN_DECIMALS?: number;
   readonly NEXT_PUBLIC_APP_DOMAIN: string;
   readonly NEXT_PUBLIC_WAITLIST_MODE: boolean;
-  readonly NEXT_PUBLIC_ENABLE_PASSKEYS: boolean;
   readonly NEXT_PUBLIC_REPUTATION_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_ESCROW_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_REGISTRY_CONTRACT_ID?: string;
@@ -51,13 +50,7 @@ export interface IClientEnv {
  * Interface for the validated server-side application environment.
  */
 export interface IServerEnv extends IClientEnv {
-  readonly HIGHRABLE_AUTH_SERVICE_SECRET?: string;
-  readonly STELLAR_READ_SOURCE_ACCOUNT?: string;
-  readonly NEWSFEED_ENABLED?: boolean;
-  readonly NEWSFEED_TEXT_ENABLED?: boolean;
-  readonly NEWSFEED_PHOTOS_ENABLED?: boolean;
-  readonly NEWSFEED_VIDEO_ENABLED?: boolean;
-  readonly NEWSFEED_CONVEX_HTTP_URL?: string;
+  readonly WALLET_SESSION_SECRET?: string;
   readonly HIGHRABLE_ADMIN_WALLET_ADDRESS?: string;
   readonly HIGHRABLE_ADMIN_CONVEX_SECRET?: string;
   readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
@@ -165,7 +158,6 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STABLECOIN_DECIMALS: z.coerce.number().int().min(0).max(18).optional(),
   NEXT_PUBLIC_APP_DOMAIN: z.string().trim().min(1),
   NEXT_PUBLIC_WAITLIST_MODE: z.preprocess(resolveWaitlistMode, z.boolean()),
-  NEXT_PUBLIC_ENABLE_PASSKEYS: OptionalBooleanEnvSchema.default(true),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_REGISTRY_CONTRACT_ID: TContractIdSchema.optional(),
@@ -194,13 +186,7 @@ const ClientEnvSchema = z.object({
 });
 
 const ServerEnvSchema = ClientEnvSchema.extend({
-  HIGHRABLE_AUTH_SERVICE_SECRET: z.string().trim().min(1).optional(),
-  STELLAR_READ_SOURCE_ACCOUNT: TStellarPublicKeySchema.optional(),
-  NEWSFEED_ENABLED: OptionalBooleanEnvSchema,
-  NEWSFEED_TEXT_ENABLED: OptionalBooleanEnvSchema,
-  NEWSFEED_PHOTOS_ENABLED: OptionalBooleanEnvSchema,
-  NEWSFEED_VIDEO_ENABLED: OptionalBooleanEnvSchema,
-  NEWSFEED_CONVEX_HTTP_URL: z.string().url().optional(),
+  WALLET_SESSION_SECRET: z.string().min(1).optional(),
   HIGHRABLE_ADMIN_WALLET_ADDRESS: TStellarPublicKeySchema.optional(),
   HIGHRABLE_ADMIN_CONVEX_SECRET: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),
@@ -238,7 +224,6 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_STABLECOIN_DECIMALS: process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS,
     NEXT_PUBLIC_APP_DOMAIN: resolveAppDomainEnvValue(),
     NEXT_PUBLIC_WAITLIST_MODE: process.env.NEXT_PUBLIC_WAITLIST_MODE,
-    NEXT_PUBLIC_ENABLE_PASSKEYS: process.env.NEXT_PUBLIC_ENABLE_PASSKEYS,
     NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID,
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
     NEXT_PUBLIC_REGISTRY_CONTRACT_ID: process.env.NEXT_PUBLIC_REGISTRY_CONTRACT_ID,
@@ -264,11 +249,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: process.env.NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER,
     NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: process.env.NEXT_PUBLIC_ENABLE_VELO_GAS_STATION,
     NODE_ENV: process.env.NODE_ENV,
-    HIGHRABLE_AUTH_SERVICE_SECRET: process.env.HIGHRABLE_AUTH_SERVICE_SECRET,
-    STELLAR_READ_SOURCE_ACCOUNT: process.env.STELLAR_READ_SOURCE_ACCOUNT,
-    NEWSFEED_ENABLED: process.env.NEWSFEED_ENABLED,
-    NEWSFEED_TEXT_ENABLED: process.env.NEWSFEED_TEXT_ENABLED,
-    NEWSFEED_PHOTOS_ENABLED: process.env.NEWSFEED_PHOTOS_ENABLED,
+    WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
     HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
     HIGHRABLE_ADMIN_CONVEX_SECRET: process.env.HIGHRABLE_ADMIN_CONVEX_SECRET,
     SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,

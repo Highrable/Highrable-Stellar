@@ -13,7 +13,6 @@ import type * as _shared_enum from "../_shared/enum.js";
 import type * as _shared_errors from "../_shared/errors.js";
 import type * as _shared_escrowAssets from "../_shared/escrowAssets.js";
 import type * as _shared_input from "../_shared/input.js";
-import type * as _shared_serviceAuth from "../_shared/serviceAuth.js";
 import type * as admin from "../admin.js";
 import type * as admin_helpers from "../admin/helpers.js";
 import type * as admin_mutations from "../admin/mutations.js";
@@ -27,9 +26,6 @@ import type * as attachments from "../attachments.js";
 import type * as attachments_helpers from "../attachments/helpers.js";
 import type * as attachments_mutations from "../attachments/mutations.js";
 import type * as attachments_queries from "../attachments/queries.js";
-import type * as auth from "../auth.js";
-import type * as auth_mutations from "../auth/mutations.js";
-import type * as auth_queries from "../auth/queries.js";
 import type * as cancellations from "../cancellations.js";
 import type * as cancellations_helpers from "../cancellations/helpers.js";
 import type * as cancellations_mutations from "../cancellations/mutations.js";
@@ -53,7 +49,6 @@ import type * as escrows_helpers from "../escrows/helpers.js";
 import type * as escrows_mutations from "../escrows/mutations.js";
 import type * as escrows_queries from "../escrows/queries.js";
 import type * as escrows_types from "../escrows/types.js";
-import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as jobs_helpers from "../jobs/helpers.js";
 import type * as jobs_mutations from "../jobs/mutations.js";
@@ -67,13 +62,6 @@ import type * as milestones_helpers from "../milestones/helpers.js";
 import type * as milestones_mutations from "../milestones/mutations.js";
 import type * as milestones_queries from "../milestones/queries.js";
 import type * as milestones_types from "../milestones/types.js";
-import type * as newsfeed from "../newsfeed.js";
-import type * as newsfeed_decode from "../newsfeed/decode.js";
-import type * as newsfeed_decodeVideo from "../newsfeed/decodeVideo.js";
-import type * as newsfeed_helpers from "../newsfeed/helpers.js";
-import type * as newsfeed_mutations from "../newsfeed/mutations.js";
-import type * as newsfeed_photos from "../newsfeed/photos.js";
-import type * as newsfeed_queries from "../newsfeed/queries.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
 import type * as registry_helpers from "../registry/helpers.js";
@@ -101,7 +89,6 @@ import type * as users from "../users.js";
 import type * as users_helpers from "../users/helpers.js";
 import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
-import type * as users_serviceMutations from "../users/serviceMutations.js";
 import type * as users_types from "../users/types.js";
 import type * as waitlist from "../waitlist.js";
 import type * as waitlist_helpers from "../waitlist/helpers.js";
@@ -114,7 +101,12 @@ import type * as work_submissions from "../work_submissions.js";
 import type * as work_submissions_helpers from "../work_submissions/helpers.js";
 import type * as work_submissions_mutations from "../work_submissions/mutations.js";
 import type * as work_submissions_queries from "../work_submissions/queries.js";
-import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   "_shared/adminAuth": typeof _shared_adminAuth;
@@ -122,7 +114,6 @@ declare const fullApi: ApiFromModules<{
   "_shared/errors": typeof _shared_errors;
   "_shared/escrowAssets": typeof _shared_escrowAssets;
   "_shared/input": typeof _shared_input;
-  "_shared/serviceAuth": typeof _shared_serviceAuth;
   admin: typeof admin;
   "admin/helpers": typeof admin_helpers;
   "admin/mutations": typeof admin_mutations;
@@ -136,9 +127,6 @@ declare const fullApi: ApiFromModules<{
   "attachments/helpers": typeof attachments_helpers;
   "attachments/mutations": typeof attachments_mutations;
   "attachments/queries": typeof attachments_queries;
-  auth: typeof auth;
-  "auth/mutations": typeof auth_mutations;
-  "auth/queries": typeof auth_queries;
   cancellations: typeof cancellations;
   "cancellations/helpers": typeof cancellations_helpers;
   "cancellations/mutations": typeof cancellations_mutations;
@@ -162,7 +150,6 @@ declare const fullApi: ApiFromModules<{
   "escrows/mutations": typeof escrows_mutations;
   "escrows/queries": typeof escrows_queries;
   "escrows/types": typeof escrows_types;
-  http: typeof http;
   jobs: typeof jobs;
   "jobs/helpers": typeof jobs_helpers;
   "jobs/mutations": typeof jobs_mutations;
@@ -176,13 +163,6 @@ declare const fullApi: ApiFromModules<{
   "milestones/mutations": typeof milestones_mutations;
   "milestones/queries": typeof milestones_queries;
   "milestones/types": typeof milestones_types;
-  newsfeed: typeof newsfeed;
-  "newsfeed/decode": typeof newsfeed_decode;
-  "newsfeed/decodeVideo": typeof newsfeed_decodeVideo;
-  "newsfeed/helpers": typeof newsfeed_helpers;
-  "newsfeed/mutations": typeof newsfeed_mutations;
-  "newsfeed/photos": typeof newsfeed_photos;
-  "newsfeed/queries": typeof newsfeed_queries;
   profiles: typeof profiles;
   proofs: typeof proofs;
   "registry/helpers": typeof registry_helpers;
@@ -210,7 +190,6 @@ declare const fullApi: ApiFromModules<{
   "users/helpers": typeof users_helpers;
   "users/mutations": typeof users_mutations;
   "users/queries": typeof users_queries;
-  "users/serviceMutations": typeof users_serviceMutations;
   "users/types": typeof users_types;
   waitlist: typeof waitlist;
   "waitlist/helpers": typeof waitlist_helpers;
@@ -233,7 +212,10 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -243,7 +225,10 @@ export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "publ
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
 
 export declare const components: {
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;

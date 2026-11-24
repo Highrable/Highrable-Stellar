@@ -22,7 +22,7 @@ export async function POST(
   context: { params: Promise<{ disputeId: string }> },
 ) {
   try {
-    const adminContext = await requireAdminRequestContext(request);
+    const adminContext = requireAdminRequestContext(request);
     const client = createAdminConvexClient();
     const params = ParamsSchema.parse(await context.params);
     const body = BodySchema.parse((await request.json()) as unknown);

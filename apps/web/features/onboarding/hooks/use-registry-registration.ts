@@ -2,10 +2,6 @@
 
 import { getRequiredRegistryConfig } from "@/core/config/stellar-contracts";
 import {
-  completeOnboarding as completeOnboardingViaApi,
-  saveProfileDraft as saveProfileDraftViaApi,
-} from "@/core/member/client";
-import {
   checkRegistryTransaction,
   getUserRegistration,
   registerUser as submitRegistryRegistration,
@@ -129,6 +125,8 @@ export function useRegistryRegistration() {
       : "skip",
   );
 
+  const saveProfileDraft = useMutation(api.users.saveProfileDraft);
+  const completeOnboarding = useMutation(api.users.completeOnboarding);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const syncUserRegistration = useAction(api.sync.syncUserRegistration);
@@ -192,12 +190,12 @@ export function useRegistryRegistration() {
       if (!shouldComplete || !isCurrent(token, expectedWallet)) {
         return;
       }
-      await completeOnboardingViaApi();
+      await completeOnboarding({ walletAddress: expectedWallet });
       if (isCurrent(token, expectedWallet)) {
         setStep("complete");
       }
     },
-    [isCurrent],
+    [completeOnboarding, isCurrent],
   );
 
   const recoverPendingTransaction = useCallback(
@@ -299,7 +297,11 @@ export function useRegistryRegistration() {
       try {
         if (options.profileDraft) {
           setStep("saving_profile");
-          await saveProfileDraftViaApi(options.profileDraft);
+          await saveProfileDraft({
+            walletAddress: expectedWallet,
+            walletType: walletIdentity.walletType,
+            ...options.profileDraft,
+          });
           if (!isCurrent(token, expectedWallet)) {
             return;
           }
@@ -478,6 +480,7 @@ export function useRegistryRegistration() {
       recoverPendingTransaction,
       registryConfig,
       registryTransaction,
+      saveProfileDraft,
       setExecutionPhase,
       signTransaction,
       syncRegistration,

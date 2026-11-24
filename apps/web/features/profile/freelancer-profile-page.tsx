@@ -3,7 +3,6 @@
 import { parseWalletAddressParam } from "@/core/seo";
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
@@ -29,7 +28,6 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
-  const { authSession } = useWallet();
   const profileData = useQuery(
     api.profiles.getFreelancerProfile,
     decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
@@ -48,9 +46,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
-  const canEdit =
-    isSameWallet(walletIdentity.walletAddress, profile.walletAddress) &&
-    authSession?.address === profile.walletAddress;
+  const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
 
   return (
     <div className="space-y-8">

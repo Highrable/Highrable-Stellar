@@ -53,11 +53,6 @@ vi.mock("@/core/stellar/registry-contract", () => {
   };
 });
 
-vi.mock("@/core/member/client", () => ({
-  completeOnboarding: runtime.completeOnboarding,
-  saveProfileDraft: runtime.saveProfileDraft,
-}));
-
 vi.mock("@repo/convex-client", () => ({
   api: {
     sync: { syncUserRegistration: "syncUserRegistration" },
@@ -178,7 +173,9 @@ describe("useRegistryRegistration", () => {
       expect(runtime.createTransaction).toHaveBeenCalledWith(
         expect.objectContaining({ type: "register_user", status: "pending" }),
       );
-      expect(runtime.completeOnboarding).toHaveBeenCalledWith();
+      expect(runtime.completeOnboarding).toHaveBeenCalledWith({
+        walletAddress: runtime.identity.walletAddress,
+      });
       expect(result.current.step).toBe("complete");
     },
   );
@@ -210,7 +207,7 @@ describe("useRegistryRegistration", () => {
     });
 
     expect(runtime.saveProfileDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ publicHandle: profileDraft.publicHandle }),
+      expect.objectContaining({ walletAddress: runtime.identity.walletAddress }),
     );
     expect(runtime.updateTransactionStatus).toHaveBeenCalledWith(
       expect.objectContaining({ status: "failed", errorMessage: "User declined the signature." }),

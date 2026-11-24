@@ -1011,7 +1011,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="overflow-hidden rounded-lg border bg-card">
+    <section className="hr-card-surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
         <p className="hr-text-secondary font-sans text-sm">
           You can go back and change any step before you post.

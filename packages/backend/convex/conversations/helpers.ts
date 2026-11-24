@@ -10,6 +10,7 @@ import type {
 
 import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
+import { verifyToken } from "../newsfeed/auth";
 
 const MAX_MESSAGE_BODY_LENGTH = 4000;
 const MAX_ATTACHMENTS_PER_MESSAGE = 10;
@@ -111,8 +112,11 @@ export function getParticipantWallets(participants: readonly TConversationPartic
 
 function getSenderRole(
   walletAddress: string,
-  conversation: Pick<Doc<"conversations">, "clientWallet" | "freelancerWallet">,
+  conversation: Pick<Doc<"conversations">, "parentType" | "clientWallet" | "freelancerWallet">,
 ): TMessageSenderRole {
+  if (conversation.parentType === "direct" || conversation.parentType === "group") {
+    return "participant";
+  }
   if (conversation.clientWallet === walletAddress) {
     return "client";
   }
@@ -138,7 +142,7 @@ export function assertParticipant(
 export function assertCanSendMessage(
   conversation: Pick<
     Doc<"conversations">,
-    "participantWallets" | "status" | "clientWallet" | "freelancerWallet"
+    "participantWallets" | "status" | "parentType" | "clientWallet" | "freelancerWallet"
   >,
   walletAddress: string,
 ) {
@@ -163,6 +167,66 @@ export async function getConversationOrThrow(ctx: QueryCtx, conversationId: Id<"
   }
 
   return conversation;
+}
+
+export async function requireSessionParticipant(ctx: QueryCtx, token: string) {
+  const walletAddress = normalizeWalletAddress(await verifyToken(token));
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", walletAddress))
+    .unique();
+  if (!user) {
+    throw new ForbiddenError(
+      "Your verified Highrable session is no longer available. Sign in again.",
+    );
+  }
+  return {
+    user,
+    walletAddress,
+    walletType:
+      user.walletType ??
+      (walletAddress.startsWith("C")
+        ? ("passkey_smart_account" as const)
+        : ("external_wallet" as const)),
+  };
+}
+
+export async function upsertConversationParticipant(
+  ctx: MutationCtx,
+  input: {
+    conversationId: Id<"conversations">;
+    walletAddress: string;
+    walletType?: TWalletType;
+    status?: "active" | "removed" | "left";
+    joinedAt?: number;
+  },
+) {
+  const walletAddress = normalizeWalletAddress(input.walletAddress);
+  const existing = await ctx.db
+    .query("conversationParticipants")
+    .withIndex("by_conversation_wallet", (q) =>
+      q.eq("conversationId", input.conversationId).eq("walletAddress", walletAddress),
+    )
+    .unique();
+  const now = Date.now();
+  const status = input.status ?? "active";
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      status,
+      ...(input.walletType ? { walletType: input.walletType } : {}),
+      ...(status === "active" ? { joinedAt: input.joinedAt ?? existing.joinedAt } : {}),
+      updatedAt: now,
+    });
+    return existing._id;
+  }
+  return await ctx.db.insert("conversationParticipants", {
+    conversationId: input.conversationId,
+    walletAddress,
+    ...(input.walletType ? { walletType: input.walletType } : {}),
+    status,
+    joinedAt: input.joinedAt ?? now,
+    updatedAt: now,
+  });
 }
 
 export async function getConversationByParent(

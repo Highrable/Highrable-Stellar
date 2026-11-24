@@ -12,6 +12,7 @@ const conversationParentTypeEnum = createStringEnum([
   "work_submission",
   "dispute",
   "direct",
+  "group",
 ] as const);
 
 const conversationStatusEnum = createStringEnum(["active", "archived", "locked"] as const);
@@ -19,6 +20,7 @@ const conversationStatusEnum = createStringEnum(["active", "archived", "locked"]
 const messageSenderRoleEnum = createStringEnum([
   "client",
   "freelancer",
+  "participant",
   "admin",
   "system",
 ] as const);
@@ -98,6 +100,8 @@ export const conversations = defineTable({
   clientWallet: v.optional(v.string()),
   freelancerWallet: v.optional(v.string()),
   title: v.optional(v.string()),
+  directPairKey: v.optional(v.string()),
+  groupOwnerWallet: v.optional(v.string()),
   status: conversationStatusValidator,
   lastMessageId: v.optional(v.id("messages")),
   lastMessagePreview: v.optional(v.string()),
@@ -111,7 +115,19 @@ export const conversations = defineTable({
   .index("by_parent", ["parentType", "parentId"])
   .index("by_clientWallet", ["clientWallet", "updatedAt"])
   .index("by_freelancerWallet", ["freelancerWallet", "updatedAt"])
+  .index("by_direct_pair", ["directPairKey"])
   .index("by_status", ["status", "updatedAt"]);
+
+export const conversationParticipants = defineTable({
+  conversationId: v.id("conversations"),
+  walletAddress: v.string(),
+  walletType: v.optional(walletTypeValidator),
+  status: v.union(v.literal("active"), v.literal("removed"), v.literal("left")),
+  joinedAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_wallet_updated", ["walletAddress", "updatedAt"])
+  .index("by_conversation_wallet", ["conversationId", "walletAddress"]);
 
 export const messages = defineTable({
   conversationId: v.id("conversations"),

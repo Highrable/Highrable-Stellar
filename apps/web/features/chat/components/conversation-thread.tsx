@@ -9,6 +9,7 @@ import {
 import { formatAttachmentSize } from "@/features/attachments/lib";
 import { getReadableChatError } from "@/features/chat/lib/errors";
 import { sanitizeMultilineInput, showWarningToast } from "@/features/common";
+import { useSocialSession } from "@/features/newsfeed/session";
 import { api } from "@repo/convex-client";
 import { HighrableV2Badge } from "@repo/ui/components/highrable/v2-marketing";
 import { V2_BUTTON_PRIMARY_CLASS } from "@repo/ui/components/highrable/v2-theme";
@@ -25,7 +26,7 @@ import {
 } from "@repo/ui/components/ui/sheet";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import {
   CircleDot,
   ExternalLink,
@@ -90,6 +91,7 @@ interface IMessageBubbleProps {
   currentWallet: string;
   replyToMessage: TReplyTarget | null;
   onReply: (message: TMessageWithAttachments) => void;
+  onError: (message: string) => void;
 }
 
 type TReplyTarget = Pick<
@@ -429,7 +431,15 @@ function ReplyPreview({
   );
 }
 
-function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMessageBubbleProps) {
+function MessageBubble({
+  message,
+  currentWallet,
+  replyToMessage,
+  onReply,
+  onError,
+}: IMessageBubbleProps) {
+  const { token } = useSocialSession();
+  const deleteMessage = useMutation(api.conversations.softDeleteMessage);
   if (message.kind !== "user") {
     return <SystemMessage message={message} />;
   }
@@ -487,8 +497,21 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
                 : "text-[#7f7f7f] hover:bg-accent hover:text-highrable-orange-3"
             }`}
           >
-            <Reply className="h-3 w-3" />
-            Reply
+            <Reply className="h-3 w-3" /> Reply
+          </button>
+        ) : null}
+        {isOwnMessage && message.status !== "deleted" ? (
+          <button
+            type="button"
+            onClick={() => {
+              void deleteMessage({ messageId: message._id, sessionToken: token }).catch(
+                (caughtError) =>
+                  onError(getReadableChatError(caughtError, "Message could not be deleted.")),
+              );
+            }}
+            className="mt-1 ml-2 inline-flex items-center px-2 py-0.5 text-[0.65rem] text-current opacity-70 hover:bg-white/10 hover:opacity-100"
+          >
+            Delete
           </button>
         ) : null}
       </article>
@@ -525,6 +548,7 @@ function MessageComposer({
   onCancelReply,
 }: IMessageComposerProps) {
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const sendMessage = useMutation(api.conversations.sendMessage);
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
@@ -546,8 +570,8 @@ function MessageComposer({
   const canSend = sanitizedBody.length > 0 || readyAttachmentIds.length > 0;
 
   const handleSend = async () => {
-    if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
-      const nextWarning = "Missing wallet identity.";
+    if (!walletIdentity.walletAddress || !walletIdentity.walletType || !token) {
+      const nextWarning = "Verify your wallet session before sending a message.";
       setError(nextWarning);
       showWarningToast(nextWarning);
       return;
@@ -568,8 +592,7 @@ function MessageComposer({
     try {
       await sendMessage({
         conversationId,
-        senderWallet: walletIdentity.walletAddress,
-        senderWalletType: walletIdentity.walletType,
+        sessionToken: token,
         body: validatedPayload.body,
         attachmentIds: readyAttachmentIds,
         ...(replyToMessage ? { replyToMessageId: replyToMessage._id } : {}),
@@ -616,6 +639,7 @@ function MessageComposer({
             onChange={setAttachments}
             disabled={disabled || isSending}
             ownerRole={senderRole}
+            context="chat"
           />
         </div>
       ) : null}
@@ -702,6 +726,7 @@ function MessageComposer({
 
 export function ConversationThread({ parentType, parentId, title }: IConversationThreadProps) {
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const getOrCreateConversation = useMutation(api.conversations.getOrCreateConversationForParent);
   const markConversationRead = useMutation(api.conversations.markConversationRead);
   const [conversationId, setConversationId] = useState<TConvexId<"conversations"> | null>(null);
@@ -711,24 +736,36 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
   const viewerWallet = walletIdentity.walletAddress;
   const conversation = useQuery(
     api.conversations.getConversationByParent,
-    viewerWallet
+    token
       ? {
           parentType,
           parentId,
-          viewerWallet,
+          sessionToken: token,
         }
       : "skip",
   );
   const activeConversationId = conversation?._id ?? conversationId;
-  const messages = useQuery(
-    api.conversations.getMessagesForConversation,
-    activeConversationId && viewerWallet
+  const {
+    results,
+    status: messageStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.conversations.getMessagesPage,
+    activeConversationId && token
       ? {
           conversationId: activeConversationId,
-          viewerWallet,
+          sessionToken: token,
         }
       : "skip",
-  ) as TMessageWithAttachments[] | undefined;
+    { initialNumItems: 50 },
+  );
+  const messages = useMemo(
+    () =>
+      [...(results as TMessageWithAttachments[])].sort(
+        (left, right) => left.createdAt - right.createdAt,
+      ),
+    [results],
+  );
   const messagesById = useMemo(() => {
     const byId = new Map<string, TMessageWithAttachments>();
     for (const message of messages ?? []) {
@@ -736,16 +773,10 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
     }
     return byId;
   }, [messages]);
-  const latestMessageId = messages?.at(-1)?._id;
+  const latestMessageId = messages.at(-1)?._id;
 
   useEffect(() => {
-    if (conversation?._id) {
-      setConversationId(conversation._id);
-    }
-  }, [conversation?._id]);
-
-  useEffect(() => {
-    if (!viewerWallet || !walletIdentity.walletType || activeConversationId) {
+    if (!token || activeConversationId) {
       return;
     }
 
@@ -753,8 +784,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
     void getOrCreateConversation({
       parentType,
       parentId,
-      walletAddress: viewerWallet,
-      walletType: walletIdentity.walletType,
+      sessionToken: token,
       ...(title ? { title } : {}),
     })
       .then((id) => {
@@ -773,37 +803,22 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
     return () => {
       cancelled = true;
     };
-  }, [
-    activeConversationId,
-    getOrCreateConversation,
-    parentId,
-    parentType,
-    title,
-    viewerWallet,
-    walletIdentity.walletType,
-  ]);
+  }, [activeConversationId, getOrCreateConversation, parentId, parentType, title, token]);
 
   useEffect(() => {
     latestMessageRef.current?.scrollIntoView({ block: "end" });
   }, [activeConversationId, latestMessageId]);
 
   useEffect(() => {
-    if (!activeConversationId || !viewerWallet) {
+    if (!activeConversationId || !token) {
       return;
     }
     void markConversationRead({
       conversationId: activeConversationId,
-      walletAddress: viewerWallet,
-      ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+      sessionToken: token,
       ...(conversation?.lastMessageId ? { lastReadMessageId: conversation.lastMessageId } : {}),
     });
-  }, [
-    activeConversationId,
-    conversation?.lastMessageId,
-    markConversationRead,
-    viewerWallet,
-    walletIdentity.walletType,
-  ]);
+  }, [activeConversationId, conversation?.lastMessageId, markConversationRead, token]);
 
   const senderRole =
     viewerWallet && conversation?.clientWallet?.toUpperCase() === viewerWallet.toUpperCase()
@@ -818,7 +833,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
           aria-label="Open work chat"
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "fixed right-5 bottom-5 z-40 h-11 rounded-md px-4 text-sm font-medium shadow-md",
+            "h-11 rounded-md px-4 text-sm font-medium shadow-md",
           )}
         >
           <MessageCircle className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -858,19 +873,36 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {!viewerWallet ? (
+          {!token ? (
             <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
-              Connect the wallet assigned to this work to view messages.
+              Verify your wallet session to view messages.
             </p>
           ) : error ? (
             <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
               {error}
             </p>
-          ) : !activeConversationId || messages === undefined ? (
+          ) : !activeConversationId || messageStatus === "LoadingFirstPage" ? (
             <p className="p-4 text-sm text-[#5f5f5f]">Loading conversation...</p>
           ) : (
             <>
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#fafafa] p-4">
+                {messageStatus === "CanLoadMore" ? (
+                  <div className="text-center">
+                    <AppButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadMore(50)}
+                    >
+                      Load older messages
+                    </AppButton>
+                  </div>
+                ) : null}
+                {messageStatus === "LoadingMore" ? (
+                  <p role="status" className="text-center text-xs text-muted-foreground">
+                    Loading older messages…
+                  </p>
+                ) : null}
                 {messages.length === 0 ? (
                   <EmptyConversationState />
                 ) : (
@@ -881,13 +913,14 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
                       ) : null}
                       <MessageBubble
                         message={message}
-                        currentWallet={viewerWallet}
+                        currentWallet={viewerWallet ?? ""}
                         replyToMessage={
                           message.replyToMessageId
                             ? (messagesById.get(message.replyToMessageId) ?? null)
                             : null
                         }
                         onReply={setReplyToMessage}
+                        onError={setError}
                       />
                     </div>
                   ))

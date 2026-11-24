@@ -11,11 +11,11 @@
   --card-foreground: #0a0a0a;
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
-  --primary: #0a0a0a;
+  --primary: #e85d00;
   --primary-foreground: #ffffff;
-  --secondary: #f5f5f5;
+  --secondary: #fff7ed;
   --secondary-foreground: #0a0a0a;
-  --muted: #f5f5f5;
+  --muted: #f7f7f7;
   --muted-foreground: #5f5f5f;
   --accent: #fff7ed;
   --accent-foreground: #b94a00;
@@ -45,6 +45,8 @@
   --highrable-surface-muted: #f5f5f5;
   --highrable-surface-accent: #fff7ed;
   --highrable-border: #e8e8e8;
+  --highrable-surface-raised: #ffffff;
+  --highrable-shadow-card: 0 8px 24px rgb(25 15 5 / 5%);
   --highrable-orange-1: #ff8801;
   --highrable-orange-2: #ff7003;
   --highrable-orange-3: #e85d00;
@@ -73,8 +75,8 @@
   --card-foreground: #fafafa;
   --popover: #1f1f1f;
   --popover-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #171717;
+  --primary: #ff8801;
+  --primary-foreground: #231000;
   --secondary: #262626;
   --secondary-foreground: #fafafa;
   --muted: #262626;
@@ -106,6 +108,8 @@
   --highrable-surface-muted: #262626;
   --highrable-surface-accent: rgba(255, 112, 3, 0.18);
   --highrable-border: #3a3a3a;
+  --highrable-surface-raised: #232323;
+  --highrable-shadow-card: 0 8px 24px rgb(0 0 0 / 22%);
 }
 
 @theme inline {
@@ -223,7 +227,21 @@
   .hr-panel {
     background-color: var(--card);
     border: 1px solid var(--highrable-border);
-    border-radius: var(--radius);
+    border-radius: 0.75rem;
+    box-shadow: var(--highrable-shadow-card);
+  }
+  .hr-card-surface {
+    background-color: var(--highrable-surface-raised);
+    border: 1px solid var(--highrable-border);
+    border-radius: 0.75rem;
+    box-shadow: var(--highrable-shadow-card);
+  }
+  .hr-focus-ring {
+    outline: none;
+  }
+  .hr-focus-ring:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .hr-v2-gradient-text {
     background-image: var(--highrable-gradient-primary);
@@ -263,17 +281,12 @@
     transition-duration: 0.2s;
     transition-timing-function: ease;
   }
-  button:not(:disabled):hover,
-  [data-slot="button"]:not(:disabled):hover,
   .hr-button-hover-shadow:hover,
   .hr-v2-button-primary:hover,
   .hr-v2-button-secondary:hover,
   .hr-v2-button-light:hover,
   .hr-v2-button-inverse:hover {
     box-shadow: var(--highrable-shadow-hard-strong);
-  }
-  [data-slot="button"][data-variant="outline"]:not(:disabled):hover {
-    background-color: transparent;
   }
   .hr-v2-button-primary:hover {
     filter: brightness(1.04);

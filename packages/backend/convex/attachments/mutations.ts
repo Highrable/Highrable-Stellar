@@ -3,8 +3,11 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
+import { verifyToken } from "../newsfeed/auth";
 import { walletTypeValidator } from "../users/schema";
 import {
+  assertChatAttachmentSession,
+  assertChatMessageSession,
   assertCanDownloadAttachment,
   assertCanPreviewAttachment,
   assertCanAttachToParent,
@@ -34,6 +37,12 @@ import {
 } from "./schema";
 
 const attachmentMetadataValidator = v.optional(v.any());
+async function assertSessionWallet(sessionToken: string | undefined, wallet: string) {
+  if (!sessionToken) return;
+  if (normalizeWalletAddress(await verifyToken(sessionToken)) !== wallet) {
+    throw new BadRequestError("The verified session does not match this wallet.");
+  }
+}
 const protectionSettingsArgs = {
   protectionMode: v.optional(attachmentProtectionModeValidator),
   downloadAllowed: v.optional(v.boolean()),
@@ -53,9 +62,17 @@ export const generateUploadUrl = mutation({
     size: v.number(),
     mimeType: v.optional(v.string()),
     type: v.optional(attachmentTypeValidator),
+    sessionToken: v.optional(v.string()),
+    context: v.optional(v.union(v.literal("job"), v.literal("dispute"), v.literal("chat"))),
   },
   handler: async (ctx, args) => {
-    normalizeWalletAddress(args.walletAddress);
+    const walletAddress = normalizeWalletAddress(args.walletAddress);
+    if (args.context === "chat" && !args.sessionToken) {
+      throw new BadRequestError(
+        "Sign in with your verified Highrable session to upload chat files.",
+      );
+    }
+    await assertSessionWallet(args.sessionToken, walletAddress);
     validateAttachmentInput(args);
 
     return await ctx.storage.generateUploadUrl();
@@ -76,10 +93,18 @@ export const saveUploadedAttachment = mutation({
     mimeType: v.optional(v.string()),
     type: v.optional(attachmentTypeValidator),
     metadata: attachmentMetadataValidator,
+    sessionToken: v.optional(v.string()),
+    context: v.optional(v.union(v.literal("job"), v.literal("dispute"), v.literal("chat"))),
     ...protectionSettingsArgs,
   },
   handler: async (ctx, args) => {
     const uploadedByWallet = normalizeWalletAddress(args.uploadedByWallet);
+    if (args.context === "chat" && !args.sessionToken) {
+      throw new BadRequestError(
+        "Sign in with your verified Highrable session to upload chat files.",
+      );
+    }
+    await assertSessionWallet(args.sessionToken, uploadedByWallet);
     const storageMetadata = await ctx.db.system.get("_storage", args.storageId);
     if (!storageMetadata) {
       throw new NotFoundError("Uploaded file was not found.");
@@ -101,6 +126,14 @@ export const saveUploadedAttachment = mutation({
       parentType: args.parentType ?? "unknown",
       parentId: args.parentId,
     });
+    if (parent.parentType === "chat_message" && parent.parentId) {
+      await assertChatMessageSession(
+        ctx,
+        parent.parentId as import("../_generated/dataModel").Id<"messages">,
+        args.sessionToken,
+        uploadedByWallet,
+      );
+    }
 
     await assertCanAttachToParent(ctx, {
       ...parent,
@@ -157,15 +190,31 @@ export const createExternalAttachment = mutation({
     name: v.optional(v.string()),
     type: v.union(v.literal("link"), v.literal("video_link")),
     metadata: attachmentMetadataValidator,
+    sessionToken: v.optional(v.string()),
+    context: v.optional(v.union(v.literal("job"), v.literal("dispute"), v.literal("chat"))),
     ...protectionSettingsArgs,
   },
   handler: async (ctx, args) => {
     const uploadedByWallet = normalizeWalletAddress(args.uploadedByWallet);
+    if (args.context === "chat" && !args.sessionToken) {
+      throw new BadRequestError(
+        "Sign in with your verified Highrable session to upload chat files.",
+      );
+    }
+    await assertSessionWallet(args.sessionToken, uploadedByWallet);
     const link = validateExternalAttachmentInput(args);
     const parent = sanitizeParentReference({
       parentType: args.parentType ?? "unknown",
       parentId: args.parentId,
     });
+    if (parent.parentType === "chat_message" && parent.parentId) {
+      await assertChatMessageSession(
+        ctx,
+        parent.parentId as import("../_generated/dataModel").Id<"messages">,
+        args.sessionToken,
+        uploadedByWallet,
+      );
+    }
 
     await assertCanAttachToParent(ctx, {
       ...parent,
@@ -214,6 +263,7 @@ export const attachFilesToParent = mutation({
     parentType: attachmentParentTypeValidator,
     parentId: v.string(),
     visibility: v.optional(attachmentVisibilityValidator),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.attachmentIds.length === 0) {
@@ -228,6 +278,14 @@ export const attachFilesToParent = mutation({
       parentType: args.parentType,
       parentId: args.parentId,
     });
+    if (parent.parentType === "chat_message" && parent.parentId) {
+      await assertChatMessageSession(
+        ctx,
+        parent.parentId as import("../_generated/dataModel").Id<"messages">,
+        args.sessionToken,
+        walletAddress,
+      );
+    }
     await assertCanAttachToParent(ctx, {
       ...parent,
       walletAddress,
@@ -257,8 +315,12 @@ export const softDelete = mutation({
   args: {
     attachmentId: v.id("attachments"),
     walletAddress: v.string(),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const attachment = await ctx.db.get(args.attachmentId);
+    if (!attachment) throw new NotFoundError("Attachment not found.");
+    await assertChatAttachmentSession(ctx, attachment, args.sessionToken, args.walletAddress);
     await softDeleteAttachment(ctx, args);
     return true;
   },
@@ -268,6 +330,7 @@ export const updateAttachmentProtectionSettings = mutation({
   args: {
     attachmentId: v.id("attachments"),
     walletAddress: v.string(),
+    sessionToken: v.optional(v.string()),
     ...protectionSettingsArgs,
   },
   handler: async (ctx, args) => {
@@ -276,6 +339,7 @@ export const updateAttachmentProtectionSettings = mutation({
     if (!attachment || attachment.status !== "active") {
       throw new NotFoundError("Attachment not found.");
     }
+    await assertChatAttachmentSession(ctx, attachment, args.sessionToken, args.walletAddress);
     if (attachment.uploadedByWallet !== walletAddress) {
       throw new BadRequestError(
         "Only the attachment owner can change content protection controls.",
@@ -310,6 +374,7 @@ export const recordProtectedPreviewOpened = mutation({
     viewerWallet: v.string(),
     viewerWalletType: v.optional(walletTypeValidator),
     sessionId: v.optional(v.string()),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const viewerWallet = normalizeWalletAddress(args.viewerWallet);
@@ -317,6 +382,7 @@ export const recordProtectedPreviewOpened = mutation({
     if (!attachment) {
       throw new NotFoundError("Attachment not found.");
     }
+    await assertChatAttachmentSession(ctx, attachment, args.sessionToken, viewerWallet);
 
     const policy = await assertCanPreviewAttachment(ctx, attachment, viewerWallet);
     const previewUrl = attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null;
@@ -370,6 +436,7 @@ export const recordDownloadAttempt = mutation({
     viewerWallet: v.string(),
     viewerWalletType: v.optional(walletTypeValidator),
     sessionId: v.optional(v.string()),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const viewerWallet = normalizeWalletAddress(args.viewerWallet);
@@ -377,6 +444,7 @@ export const recordDownloadAttempt = mutation({
     if (!attachment) {
       throw new NotFoundError("Attachment not found.");
     }
+    await assertChatAttachmentSession(ctx, attachment, args.sessionToken, viewerWallet);
     const policy = await getAttachmentAccessPolicy(ctx, attachment, viewerWallet);
 
     await createAttachmentAccessLog(ctx, {
@@ -436,6 +504,7 @@ export const logAttachmentAccess = mutation({
     reason: v.optional(v.string()),
     sessionId: v.optional(v.string()),
     metadata: v.optional(v.any()),
+    sessionToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const attachment = await ctx.db.get(args.attachmentId);
@@ -443,6 +512,7 @@ export const logAttachmentAccess = mutation({
       throw new NotFoundError("Attachment not found.");
     }
     const viewerWallet = args.viewerWallet ? normalizeWalletAddress(args.viewerWallet) : undefined;
+    await assertChatAttachmentSession(ctx, attachment, args.sessionToken, viewerWallet);
     const policy = await getAttachmentAccessPolicy(ctx, attachment, viewerWallet);
     if (!policy.canPreview && isProtectedAttachment(attachment)) {
       throw new BadRequestError("You do not have access to this attachment.");

@@ -212,7 +212,14 @@ export function MarketplacePage() {
         />
       ) : null}
 
-      <section className="space-y-3">
+      <section className="hr-card-surface space-y-4 p-4 sm:p-5">
+        <div>
+          <h2 className="hr-text-primary text-base font-semibold">Open jobs</h2>
+          <p className="hr-text-secondary mt-1 text-sm">
+            Search by brief, asset, or client wallet, then compare payment safety before opening a
+            proposal.
+          </p>
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <label htmlFor={searchInputId} className="relative w-full sm:max-w-md">
             <span className="sr-only">Search jobs</span>
@@ -223,7 +230,7 @@ export function MarketplacePage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search title, description, currency or wallet"
-              className="w-full bg-white pr-3 pl-9 font-sans"
+              className="w-full bg-card pr-3 pl-9 font-sans"
             />
           </label>
 
@@ -231,7 +238,7 @@ export function MarketplacePage() {
             value={sortBy}
             onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
           >
-            <SelectTrigger className="w-full bg-white font-sans sm:w-44" aria-label="Sort jobs">
+            <SelectTrigger className="w-full bg-card font-sans sm:w-44" aria-label="Sort jobs">
               <SelectValue placeholder="Sort" />
             </SelectTrigger>
             <SelectContent>
@@ -246,7 +253,7 @@ export function MarketplacePage() {
           <div
             role="radiogroup"
             aria-label="Filter jobs"
-            className="flex items-center gap-1 rounded-md border bg-white p-0.5 sm:ml-auto"
+            className="flex items-center gap-1 rounded-md border bg-card p-0.5 sm:ml-auto"
           >
             {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
               <button
@@ -257,7 +264,7 @@ export function MarketplacePage() {
                 onClick={() => setFilter(f)}
                 className={`flex-1 rounded px-3 py-1.5 text-sm whitespace-nowrap transition-colors sm:flex-none ${
                   filter === f
-                    ? "bg-muted font-medium text-foreground"
+                    ? "bg-(--mode-soft) font-medium text-(--mode-text)"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

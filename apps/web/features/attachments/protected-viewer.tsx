@@ -39,6 +39,7 @@ type TProtectedPreviewResult = {
 
 interface IProtectedAttachmentDialogProps {
   readonly attachment: TProtectedAttachment;
+  readonly sessionToken?: string;
   readonly isOpen: boolean;
   readonly onOpenChange: (isOpen: boolean) => void;
 }
@@ -294,6 +295,7 @@ export function AttachmentAccessLogsPanel({
 
 export function ProtectedAttachmentDialog({
   attachment,
+  sessionToken,
   isOpen,
   onOpenChange,
 }: IProtectedAttachmentDialogProps) {
@@ -318,6 +320,7 @@ export function ProtectedAttachmentDialog({
       ...(walletIdentity.walletType
         ? { viewerWalletType: walletIdentity.walletType as TWalletType }
         : {}),
+      ...(sessionToken ? { sessionToken } : {}),
       sessionId,
     })
       .then((result) => setPreview(result as TProtectedPreviewResult))
@@ -335,6 +338,7 @@ export function ProtectedAttachmentDialog({
     sessionId,
     walletIdentity.walletAddress,
     walletIdentity.walletType,
+    sessionToken,
   ]);
 
   useEffect(() => {
@@ -348,6 +352,7 @@ export function ProtectedAttachmentDialog({
           attachmentId: attachment._id,
           viewerWallet: walletIdentity.walletAddress,
           ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+          ...(sessionToken ? { sessionToken } : {}),
           action: "visibility_hidden",
           result: "allowed",
           sessionId,
@@ -363,6 +368,7 @@ export function ProtectedAttachmentDialog({
           attachmentId: attachment._id,
           viewerWallet: walletIdentity.walletAddress,
           ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+          ...(sessionToken ? { sessionToken } : {}),
           action: "print_attempt_blocked",
           result: "blocked",
           reason: "Print action blocked inside protected preview.",
@@ -388,6 +394,7 @@ export function ProtectedAttachmentDialog({
     sessionId,
     walletIdentity.walletAddress,
     walletIdentity.walletType,
+    sessionToken,
   ]);
 
   const logDeterrent = (action: "copy_attempt_blocked" | "print_attempt_blocked") => {
@@ -396,6 +403,7 @@ export function ProtectedAttachmentDialog({
       attachmentId: attachment._id,
       viewerWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+      ...(sessionToken ? { sessionToken } : {}),
       action,
       result: "blocked",
       sessionId,
@@ -415,6 +423,7 @@ export function ProtectedAttachmentDialog({
         attachmentId: attachment._id,
         viewerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+        ...(sessionToken ? { sessionToken } : {}),
         sessionId,
       });
       if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");

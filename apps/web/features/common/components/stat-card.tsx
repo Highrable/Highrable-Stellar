@@ -13,7 +13,7 @@ interface IStatCardProps {
 /** A single figure with its label. Group several inside a `divide-x` row rather than separate boxes. */
 export function StatCard({ label, value, description, className }: IStatCardProps) {
   return (
-    <div className={cn("min-w-0", className)}>
+    <div className={cn("min-w-0 rounded-lg px-4 py-4", className)}>
       <p className="hr-text-secondary font-sans text-xs">{label}</p>
       <div className="hr-text-primary hr-num mt-1 truncate font-sans text-xl leading-tight font-semibold">
         {value}

@@ -2,10 +2,13 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AppModeProvider, ModeBanner, useAppMode } from "@/features/mode";
+import { SidebarInset, SidebarProvider } from "@repo/ui/components/ui/sidebar";
+import { MessageCircle } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { Footer } from "./footer";
+import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 
 function isAdminPath(pathname: string) {
@@ -73,14 +76,27 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
   }, [activeMode]);
 
   return (
-    <div
-      data-mode={activeMode}
-      className="flex min-h-screen flex-col bg-[var(--mode-page)] text-foreground"
-    >
-      <Header />
-      {isAdminRoute ? null : <ModeBanner />}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
-      <Footer />
+    <div data-mode={activeMode} className="min-h-screen bg-[var(--mode-page)] text-foreground">
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset className="min-w-0 bg-muted/60">
+          <Header />
+          {isAdminRoute ? null : <ModeBanner />}
+          <div className="hr-app-main mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+            {children}
+          </div>
+        </SidebarInset>
+        {!isAdminRoute && pathname !== "/messages" ? (
+          <Link
+            href="/messages"
+            aria-label="Open messages"
+            className="fixed right-4 bottom-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-highrable-orange-3 px-5 text-sm font-semibold text-white shadow-lg transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highrable-orange-3 sm:right-6 sm:bottom-6"
+          >
+            <MessageCircle className="size-4" aria-hidden="true" />
+            Messages
+          </Link>
+        ) : null}
+      </SidebarProvider>
     </div>
   );
 }

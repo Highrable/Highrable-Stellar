@@ -3,8 +3,10 @@
 import { parseWalletAddressParam } from "@/core/seo";
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
+import { ProfessionalActivity } from "@/features/newsfeed/profile";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
 import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
@@ -26,6 +28,10 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   const decodedWalletAddress = useMemo(() => {
     return parseWalletAddressParam(walletAddress);
   }, [walletAddress]);
+  const socialProfile = useQuery(
+    api.newsfeed.queries.profile,
+    decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
+  );
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
   const profileData = useQuery(
@@ -34,15 +40,31 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   ) as TFreelancerProfileResponse | null | undefined;
 
   if (!decodedWalletAddress) {
-    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Freelancer profile not found"
+        description="Check the wallet address and try again."
+      />
+    );
   }
 
   if (profileData === undefined) {
-    return <p className="text-sm text-muted-foreground">Loading freelancer profile...</p>;
+    return (
+      <RouteEmptyState
+        title="Loading freelancer profile"
+        description="Reading verified identity and work history…"
+        aria-busy="true"
+      />
+    );
   }
 
   if (profileData === null) {
-    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Freelancer profile not found"
+        description="This wallet does not have a public freelancer profile yet."
+      />
+    );
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
@@ -50,12 +72,26 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
 
   return (
     <div className="space-y-8">
+      {socialProfile?.details?.coverUrl && (
+        <img
+          src={socialProfile.details.coverUrl}
+          alt="Profile cover"
+          className="h-40 w-full rounded-xl border border-border object-cover sm:h-56"
+        />
+      )}
       <FreelancerProfileHeader
-        profile={profile}
+        profile={{
+          ...profile,
+          name: socialProfile?.author.name ?? profile.name,
+          avatarUrl: socialProfile?.author.avatarUrl ?? profile.avatarUrl,
+        }}
         stats={stats}
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+      {socialProfile?.details?.headline && (
+        <p className="text-lg">{socialProfile.details.headline}</p>
+      )}
 
       {canEdit ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -77,7 +113,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
           <ResponsiveDialogBody>
             {canEdit ? (
               <EditFreelancerProfileForm
-                profile={profile}
+                profile={{ ...profile, name: socialProfile?.author.name ?? profile.name }}
                 onSaved={() => setIsEditing(false)}
                 onCancel={() => setIsEditing(false)}
               />
@@ -91,6 +127,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         reviews={verifiedReviews}
         contracts={recentContracts}
       />
+      <ProfessionalActivity walletAddress={decodedWalletAddress} />
     </div>
   );
 }

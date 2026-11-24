@@ -291,7 +291,7 @@ export function OnboardingPage() {
             setStepIndex((value) => Math.min(ONBOARDING_STEPS.length - 1, value + 1));
           }
         }}
-        className="space-y-6 rounded-lg border p-4 sm:p-6"
+        className="hr-card-surface space-y-6 p-4 sm:p-6"
       >
         <FormStepTabs
           steps={ONBOARDING_STEPS}

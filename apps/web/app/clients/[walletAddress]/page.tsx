@@ -44,10 +44,7 @@ export async function generateMetadata({ params }: IClientProfileRouteProps): Pr
     return buildNoIndexMetadata(NOT_FOUND_TITLE, NOT_FOUND_DESCRIPTION, path);
   }
 
-  const displayName = sanitizeSeoText(
-    profileData.profile.companyName ?? profileData.profile.name,
-    `Client ${parsedWalletAddress.slice(0, 8)}`,
-  );
+  const displayName = sanitizeSeoText(profileData.profile.name, "Highrable participant");
   const description = sanitizeSeoText(
     profileData.profile.bio,
     `${displayName} has posted ${profileData.stats.jobsPosted} jobs and completed ${profileData.stats.completedEscrows} Stellar escrow payments on Highrable.`,

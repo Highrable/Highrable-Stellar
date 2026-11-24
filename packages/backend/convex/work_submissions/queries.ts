@@ -29,7 +29,7 @@ async function withVisibleAttachments(
   submission: TWorkSubmissionDoc,
   viewerWallet?: string,
 ) {
-  await assertCanViewSubmission(ctx, submission, viewerWallet);
+  assertCanViewSubmission(submission, viewerWallet);
 
   const attachments = [];
   for (const attachmentId of submission.attachmentIds) {

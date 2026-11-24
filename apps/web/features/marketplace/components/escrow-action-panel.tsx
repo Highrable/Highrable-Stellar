@@ -239,10 +239,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
   const canShowWorkSubmission =
     Boolean(escrow) &&
-    (currentStatus === "created" ||
-      currentStatus === "funded" ||
-      currentStatus === "submitted" ||
-      hasReleasedCompletion) &&
+    (currentStatus === "funded" || currentStatus === "submitted" || hasReleasedCompletion) &&
     (role === "client" || role === "selectedFreelancer");
   const handleConfirmRelease = async ({
     rating,

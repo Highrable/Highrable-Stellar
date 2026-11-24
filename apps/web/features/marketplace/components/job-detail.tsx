@@ -101,12 +101,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
     walletIdentity.walletAddress,
     job.selectedFreelancerWallet,
   );
-  const hasChosenFreelancer =
-    Boolean(job.selectedFreelancerWallet) ||
-    Boolean(projectSummary?.milestones.some((milestone) => milestone.assignedFreelancerWallet));
   const canViewAgreementPanel =
-    hasChosenFreelancer &&
-    (isConnectedClient || isSelectedConnectedFreelancer || isAssignedMilestoneConnectedFreelancer);
+    isConnectedClient || isSelectedConnectedFreelancer || isAssignedMilestoneConnectedFreelancer;
   const scamAnalysis = analyzeJobScamSignals({
     title: job.title,
     description: job.description,

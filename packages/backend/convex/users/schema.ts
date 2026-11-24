@@ -13,17 +13,6 @@ export const walletTypeValidator = walletTypeEnum.validator;
 export type TUserRole = Infer<typeof roleValidator>;
 export type TWalletType = Infer<typeof walletTypeValidator>;
 
-export const avatarUploadIntents = defineTable({
-  walletAddress: v.string(),
-  uploadToken: v.string(),
-  storageId: v.optional(v.id("_storage")),
-  createdAt: v.number(),
-  expiresAt: v.number(),
-  finalizedAt: v.optional(v.number()),
-})
-  .index("by_uploadToken", ["uploadToken"])
-  .index("by_storageId", ["storageId"]);
-
 export default defineTable({
   walletAddress: v.string(),
   role: v.optional(roleValidator),
@@ -52,5 +41,4 @@ export default defineTable({
 })
   .index("by_walletAddress", ["walletAddress"])
   .index("by_role", ["role"])
-  .index("by_avatarStorageId", ["avatarStorageId"])
   .index("by_normalizedPublicHandle", ["normalizedPublicHandle"]);

@@ -16,7 +16,7 @@ export async function POST(
   context: { params: Promise<{ disputeId: string }> },
 ) {
   try {
-    const adminContext = await requireAdminRequestContext(request);
+    const adminContext = requireAdminRequestContext(request);
     const { disputeId } = ParamsSchema.parse(await context.params);
     const result = await createAdminConvexClient().mutation(api.admin.claimDispute, {
       adminWallet: adminContext.adminWallet,

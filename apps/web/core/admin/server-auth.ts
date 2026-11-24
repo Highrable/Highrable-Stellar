@@ -1,6 +1,6 @@
 import { env } from "@/core/config/env";
-import { getPersistedSessionFromRequest } from "@/core/wallet/server/persisted-session";
-import { assertSameOrigin } from "@/core/wallet/server/same-origin";
+import { AUTH_SESSION_COOKIE_NAME, verifySessionToken } from "@/core/wallet/server/auth-store";
+import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 import type { NextRequest } from "next/server";
 
@@ -28,25 +28,22 @@ export function assertAdminApiSecret(secret: string): string {
   return normalizedSecret;
 }
 
-export async function requireAdminRequestContext(
-  request: NextRequest,
-): Promise<IAdminRequestContext> {
-  assertSameOrigin(request);
-  let persisted;
-  try {
-    persisted = await getPersistedSessionFromRequest(request);
-  } catch {
-    throw new AdminAccessError("Admin session could not be verified.", 503);
-  }
-  if (!persisted) {
-    throw new AdminAccessError("Missing or expired admin session cookie.", 401);
-  }
-  if (persisted.session.walletType !== "external_wallet") {
-    throw new AdminAccessError("Admin access requires an external wallet session.", 403);
+export function requireAdminRequestContext(request: NextRequest): IAdminRequestContext {
+  const token = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value;
+  if (!token) {
+    throw new AdminAccessError("Missing admin session cookie.", 401);
   }
 
+  const verification = verifySessionToken(token);
+  if (!verification.valid || !verification.session) {
+    throw new AdminAccessError(verification.error ?? "Invalid session token.", 401);
+  }
+
+  const adminWallet = TStellarPublicKeySchema.parse(verification.session.sub).toUpperCase();
+  const adminApiSecret = assertAdminApiSecret(env.HIGHRABLE_ADMIN_CONVEX_SECRET ?? "");
+
   return {
-    adminWallet: persisted.session.walletAddress.toUpperCase(),
-    adminApiSecret: assertAdminApiSecret(env.HIGHRABLE_ADMIN_CONVEX_SECRET ?? ""),
+    adminWallet,
+    adminApiSecret,
   };
 }

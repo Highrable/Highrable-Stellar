@@ -118,7 +118,6 @@ export function PasskeySmartAccountCard() {
     discoveredContracts,
     error,
     isSupported,
-    isEnabled,
     hasConfig,
     isContractPickerOpen,
     createPasskeyAccount,
@@ -194,10 +193,6 @@ export function PasskeySmartAccountCard() {
   useEffect(() => {
     void refreshWalletDetails();
   }, [refreshWalletDetails]);
-
-  if (!isEnabled) {
-    return null;
-  }
 
   if (!isSupported) {
     return (

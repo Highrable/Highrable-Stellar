@@ -180,14 +180,7 @@ beforeEach(() => {
     },
   );
   runtime.fundEscrowOnChain.mockImplementation(
-    async ({
-      onPhase,
-      preSignCheck,
-    }: {
-      onPhase?: (phase: TStellarExecutionPhase) => void;
-      preSignCheck?: () => Promise<void>;
-    }) => {
-      await preSignCheck?.();
+    async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
       onPhase?.("simulation");
       return { txHash };
     },
@@ -242,11 +235,7 @@ describe("useMilestoneEscrowActions", () => {
       }),
     );
     expect(runtime.fundEscrowOnChain).toHaveBeenCalledWith(
-      expect.objectContaining({
-        walletType: "passkey_smart_account",
-        escrowId: "51",
-        passkeyReadiness: runtime.passkeyReadiness,
-      }),
+      expect.objectContaining({ walletType: "passkey_smart_account", escrowId: "51" }),
     );
     expect(runtime.mutations.createTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ feePath: "relayer", walletType: "passkey_smart_account" }),

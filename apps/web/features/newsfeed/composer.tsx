@@ -201,7 +201,7 @@ export function Composer({
   }
   const form = (
     <>
-      <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="size-11 border-2 border-orange-200">
@@ -593,7 +593,7 @@ export function Composer({
         }}
       >
         <DialogContent className="flex max-h-[min(94dvh,62rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
-          <DialogHeader className="border-b px-6 py-5 text-left">
+          <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
             <DialogTitle className="text-xl">{originalId ? "Repost" : "Create Post"}</DialogTitle>
             <DialogDescription className="text-sm">
               Share a milestone, deliverable, or update with your freelance network.

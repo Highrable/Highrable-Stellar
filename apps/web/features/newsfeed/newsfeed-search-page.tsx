@@ -28,7 +28,7 @@ const categoryLabels: { id: Category; label: string; icon: typeof Users }[] = [
   { id: "people", label: "People", icon: Users },
   { id: "opportunities", label: "Opportunities", icon: BriefcaseBusiness },
   { id: "posts", label: "Posts", icon: Search },
-  { id: "sparks", label: "Sparks & WIPs", icon: Sparkles },
+  { id: "sparks", label: "Showcase", icon: Sparkles },
 ];
 
 function SearchResults({ term, tag }: { term: string; tag: string }) {
@@ -47,7 +47,7 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
   const allItems = all as AllResults | undefined;
 
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4">
       <div
         className="flex flex-wrap gap-2 rounded-2xl border bg-background p-2"
         role="group"
@@ -142,7 +142,7 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
           {category === "sparks" && (
             <SparkSection
               items={categoryItems as NonNullable<AllResults>["sparks"]}
-              title="Active sparks"
+              title="Showcases"
             />
           )}
           {category === "posts" && (
@@ -259,7 +259,7 @@ function OpportunitySection({
 
 function SparkSection({
   items,
-  title = "Active sparks & WIPs",
+  title = "Showcases",
 }: {
   items: AllResults["sparks"];
   title?: string;
@@ -299,14 +299,14 @@ function SparkSection({
                   href={`/newsfeed/spark/${spark.id}`}
                   className="mt-3 inline-flex text-sm font-medium text-orange-700 hover:underline dark:text-orange-300"
                 >
-                  Open spark
+                  Open showcase
                 </Link>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">No active sparks found.</p>
+        <p className="text-sm text-muted-foreground">No showcases found.</p>
       )}
     </section>
   );
@@ -397,8 +397,8 @@ export function NewsfeedSearchPage() {
                 aria-label="Search Highrable"
                 value={term}
                 onChange={(event) => setTerm(event.target.value)}
-                placeholder="Search people, posts, sparks, opportunities"
-                className="h-10 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                placeholder="Search people, posts, showcases, opportunities"
+                className="h-10 min-w-0 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
               />
               <Button
                 type="submit"
@@ -424,7 +424,7 @@ export function NewsfeedSearchPage() {
               </div>
             )}
           </header>
-          <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
+          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
             <SearchResults
               key={`${searchParams.get("q") ?? ""}:${initialTag}`}
               term={term.trim()}

@@ -49,7 +49,7 @@ export function PeopleSearch() {
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls="newsfeed-people-results"
-          placeholder="Search people, posts, sparks, or opportunities"
+          placeholder="Search people, posts, showcases, or opportunities"
           className="h-11 border-0 bg-transparent px-3 shadow-none focus-visible:ring-0"
         />
         <Button type="submit" className="shrink-0 bg-orange-600 text-white hover:bg-orange-700">

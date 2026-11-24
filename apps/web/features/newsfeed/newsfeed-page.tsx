@@ -62,7 +62,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
           <Permalink id={postId} />
         </main>
       ) : (
-        <div className="grid items-start gap-4 sm:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
+        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
           <main className="min-w-0 space-y-4">
             <>
               <Stories />

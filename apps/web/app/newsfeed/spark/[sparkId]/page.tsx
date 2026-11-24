@@ -2,7 +2,7 @@ import { FeedBoundary } from "@/features/newsfeed/feed-boundary";
 import { SocialSession } from "@/features/newsfeed/session";
 import { SparkPermalink } from "@/features/newsfeed/stories";
 
-export const metadata = { title: "Spark | Highrable" };
+export const metadata = { title: "Showcase | Highrable" };
 
 export default async function SparkPage({ params }: { params: Promise<{ sparkId: string }> }) {
   const { sparkId } = await params;

@@ -81,7 +81,7 @@ export function NewsfeedSidebar() {
       <section className="hr-card-surface space-y-3 rounded-2xl p-4" aria-label="Trending tags">
         <SectionHeader
           title="Trending in network"
-          description="Topics in published posts and active sparks"
+          description="Topics in published posts and active showcases"
           icon={<Sparkles aria-hidden="true" className="size-4" />}
         />
         {tags === undefined ? (

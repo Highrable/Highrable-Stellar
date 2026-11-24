@@ -6,7 +6,7 @@ import { Button } from "@repo/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
-import { MessageCircle, MoreHorizontal, Repeat2, Share2, ThumbsUp } from "lucide-react";
+import { Copy, MessageCircle, MoreHorizontal, Repeat2, Share2, ThumbsUp } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -558,7 +558,7 @@ function CommentReplies({
     }
   }
   return (
-    <div className="mt-3 ml-11 space-y-2 border-l-2 border-border pl-3">
+    <div className="mt-3 ml-6 space-y-2 border-l-2 border-border pl-2 sm:ml-11 sm:pl-3">
       {results.map((reply) => (
         <CommentCard key={reply._id} comment={reply} />
       ))}
@@ -573,8 +573,11 @@ function CommentReplies({
         </Button>
       )}
       {viewer && (
-        <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2">
-          <Avatar className="mb-1 size-8">
+        <form
+          onSubmit={(event) => void submit(event)}
+          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-end gap-2 sm:flex"
+        >
+          <Avatar className="mb-1 size-8 shrink-0">
             <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
             <AvatarFallback>{viewer.name?.slice(0, 1).toUpperCase() ?? "H"}</AvatarFallback>
           </Avatar>
@@ -587,10 +590,14 @@ function CommentReplies({
             onChange={(event) => setBody(event.target.value)}
             disabled={busy}
             maxLength={3000}
-            className="min-h-10 flex-1 resize-y rounded-2xl bg-background py-2"
+            className="min-h-10 min-w-0 flex-1 resize-y rounded-2xl bg-background py-2"
             placeholder="Write a reply…"
           />
-          <Button size="sm" disabled={busy || !body.trim()}>
+          <Button
+            size="sm"
+            className="col-start-2 ml-auto shrink-0 sm:ml-0"
+            disabled={busy || !body.trim()}
+          >
             {busy ? "Sending…" : "Reply"}
           </Button>
         </form>
@@ -690,8 +697,11 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
         </Button>
       )}
       {viewer && (
-        <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2 sm:gap-3">
-          <Avatar className="mb-1 size-9">
+        <form
+          onSubmit={(event) => void submit(event)}
+          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-end gap-2 sm:flex sm:gap-3"
+        >
+          <Avatar className="mb-1 size-9 shrink-0">
             <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
             <AvatarFallback>{viewer.name?.slice(0, 1).toUpperCase() ?? "H"}</AvatarFallback>
           </Avatar>
@@ -700,14 +710,17 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
           </label>
           <Textarea
             id={`new-comment-${postId}`}
-            className="min-h-11 flex-1 resize-y rounded-2xl bg-muted/50 py-2.5"
+            className="min-h-11 min-w-0 flex-1 resize-y rounded-2xl bg-muted/50 py-2.5"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             disabled={busy}
             maxLength={3000}
             placeholder="Write a comment…"
           />
-          <Button disabled={busy || !body.trim()} className="mb-0.5">
+          <Button
+            disabled={busy || !body.trim()}
+            className="col-start-2 mb-0.5 ml-auto shrink-0 sm:ml-0"
+          >
             {busy ? "Posting…" : "Post"}
           </Button>
         </form>
@@ -815,12 +828,12 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
             </span>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex max-w-[45%] min-w-0 shrink-0 items-center gap-1 sm:max-w-none">
           <Link
-            className="text-xs text-muted-foreground hover:underline"
+            className="min-w-0 text-right text-xs text-muted-foreground hover:underline"
             href={`/newsfeed/${post._id}`}
           >
-            <time dateTime={new Date(published).toISOString()}>
+            <time className="block truncate" dateTime={new Date(published).toISOString()}>
               {variant === "detail"
                 ? new Date(published).toLocaleString()
                 : relativePostTime(published)}
@@ -911,6 +924,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
                 disabled={busy}
                 onClick={() => void run(() => share(false))}
               >
+                <Copy aria-hidden="true" className="mr-2 size-4" />
                 Copy link
               </Button>
             </PopoverContent>
@@ -976,20 +990,25 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         </button>
       </div>
       <div
-        className={`grid ${viewer ? "grid-cols-4" : "grid-cols-2"} gap-1 border-b py-1 ${variant === "detail" ? "px-5 sm:px-7" : "px-3 sm:px-4"}`}
+        className={`grid ${viewer ? "grid-cols-3" : "grid-cols-1"} gap-1 border-b py-1 ${variant === "detail" ? "px-5 sm:px-7" : "px-3 sm:px-4"}`}
       >
         {viewer && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" className="h-10 w-full">
-                <span className="text-lg" aria-hidden="true">
+              <Button
+                variant="ghost"
+                className="h-12 w-full min-w-0 flex-col justify-center gap-0 px-1 text-[11px] leading-tight sm:h-10 sm:flex-row sm:gap-1 sm:px-2 sm:text-sm"
+              >
+                <span className="text-lg leading-none" aria-hidden="true">
                   {selectedReaction ? (
                     reactionEmoji[selectedReaction as (typeof reactions)[number]]
                   ) : (
                     <ThumbsUp className="size-4" />
                   )}
                 </span>
-                <span>{selectedReaction ?? "Like"}</span>
+                <span className="max-w-full truncate text-[10px] sm:text-sm">
+                  {selectedReaction ?? "Like"}
+                </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2" aria-label="Choose a reaction">
@@ -1025,7 +1044,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         )}
         <Button
           variant="ghost"
-          className="h-10"
+          className="h-12 w-full min-w-0 flex-col justify-center gap-0 px-1 text-[11px] leading-tight sm:h-10 sm:flex-row sm:gap-1 sm:px-2 sm:text-sm"
           aria-expanded={comments}
           onClick={() => setComments(!comments)}
         >
@@ -1034,16 +1053,13 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         {viewer && (
           <Button
             variant="ghost"
-            className="h-10"
+            className="h-12 w-full min-w-0 flex-col justify-center gap-0 px-1 text-[11px] leading-tight sm:h-10 sm:flex-row sm:gap-1 sm:px-2 sm:text-sm"
             aria-expanded={repost}
             onClick={() => setRepost(!repost)}
           >
             <Share2 aria-hidden="true" className="size-4" /> Repost
           </Button>
         )}
-        <Button variant="ghost" className="h-10" onClick={() => void run(() => share(true))}>
-          <Share2 aria-hidden="true" className="size-4" /> Send
-        </Button>
       </div>
       {editing && (
         <form

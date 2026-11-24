@@ -293,7 +293,7 @@ function StoryComposer({
           .filter(Boolean),
       });
       const activeStoryId = storyId.current;
-      if (!activeStoryId) throw new Error("Could not start your story draft.");
+      if (!activeStoryId) throw new Error("Could not start your showcase draft.");
       for (const file of files) {
         if (file.id) continue;
         const poster = file.key === files[0]?.key ? await file.poster : undefined;
@@ -335,9 +335,9 @@ function StoryComposer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(94dvh,50rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
-        <DialogHeader className="border-b px-6 py-5 text-left">
+        <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
           <div className="flex items-center gap-2">
-            <DialogTitle className="text-xl">Create a spark</DialogTitle>
+            <DialogTitle className="text-xl">Create a showcase</DialogTitle>
             <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
               WIP
             </span>
@@ -346,7 +346,7 @@ function StoryComposer({
             Share raw snapshots, design artifacts, or quick work in progress for 24 hours.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-slate-50 px-6 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:px-6 dark:bg-slate-900 dark:text-slate-300">
           <span className="inline-flex items-center gap-2">
             <Clock3 aria-hidden="true" className="size-4 text-orange-600" /> Auto-expires in 24
             hours
@@ -356,7 +356,7 @@ function StoryComposer({
             &amp; Clients
           </span>
         </div>
-        <div className="min-h-0 space-y-5 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 space-y-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button
               type="button"
@@ -370,7 +370,7 @@ function StoryComposer({
               ref={fileInput}
               className="sr-only"
               type="file"
-              aria-label="Choose story photos or videos"
+              aria-label="Choose showcase photos or videos"
               multiple
               accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
               disabled={busy}
@@ -391,7 +391,7 @@ function StoryComposer({
               }}
             />
             <span className="text-xs text-muted-foreground">
-              Add photos or videos to your spark
+              Add photos or videos to your showcase
             </span>
           </div>
           {files.length > 0 && (
@@ -533,7 +533,7 @@ function StoryComposer({
           />
         </div>
         <footer className="flex items-center justify-between gap-3 border-t bg-slate-50 px-6 py-4 dark:bg-slate-900">
-          <p className="text-xs text-muted-foreground">Sparks stay visible for 24 hours.</p>
+          <p className="text-xs text-muted-foreground">Showcases stay visible for 24 hours.</p>
           <div className="flex items-center gap-2">
             {busy && (
               <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>
@@ -546,7 +546,7 @@ function StoryComposer({
               onClick={() => void publish()}
               className="rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700"
             >
-              {busy ? "Publishing…" : error ? "Retry publishing" : "Share spark"}
+              {busy ? "Publishing…" : error ? "Retry publishing" : "Share showcase"}
             </Button>
           </div>
         </footer>
@@ -682,7 +682,7 @@ function StoryViewer({
           <DialogHeader className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pr-14 pb-3 text-left">
             <div
               role="group"
-              aria-label={`Story ${initial.story + 1} of ${group.stories.length}`}
+              aria-label={`Showcase item ${initial.story + 1} of ${group.stories.length}`}
               className="mb-4 flex gap-1"
             >
               {group.stories.map((entry, index) => (
@@ -741,7 +741,7 @@ function StoryViewer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Delete spark"
+                  aria-label="Delete showcase"
                   onClick={() => void deleteOwnStory()}
                 >
                   <Trash2 className="size-4" />
@@ -762,13 +762,15 @@ function StoryViewer({
               />
             ) : (
               <p role="status" className="p-4 text-center text-sm text-white/70">
-                {status === "LoadingFirstPage" ? "Loading story…" : "No story media available."}
+                {status === "LoadingFirstPage"
+                  ? "Loading showcase…"
+                  : "No showcase media available."}
               </p>
             )}
             <Button
               variant="ghost"
               size="icon-lg"
-              aria-label="Previous story item"
+              aria-label="Previous showcase item"
               disabled={status === "LoadingFirstPage"}
               className="absolute top-1/2 left-2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white hover:bg-black/60"
               onClick={() => move(-1)}
@@ -778,7 +780,7 @@ function StoryViewer({
             <Button
               variant="ghost"
               size="icon-lg"
-              aria-label="Next story item"
+              aria-label="Next showcase item"
               disabled={status === "LoadingFirstPage"}
               className="absolute top-1/2 right-2 z-10 -translate-y-1/2 rounded-full bg-black/40 text-white hover:bg-black/60"
               onClick={() => move(1)}
@@ -789,7 +791,7 @@ function StoryViewer({
           <footer className="z-10 shrink-0 border-t border-white/10 bg-black px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {activeStory.note && <p className="mb-2 text-sm text-white/90">{activeStory.note}</p>}
             {!!activeStory.tags?.length && (
-              <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Spark tags">
+              <div className="mb-2 flex flex-wrap gap-1.5" aria-label="Showcase tags">
                 {activeStory.tags.map((tag) => (
                   <Link
                     key={tag}
@@ -803,7 +805,7 @@ function StoryViewer({
             )}
             <div className="mb-2 flex items-center justify-between gap-2 text-xs text-white/80">
               <span>{activeStory.reactionCount} reactions</span>
-              <div className="flex gap-1" aria-label="Story reaction counts">
+              <div className="flex gap-1" aria-label="Showcase reaction counts">
                 {kinds.map(
                   (kind) =>
                     activeStory.reactionCounts[kind] > 0 && (
@@ -815,7 +817,11 @@ function StoryViewer({
               </div>
             </div>
             {viewer && (
-              <div role="group" aria-label="React to story" className="flex justify-between gap-1">
+              <div
+                role="group"
+                aria-label="React to showcase"
+                className="flex justify-between gap-1"
+              >
                 {kinds.map((kind) => (
                   <Button
                     key={kind}
@@ -863,8 +869,8 @@ export function SparkPermalink({ sparkId }: { sparkId: string }) {
     storyId: sparkId as TConvexId<"socialStories">,
     ...(token ? { token } : {}),
   });
-  if (groups === undefined) return <p role="status">Loading spark…</p>;
-  if (!groups?.length) return <p>This spark is unavailable or has expired.</p>;
+  if (groups === undefined) return <p role="status">Loading showcase…</p>;
+  if (!groups?.length) return <p>This showcase is unavailable or has expired.</p>;
   return (
     <StoryViewer
       key={sparkId}
@@ -888,18 +894,18 @@ export function Stories() {
   );
   if (groups === undefined)
     return (
-      <section aria-label="Stories" className="hr-card-surface p-4">
+      <section aria-label="Showcase" className="hr-card-surface p-4">
         <p role="status" className="text-sm text-muted-foreground">
-          Loading stories…
+          Loading showcase…
         </p>
       </section>
     );
   const selectedStory = selection ? groups[selection.group]?.stories[selection.story] : null;
   return (
     <>
-      <section aria-label="Stories" className="hr-card-surface rounded-2xl p-4">
+      <section aria-label="Showcase" className="hr-card-surface rounded-2xl p-4">
         <header className="mb-3">
-          <h2 className="font-semibold">Stories</h2>
+          <h2 className="font-semibold">Showcase</h2>
           <p className="text-xs text-muted-foreground">Photos and videos stay up for 24 hours.</p>
         </header>
         <div className="flex gap-3 overflow-x-auto pb-1">
@@ -908,7 +914,7 @@ export function Stories() {
               type="button"
               className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-800 text-left shadow-sm"
               onClick={() => setCreating(true)}
-              aria-label="Create a story"
+              aria-label="Create a showcase"
             >
               {viewer.avatarUrl ? (
                 <img
@@ -926,7 +932,7 @@ export function Stories() {
                 </span>
               </span>
               <span className="absolute inset-x-1 bottom-3 block text-center text-xs font-semibold text-white">
-                Create story
+                Create showcase
               </span>
             </button>
           )}
@@ -938,7 +944,7 @@ export function Stories() {
                 type="button"
                 className="relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-muted text-left text-white shadow-sm"
                 onClick={() => setSelection({ group: groupIndex, story: 0 })}
-                aria-label={`View ${group.author.name}'s sparks`}
+                aria-label={`View ${group.author.name}'s showcase`}
               >
                 <StoryPreview media={first?.media[0]} />
                 <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
@@ -954,7 +960,7 @@ export function Stories() {
             );
           })}
           {groups.length === 0 && !viewer && (
-            <p className="py-4 text-sm text-muted-foreground">No active sparks yet.</p>
+            <p className="py-4 text-sm text-muted-foreground">No active showcases yet.</p>
           )}
         </div>
       </section>

@@ -16,6 +16,8 @@ Provide parent-linked conversations, messages, read tracking, attachments, prote
 
 Implemented in Convex and used by marketplace, submission, dispute, cancellation, and agreement surfaces. Attachment protection is a policy/deterrence layer; it is not a guarantee against screenshots or client-side capture.
 
+The `/messages` inbox and embedded work thread use the shared product shell and theme tokens. Both retain participant-scoped access, read tracking, replies, and attachments; locked or archived conversations show a read-only notice and disable composing.
+
 ## Primary Locations
 
 - `packages/backend/convex/conversations/`

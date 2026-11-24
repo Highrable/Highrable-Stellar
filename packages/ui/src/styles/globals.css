@@ -5,59 +5,57 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  --background: #fafafa;
+  --foreground: #1a1a1a;
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
+  --card-foreground: #1a1a1a;
   --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #e85d00;
+  --popover-foreground: #1a1a1a;
+  --primary: #b94a00;
   --primary-foreground: #ffffff;
-  --secondary: #fff7ed;
-  --secondary-foreground: #0a0a0a;
-  --muted: #f7f7f7;
+  --secondary: #fff3e9;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f3f4f6;
   --muted-foreground: #5f5f5f;
-  --accent: #fff7ed;
-  --accent-foreground: #b94a00;
+  --accent: #fff3e9;
+  --accent-foreground: #8f3900;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e8e8e8;
   --input: #e8e8e8;
-  --ring: #ff7003;
+  --ring: #b94a00;
   --chart-1: #f29a47;
   --chart-2: #3cc6d1;
   --chart-3: #6b6cf0;
   --chart-4: #d6f067;
   --chart-5: #f6e65a;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-primary: #0a0a0a;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #b94a00;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f5f5f5;
-  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-accent-foreground: #1a1a1a;
   --sidebar-border: #e8e8e8;
-  --sidebar-ring: #ff7003;
-  --highrable-text-primary: #0a0a0a;
+  --sidebar-ring: #b94a00;
+  --highrable-text-primary: #1a1a1a;
   --highrable-text-secondary: #5f5f5f;
   --highrable-text-muted: #7f7f7f;
   --highrable-text-accent: #b94a00;
   --highrable-surface-muted: #f5f5f5;
-  --highrable-surface-accent: #fff7ed;
+  --highrable-surface-accent: rgb(255 140 66 / 9%);
   --highrable-border: #e8e8e8;
   --highrable-surface-raised: #ffffff;
-  --highrable-shadow-card: 0 8px 24px rgb(25 15 5 / 5%);
-  --highrable-orange-1: #ff8801;
-  --highrable-orange-2: #ff7003;
+  --highrable-shadow-card: 0 4px 24px -1px rgb(255 140 66 / 6%);
+  --highrable-orange-1: #ff8c42;
+  --highrable-orange-2: #ff6b6b;
   --highrable-orange-3: #e85d00;
   --highrable-orange-4: #b94a00;
   --highrable-button-gradient: linear-gradient(to right, #ff8703, #fe6002);
   --highrable-gradient-primary: linear-gradient(
     135deg,
-    var(--highrable-orange-1),
-    var(--highrable-orange-2),
-    var(--highrable-orange-3),
-    var(--highrable-orange-4)
+    var(--highrable-orange-1) 0%,
+    var(--highrable-orange-2) 100%
   );
   --highrable-gradient-primary-strong: linear-gradient(
     135deg,
@@ -75,19 +73,19 @@
   --card-foreground: #fafafa;
   --popover: #1f1f1f;
   --popover-foreground: #fafafa;
-  --primary: #ff8801;
-  --primary-foreground: #231000;
-  --secondary: #262626;
+  --primary: #ff8c42;
+  --primary-foreground: #35180b;
+  --secondary: #292521;
   --secondary-foreground: #fafafa;
-  --muted: #262626;
+  --muted: #292929;
   --muted-foreground: #d4d4d4;
-  --accent: rgba(255, 112, 3, 0.18);
+  --accent: rgb(255 140 66 / 16%);
   --accent-foreground: #ffd0ab;
   --destructive: #7f1d1d;
   --destructive-foreground: #fecaca;
   --border: #3a3a3a;
   --input: #3a3a3a;
-  --ring: #ff8801;
+  --ring: #ff9d63;
   --chart-1: #8a7bff;
   --chart-2: #33c9b7;
   --chart-3: #f6e65a;
@@ -100,16 +98,16 @@
   --sidebar-accent: #262626;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #3a3a3a;
-  --sidebar-ring: #ff8801;
+  --sidebar-ring: #ff9d63;
   --highrable-text-primary: #fafafa;
   --highrable-text-secondary: #d4d4d4;
   --highrable-text-muted: #a3a3a3;
   --highrable-text-accent: #ffb067;
   --highrable-surface-muted: #262626;
-  --highrable-surface-accent: rgba(255, 112, 3, 0.18);
+  --highrable-surface-accent: rgb(255 140 66 / 16%);
   --highrable-border: #3a3a3a;
   --highrable-surface-raised: #232323;
-  --highrable-shadow-card: 0 8px 24px rgb(0 0 0 / 22%);
+  --highrable-shadow-card: 0 8px 24px rgb(0 0 0 / 24%);
 }
 
 @theme inline {
@@ -171,6 +169,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
   body {
     @apply bg-background text-foreground antialiased;
   }
@@ -227,13 +229,13 @@
   .hr-panel {
     background-color: var(--card);
     border: 1px solid var(--highrable-border);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     box-shadow: var(--highrable-shadow-card);
   }
   .hr-card-surface {
     background-color: var(--highrable-surface-raised);
     border: 1px solid var(--highrable-border);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     box-shadow: var(--highrable-shadow-card);
   }
   .hr-focus-ring {
@@ -251,7 +253,7 @@
   }
   .hr-v2-badge-accent {
     background-color: var(--highrable-surface-accent);
-    border: 1px solid rgba(255, 112, 3, 0.3);
+    border: 1px solid rgb(255 140 66 / 35%);
     color: var(--highrable-text-accent);
   }
   .hr-v2-badge-solid {
@@ -260,7 +262,7 @@
   }
   .hr-v2-number-badge {
     background-image: var(--highrable-gradient-primary-strong);
-    color: var(--primary-foreground);
+    color: #35180b;
   }
   .hr-v2-step-badge {
     background-color: var(--card);

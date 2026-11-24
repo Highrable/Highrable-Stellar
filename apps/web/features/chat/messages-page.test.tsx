@@ -151,3 +151,64 @@ it("sends uploaded media IDs with a message from the conversation composer", asy
     ),
   );
 });
+
+it("submits with Enter from the keyboard composer", async () => {
+  mocks.conversations = [
+    {
+      _id: "conversation-1",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      ],
+      unread: false,
+      status: "active",
+    },
+  ];
+  render(<MessagesPage />);
+  fireEvent.click(screen.getByRole("button", { name: /Ben Designer/ }));
+  const composer = screen.getByRole("textbox", { name: "Message text" });
+  fireEvent.change(composer, { target: { value: "Quick update" } });
+  fireEvent.keyDown(composer, { key: "Enter", shiftKey: true });
+  expect(mocks.mutation).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(composer, { key: "Enter", shiftKey: false });
+  await waitFor(() =>
+    expect(mocks.mutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        sessionToken: "verified-session",
+        body: "Quick update",
+      }),
+    ),
+  );
+});
+
+it.each([
+  ["locked", "This conversation is locked."],
+  ["archived", "This conversation is archived."],
+] as const)("keeps %s conversations read-only", (status, message) => {
+  mocks.conversations = [
+    {
+      _id: "conversation-1",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      ],
+      unread: false,
+      status,
+    },
+  ];
+  render(<MessagesPage />);
+  fireEvent.click(screen.getByRole("button", { name: /Ben Designer/ }));
+
+  expect(screen.getByRole("status").textContent).toContain(message);
+  expect(screen.getByRole("textbox", { name: "Message text" }).hasAttribute("disabled")).toBe(true);
+  expect(
+    screen.getByRole("button", { name: "Attach files or media" }).hasAttribute("disabled"),
+  ).toBe(true);
+  expect(screen.getByRole("button", { name: "Send message" }).hasAttribute("disabled")).toBe(true);
+});

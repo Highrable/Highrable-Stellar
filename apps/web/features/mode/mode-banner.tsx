@@ -23,7 +23,7 @@ export function ModeBanner() {
         "border-b dark:border-(--mode-border) dark:bg-(--mode-soft) dark:text-(--mode-text)",
         mode === "client"
           ? "border-[#facc15]/50 bg-[#fefce8] text-[#713f12]"
-          : "border-[#ff7003]/25 bg-[#fff7ef] text-[#9a3f00]",
+          : "border-[#ff8c42]/30 bg-[#fff7ef] text-[#8f3900]",
       )}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-1 text-xs sm:px-6">

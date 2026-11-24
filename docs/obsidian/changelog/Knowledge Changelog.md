@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-11-24
 
+- Aligned shared UI and page surfaces with Master Component Library v4.0 and the Find Work/Messages references: warm orange/coral accents, orange primary buttons with the original orange gradient and white labels, role-aware yellow client mode, shared control geometry, larger marketplace listings, and rounded work-chat bubbles. Landing Find Work actions now target `/marketplace`; search, applications, conversation permissions, replies, attachments, and read/locked states keep their existing implementation. No Convex API, schema, wallet, or contract boundary changed. Validation: TypeScript, Oxlint, 31 focused chat/marketplace/layout tests, and the Webpack production build pass; the full web suite has 9 known wallet-kit tests that fail because `localStorage` is unavailable. See [[frontend/Frontend Overview]] and [[frontend/Routes and API]].
 - Restored the shared admin sidebar and page session query. Restored Newsfeed passkey rule lookup with verification of the configured account WASM and a policy-free default rule. See [[architecture/Authentication Boundaries]].
 
 ## 2026-10-19

@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-11-24
 source_of_truth: repository
 ---
 
@@ -14,8 +14,8 @@ source_of_truth: repository
 | --- | --- | --- |
 | `/` | `app/page.tsx`, landing-v2 | Implemented |
 | `/home` | Alternate landing-v2 route | Implemented |
-| `/marketplace` | Marketplace browsing | Implemented |
-| `/jobs` | Job browsing | Implemented |
+| `/marketplace` | Marketplace browsing, safety sorting, and applications | Implemented |
+| `/jobs` | Legacy alias for marketplace browsing | Redirects to `/marketplace` |
 | `/marketplace/jobs/[jobId]` | Job detail, proposals, agreements, escrow actions | Implemented |
 | `/post-job` | Job creation | Implemented |
 | `/dashboard` | Client/freelancer/admin dashboard modes | Implemented |

@@ -28,7 +28,7 @@ import { LandingConnectButton } from "./landing-connect-button";
 const NAV_LINK_BASE =
   "flex items-center gap-2 rounded-lg px-3 py-2 font-sans text-xs font-medium whitespace-nowrap tracking-[0.06em] uppercase transition-colors";
 const NAV_LINK_INACTIVE = "hr-text-secondary hover:text-highrable-orange-1";
-const NAV_LINK_ACTIVE = "hr-v2-button-primary text-white";
+const NAV_LINK_ACTIVE = "hr-v2-button-primary";
 
 function Logo() {
   return (

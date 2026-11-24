@@ -89,7 +89,7 @@ function NavigationLink({
         asChild
         isActive={isActive}
         tooltip={item.name}
-        className="h-10 px-3 text-sidebar-foreground/80 hover:text-sidebar-foreground data-[active=true]:bg-(--mode-soft) data-[active=true]:text-sidebar-foreground"
+        className="h-11 rounded-xl px-3 text-sidebar-foreground/80 hover:text-sidebar-foreground data-[active=true]:bg-(--mode-soft) data-[active=true]:font-semibold data-[active=true]:text-sidebar-foreground"
       >
         <Link
           href={item.href}
@@ -114,7 +114,7 @@ function BrandLink() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton asChild size="lg" tooltip="Highrable home" className="h-14">
+        <SidebarMenuButton asChild size="lg" tooltip="Highrable home" className="h-14 rounded-xl">
           <Link
             href="/home"
             aria-label="Highrable home"
@@ -122,7 +122,7 @@ function BrandLink() {
               if (isMobile) setOpenMobile(false);
             }}
           >
-            <img src="/logo/highrable-icon.jpg" alt="" className="size-8 rounded-lg object-cover" />
+            <img src="/logo/highrable-icon.jpg" alt="" className="size-8 rounded-xl object-cover" />
             <span className="grid min-w-0 leading-tight">
               <span className="truncate font-semibold tracking-tight">Highrable</span>
               <span className="truncate text-xs font-normal text-sidebar-foreground/60">

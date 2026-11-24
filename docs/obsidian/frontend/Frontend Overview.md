@@ -13,7 +13,7 @@ source_of_truth: repository
 ## Runtime composition
 
 - `app/layout.tsx` provides fonts, metadata, global CSS, providers, and `AppShell`.
-- Font variables are defined in `app/globals.css` using the Space Grotesk and JetBrains Mono family names with system fallbacks; the app does not fetch Google Fonts during builds.
+- Font variables are defined in `app/globals.css`; the sans stack prefers Plus Jakarta Sans and falls back to Inter/DM Sans/system fonts, while the mono stack prefers JetBrains Mono. The app does not fetch fonts during builds.
 - `core/providers/app-providers.tsx` constructs the Convex client and composes wallet/UI/onboarding/debugger providers.
 - `core/wallet` owns external wallet connection, authentication, funding checks, persistence, and identity state.
 - `core/passkeys` and `core/stellar` own passkey readiness, smart-account configuration, contract calls, asset/payment helpers, and transaction execution.
@@ -43,14 +43,16 @@ Section content reveals use `V2Reveal` in `apps/web/features/landing-v2/componen
 
 ## Product UI conventions
 
-Product routes (everything inside `AppShell`) use a restrained, neutral style; the landing page has its own marketing styles and must not change with product UI work.
+Product routes (everything inside `AppShell`) use a soft neutral canvas, rounded white surfaces, orange-to-coral accents, and shared controls. The landing page keeps its own layout and marketing compositions while sharing the brand palette and common UI tokens.
 
-- **Landing isolation.** `AppShell` sets `data-mode` on the shell and `<html>` only for non-marketing routes. App overrides in `apps/web/app/globals.css` (flat primary buttons, no card shadows or hard hover shadows, neutral section headers) are scoped to `[data-mode]`, so they never reach `/` or `/home`. The landing page also renders `Footer`, `WalletConnectTrigger`, and `PasskeySmartAccountCard`; treat those three as landing-owned and leave `packages/ui` marketing primitives (`SectionLabel`, `HighrableV2Metric`, `HighrableV2Bullet`, `hr-v2-*` classes) to the landing page.
-- **Page headers.** `ProductPageHero` (`features/common/components/layout/product-page-hero.tsx`) renders a plain title row: `title`, optional `description`, optional `meta` line, and right-aligned `actions`. No eyebrow pills, two-tone titles, or entrance animation.
+- **Role and theme tokens.** Core palette and light/dark tokens live in `packages/ui/src/styles/globals.css`. `AppShell` sets `data-mode` on the shell and `<html>` only for non-marketing routes. Freelancer and admin modes use orange-to-coral accents; client mode uses yellow with dark foreground text. Product-specific button overrides, the admin active state, and `ModeBanner` are scoped to `[data-mode]`. The landing page uses the shared orange/coral brand tokens without inheriting a role mode. Its `Footer`, `WalletConnectTrigger`, and `PasskeySmartAccountCard` remain landing-owned.
+- **Shared primitives.** `packages/ui/src/components/ui` owns buttons, inputs, textareas, selects, cards, badges, dialogs, and sidebar controls. Prefer these primitives and semantic tokens (`bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`) over new fixed colors. Filled orange primary buttons use the original orange gradient with white labels; client mode keeps yellow buttons with dark labels. Mode-specific focus rings remain visible against light and dark surfaces.
+- **Page headers.** `ProductPageHero` (`features/common/components/layout/product-page-hero.tsx`) renders a large title row with optional `description`, optional `meta` line, and right-aligned `actions`. No eyebrow pills, two-tone titles, or entrance animation.
 - **Status.** `StatusText` (`features/common/components/status-text.tsx`) renders status as text with a coloured dot (`neutral | info | warning | success | danger`). Marketplace, job-safety, deadline, dispute, cancellation, agreement, and client-reliability badges all map onto it; `escrow-status.ts` and `job-safety.ts` expose a `tone` instead of badge class strings.
 - **Lists and figures.** Work items use `WorkList`/`WorkListRow`/`WorkMeta` (`features/common/components/work-list.tsx`): one bordered list with dividers, amount right-aligned. Figures use `StatCard` (label, value, optional description; no icon or tone) grouped in a single divided strip.
 - **Callouts and empty states.** `RouteCallout` and inline notices use a left rule with a light tint; `RouteEmptyState` is a compact dashed row. Hide panels that would only say "nothing here" when that adds no information (for example, deadline reminders).
-- **Mode identity.** Client = yellow, Freelancer = orange, applied through the theme `--primary` (primary buttons), the active nav bar, and active tab underlines. Admin keeps the orange-to-yellow `--mode-gradient` on the active nav bar and the `AdminMark` (`features/admin/components/admin-mark.tsx`) above admin page titles.
+- **Mode identity.** Client = yellow, Freelancer = orange, applied through the theme `--primary` (primary buttons), the active nav bar, and active tab underlines. Admin keeps an orange-to-coral-to-yellow `--mode-gradient` on the active nav bar and the `AdminMark` (`features/admin/components/admin-mark.tsx`) above admin page titles.
+- **Screen references.** The Find Work layout is implemented at `/marketplace`; it retains search across title/description/asset/wallet, safety-aware sort and funding filter, applications, and client job creation. The landing Find Work actions target `/marketplace` directly. The Messages visual treatment is applied to work conversations and the existing messages route while preserving replies, attachments, read tracking, participant access, and locked/archived composer rules.
 
 ## Common change locations
 

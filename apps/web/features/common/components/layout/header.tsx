@@ -52,7 +52,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
         isScrolled && "shadow-xs",
       )}
     >
@@ -86,10 +86,10 @@ export function Header() {
           {!walletIdentity.isConnected ? (
             <WalletConnectTrigger
               label="Connect wallet"
-              className="h-9 rounded-md px-3 font-sans text-xs font-medium tracking-normal normal-case sm:px-4 sm:text-sm"
+              className="h-10 rounded-xl px-4 font-sans text-xs font-semibold tracking-normal normal-case sm:text-sm"
             />
           ) : null}
-          <ThemeToggle className="rounded-md" />
+          <ThemeToggle className="rounded-xl" />
         </div>
       </div>
     </header>

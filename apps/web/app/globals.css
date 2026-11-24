@@ -3,7 +3,7 @@ html {
 }
 
 :root {
-  --font-geist-sans: "Inter", "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --font-geist-sans: "Plus Jakarta Sans", "Inter", "DM Sans", "Segoe UI", system-ui, sans-serif;
   --font-geist-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
 }
 
@@ -34,7 +34,7 @@ body {
 }
 
 ::selection {
-  background: rgb(255 112 3 / 18%);
+  background: rgb(255 140 66 / 20%);
 }
 
 /* ── Mode theming ──────────────────────────────────────────────────────────
@@ -43,23 +43,23 @@ body {
    --mode-text is a darker shade used wherever the colour is applied to text. */
 [data-mode="freelancer"],
 [data-mode="admin"] {
-  --mode-text: #d95500;
+  --mode-text: #b94a00;
   --mode-soft: #fff1e5;
   --mode-soft-2: #ffe2c7;
-  --mode-solid: #ff7003;
-  --mode-on: #ffffff;
+  --mode-solid: #ff8c42;
+  --mode-on: #35180b;
   --mode-page: var(--background);
-  --mode-border: #e4b98c;
-  --mode-gradient: linear-gradient(90deg, #ff8801, #ff7003);
-  --primary: #e85d00;
+  --mode-border: #f4c7a5;
+  --mode-gradient: linear-gradient(90deg, #ff8c42, #ff6b6b);
+  --primary: #b94a00;
   --primary-foreground: #ffffff;
 }
 
 [data-mode="admin"] {
-  --mode-on: #2b1a00;
-  --mode-gradient: linear-gradient(90deg, #ff7003, #fbbf24 70%, #facc15);
+  --mode-on: #35180b;
+  --mode-gradient: linear-gradient(90deg, #ff8c42, #ff6b6b 70%, #ffc766);
   --mode-page: var(--background);
-  --mode-border: #e2c47f;
+  --mode-border: #f1c48b;
 }
 
 [data-mode="client"] {
@@ -73,8 +73,8 @@ body {
   --mode-gradient: linear-gradient(90deg, #fde047, #facc15);
   --primary: #facc15;
   --primary-foreground: #3b2f00;
-  --ring: #eab308;
-  --sidebar-ring: #eab308;
+  --ring: #713f12;
+  --sidebar-ring: #713f12;
   --accent: #fefce8;
   --accent-foreground: #713f12;
   --highrable-text-accent: #854d0e;
@@ -97,6 +97,9 @@ body {
 /* Yellow buttons need dark text to stay readable. */
 [data-mode="client"] .hr-v2-button-primary,
 [data-mode="client"] .hr-button-primary-colors {
+  color: #3b2f00 !important;
+}
+[data-mode="client"] .hr-gradient-interactive {
   color: #3b2f00 !important;
 }
 
@@ -149,8 +152,8 @@ body {
   color: var(--mode-on);
 }
 
-/* Primary actions use the flat mode colour; the marketing gradient and the
-   offset "hard" hover shadow stay on the landing page. */
+/* Client actions stay yellow. Freelancer and admin primary actions use the
+   original Highrable orange gradient with white labels. */
 [data-mode] .hr-v2-button-primary,
 [data-mode] .hr-button-primary-colors {
   background-image: none;
@@ -158,13 +161,64 @@ body {
   color: var(--primary-foreground);
 }
 
-/* Orange buttons (Freelancer and Admin) use the same gradient as the
-   Freelancer profile cover. Client buttons stay flat yellow. */
+/* The orange gradient is reserved for filled button controls. */
 :is([data-mode="freelancer"], [data-mode="admin"])
   :is(.hr-v2-button-primary, .hr-button-primary-colors, .hr-gradient-interactive) {
-  background-image: linear-gradient(90deg, #ff8801, #ff7003);
-  background-color: #ff7003;
-  color: #ffffff;
+  background-image: var(--highrable-button-gradient);
+  background-color: #ff8703;
+  color: #fff;
+}
+
+:is(button, a, [role="button"], input[type="button"], input[type="submit"]):is(
+  .bg-highrable-orange-1,
+  .bg-highrable-orange-2,
+  .bg-highrable-orange-3,
+  .bg-highrable-orange-4,
+  .bg-orange-500,
+  .bg-orange-600,
+  .bg-orange-700,
+  .bg-orange-50,
+  .bg-orange-100
+) {
+  background-image: var(--highrable-button-gradient) !important;
+  color: #fff !important;
+}
+
+[data-mode="client"]
+  :is(button, a, [role="button"], input[type="button"], input[type="submit"]):is(
+    .bg-highrable-orange-1,
+    .bg-highrable-orange-2,
+    .bg-highrable-orange-3,
+    .bg-highrable-orange-4,
+    .bg-orange-500,
+    .bg-orange-600,
+    .bg-orange-700,
+    .bg-orange-50,
+    .bg-orange-100
+  ) {
+  color: #3b2f00 !important;
+}
+
+:is(button, a, [role="button"], input[type="button"], input[type="submit"]):is(
+    [class~="hover:bg-highrable-orange-2"],
+    [class~="hover:bg-highrable-orange-3"],
+    [class~="hover:bg-orange-700"],
+    [class~="hover:bg-orange-50"],
+    [class~="hover:bg-orange-100"]
+  ):hover {
+  background-image: var(--highrable-button-gradient) !important;
+  color: #fff !important;
+}
+
+[data-mode="client"]
+  :is(button, a, [role="button"], input[type="button"], input[type="submit"]):is(
+    [class~="hover:bg-highrable-orange-2"],
+    [class~="hover:bg-highrable-orange-3"],
+    [class~="hover:bg-orange-700"],
+    [class~="hover:bg-orange-50"],
+    [class~="hover:bg-orange-100"]
+  ):hover {
+  color: #3b2f00 !important;
 }
 
 [data-mode] .hr-v2-button-primary:hover:not(:disabled),
@@ -212,7 +266,7 @@ body {
 /* Legacy tone hooks: kept so older markup still renders, but neutral. The
    foreground colour remains for status text where meaning depends on it. */
 .hr-tone-orange {
-  --tone-fg: #c2410c;
+  --tone-fg: #b94a00;
 }
 .hr-tone-yellow {
   --tone-fg: #854d0e;
@@ -241,7 +295,7 @@ body {
 
 /* Solid mode-coloured band that leaves child badge colours alone. */
 .hr-mode-band {
-  background-image: var(--mode-gradient, linear-gradient(90deg, #ff8801, #ff7003));
+  background-image: var(--mode-gradient, linear-gradient(90deg, #ff8c42, #ff6b6b));
   color: var(--mode-on, #fff);
 }
 
@@ -296,7 +350,7 @@ body {
 }
 
 .hr-app-main :is(input, textarea, select, [data-slot="select-trigger"]) {
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
 }
 
 .hr-app-main :is(input, textarea, select):focus-visible,
@@ -395,7 +449,7 @@ body {
 
 .hr-newsfeed-page [data-slot="button"].hr-v2-button-primary,
 .hr-newsfeed-dialog [data-slot="button"].hr-v2-button-primary {
-  color: #ffffff;
+  color: #35180b;
 }
 
 .hr-newsfeed-page [data-slot="button"][data-variant="default"]:hover:not(:disabled),
@@ -479,8 +533,8 @@ body {
   .dark [data-mode="admin"]
 ) {
   --mode-text: #ffb067;
-  --mode-soft: rgb(255 112 3 / 16%);
-  --mode-soft-2: rgb(255 112 3 / 26%);
+  --mode-soft: rgb(255 140 66 / 16%);
+  --mode-soft-2: rgb(255 140 66 / 26%);
   --mode-page: var(--background);
   --mode-border: #6b3f1a;
 }
@@ -495,6 +549,8 @@ body {
   --mode-soft-2: rgb(250 204 21 / 24%);
   --mode-page: var(--background);
   --mode-border: #6b5a1a;
+  --ring: #facc15;
+  --sidebar-ring: #facc15;
   --accent: rgb(250 204 21 / 14%);
   --accent-foreground: #fef08a;
   --highrable-text-accent: #fde047;
@@ -570,7 +626,7 @@ body {
   background-color: var(--highrable-surface-accent);
 }
 .dark .border-\[\#ffd7bd\] {
-  border-color: rgb(255 112 3 / 35%);
+  border-color: rgb(255 140 66 / 35%);
 }
 .dark
   :is(

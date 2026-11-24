@@ -90,7 +90,7 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
           <Link
             href="/messages"
             aria-label="Open messages"
-            className="fixed right-4 bottom-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-highrable-orange-3 px-5 text-sm font-semibold text-white shadow-lg transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highrable-orange-3 sm:right-6 sm:bottom-6"
+            className="hr-v2-button-primary fixed right-4 bottom-4 z-40 inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold shadow-md transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highrable-orange-3 sm:right-6 sm:bottom-6"
           >
             <MessageCircle className="size-4" aria-hidden="true" />
             Messages

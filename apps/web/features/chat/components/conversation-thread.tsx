@@ -245,11 +245,13 @@ function WalletTypeBadge({ walletType }: { walletType?: string }) {
 
 function SystemMessage({ message }: { message: TMessageWithAttachments }) {
   return (
-    <div className="mx-auto flex max-w-[88%] items-center gap-2 border border-orange-200 bg-orange-50 px-3 py-2 text-center">
+    <div className="mx-auto flex max-w-[88%] items-center gap-2 rounded-xl border border-(--mode-border) bg-(--mode-soft) px-3 py-2 text-center">
       <CircleDot className="hr-mode-text h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <div className="min-w-0 text-left">
-        <p className="text-xs leading-snug font-medium text-[#7a3500]">{message.body}</p>
-        <p className="mt-0.5 text-xs text-[#a05a20]">{formatMessageTimestamp(message.createdAt)}</p>
+        <p className="text-xs leading-snug font-medium text-foreground">{message.body}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {formatMessageTimestamp(message.createdAt)}
+        </p>
       </div>
     </div>
   );
@@ -269,20 +271,20 @@ function MessageAvatar({
   return (
     <Avatar
       className={cn(
-        "h-8 w-8 shrink-0 rounded-none border",
+        "h-9 w-9 shrink-0 rounded-full border",
         isOwnMessage
-          ? "border-highrable-orange-3 bg-highrable-orange-2 text-[var(--mode-on)]"
-          : "border-orange-200 bg-orange-50 text-[#B94A00]",
+          ? "border-(--mode-border) bg-(--mode-solid) text-[var(--mode-on)]"
+          : "border-(--mode-border) bg-(--mode-soft) text-(--mode-text)",
       )}
       aria-label={`${label} avatar`}
     >
       {safeAvatarUrl ? <AvatarImage src={safeAvatarUrl} alt={`${label} avatar`} /> : null}
       <AvatarFallback
         className={cn(
-          "rounded-none",
+          "rounded-full",
           isOwnMessage
-            ? "bg-highrable-orange-2 text-[var(--mode-on)]"
-            : "bg-orange-50 text-[#B94A00]",
+            ? "bg-(--mode-solid) text-[var(--mode-on)]"
+            : "bg-(--mode-soft) text-(--mode-text)",
         )}
       >
         <UserRound className="h-4 w-4" aria-hidden="true" />
@@ -295,7 +297,7 @@ function DateDivider({ timestamp }: { timestamp: number }) {
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="h-px flex-1 bg-border" />
-      <p className="text-xs whitespace-nowrap text-[#7f7f7f]">
+      <p className="text-xs whitespace-nowrap text-muted-foreground">
         {new Intl.DateTimeFormat(undefined, {
           month: "short",
           day: "numeric",
@@ -320,15 +322,15 @@ function InlineAttachmentPreview({
 
   if (isPreviewableImage(attachment)) {
     return (
-      <figure className="overflow-hidden border border-border bg-white">
+      <figure className="overflow-hidden rounded-xl border border-border bg-card">
         <img
           src={attachment.url ?? undefined}
           alt={attachment.name}
           loading="lazy"
-          className="max-h-56 w-full bg-[#f7f7f7] object-contain"
+          className="max-h-56 w-full bg-muted object-contain"
         />
-        <figcaption className="flex items-center justify-between gap-2 border-t border-[#e8e8e8] px-3 py-1.5">
-          <span className="truncate text-xs font-medium text-[#0a0a0a]">{attachment.name}</span>
+        <figcaption className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5">
+          <span className="truncate text-xs font-medium text-foreground">{attachment.name}</span>
           <AttachmentTypeBadge type={attachment.type} />
         </figcaption>
       </figure>
@@ -337,7 +339,7 @@ function InlineAttachmentPreview({
 
   if (isPreviewableVideo(attachment)) {
     return (
-      <figure className="overflow-hidden border border-border bg-white">
+      <figure className="overflow-hidden rounded-xl border border-border bg-card">
         {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- Chat uploads do not collect caption tracks yet. */}
         <video
           controls
@@ -347,8 +349,8 @@ function InlineAttachmentPreview({
         >
           <source src={attachment.url ?? undefined} type={attachment.mimeType ?? undefined} />
         </video>
-        <figcaption className="flex items-center justify-between gap-2 border-t border-[#e8e8e8] px-3 py-1.5">
-          <span className="truncate text-xs font-medium text-[#0a0a0a]">{attachment.name}</span>
+        <figcaption className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5">
+          <span className="truncate text-xs font-medium text-foreground">{attachment.name}</span>
           <AttachmentTypeBadge type={attachment.type} />
         </figcaption>
       </figure>
@@ -360,15 +362,15 @@ function InlineAttachmentPreview({
       href={href ?? undefined}
       target={href ? "_blank" : undefined}
       rel={href ? "noreferrer" : undefined}
-      className={`flex items-center gap-2 border px-3 py-2 ${
+      className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
         isOwnMessage
-          ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-          : "border-[#e8e8e8] bg-white text-[#0a0a0a] hover:border-highrable-orange-2/70"
+          ? "border-white/20 bg-white/10 text-current hover:bg-white/15"
+          : "border-border bg-card text-foreground hover:border-(--mode-border)"
       }`}
     >
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center border ${
-          isOwnMessage ? "border-white/20 bg-white/10" : "border-[#e8e8e8] bg-[#fafafa]"
+          isOwnMessage ? "border-white/20 bg-white/10" : "border-border bg-muted"
         }`}
       >
         <AttachmentFileIcon type={attachment.type} />
@@ -376,7 +378,7 @@ function InlineAttachmentPreview({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-semibold">{attachment.name}</span>
         <span
-          className={`mt-0.5 block font-mono text-[0.68rem] ${isOwnMessage ? "text-white/60" : "text-[#7f7f7f]"}`}
+          className={`mt-0.5 block font-mono text-[0.68rem] ${isOwnMessage ? "text-current/70" : "text-muted-foreground"}`}
         >
           {meta || "Link"}
         </span>
@@ -417,10 +419,10 @@ function ReplyPreview({
 
   return (
     <div
-      className={`mb-2 border-l-2 py-1.5 pr-2 pl-2 ${
+      className={`mb-2 rounded-lg border-l-2 py-1.5 pr-2 pl-2 ${
         isOwnMessage
-          ? "border-white/60 bg-white/10 text-white/85"
-          : "border-highrable-orange-2 bg-[#fff6ef] text-[#5f2a00]"
+          ? "border-black/20 bg-black/5 text-[var(--mode-on)]/90"
+          : "border-(--mode-text) bg-(--mode-soft) text-foreground"
       }`}
     >
       <p className="text-xs opacity-80">Replying to {getReplySenderLabel(replyToMessage)}</p>
@@ -457,10 +459,10 @@ function MessageBubble({
         />
       ) : null}
       <article
-        className={`group max-w-[82%] border px-3 py-2.5 ${
+        className={`group max-w-[82%] rounded-[20px] border px-4 py-3 shadow-sm ${
           isOwnMessage
-            ? "border-highrable-orange-3 bg-highrable-orange-2 text-white"
-            : "border-border bg-white text-[#0a0a0a]"
+            ? "hr-gradient-primary rounded-br-sm border-transparent text-[var(--mode-on)]"
+            : "rounded-bl-sm border-border bg-card text-foreground"
         }`}
       >
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
@@ -471,7 +473,9 @@ function MessageBubble({
         {message.status === "deleted" ? (
           <p
             className={
-              isOwnMessage ? "text-sm text-white/70 italic" : "text-sm text-[#7f7f7f] italic"
+              isOwnMessage
+                ? "text-sm text-current/70 italic"
+                : "text-sm text-muted-foreground italic"
             }
           >
             Message deleted.
@@ -482,7 +486,7 @@ function MessageBubble({
         <MessageAttachmentList attachments={message.attachments} isOwnMessage={isOwnMessage} />
         <p
           className={`mt-2 text-right font-mono text-xs ${
-            isOwnMessage ? "text-white/60" : "text-[#7f7f7f]"
+            isOwnMessage ? "text-current/70" : "text-muted-foreground"
           }`}
         >
           {formatMessageTimestamp(message.createdAt)}
@@ -493,8 +497,8 @@ function MessageBubble({
             onClick={() => onReply(message)}
             className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] transition-colors ${
               isOwnMessage
-                ? "text-white/70 hover:bg-white/10 hover:text-white"
-                : "text-[#7f7f7f] hover:bg-accent hover:text-highrable-orange-3"
+                ? "text-current/75 hover:bg-black/5 hover:text-[var(--mode-on)]"
+                : "text-muted-foreground hover:bg-accent hover:text-(--mode-text)"
             }`}
           >
             <Reply className="h-3 w-3" /> Reply
@@ -528,12 +532,12 @@ function MessageBubble({
 
 function EmptyConversationState() {
   return (
-    <div className="border border-dashed border-border bg-white p-6 text-center">
-      <div className="hr-mode-text mx-auto flex h-10 w-10 items-center justify-center border border-orange-200 bg-orange-50">
+    <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-center">
+      <div className="hr-mode-text mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-(--mode-border) bg-(--mode-soft)">
         <MessageCircle className="h-5 w-5" aria-hidden="true" />
       </div>
-      <p className="mt-3 text-sm font-semibold text-[#0a0a0a]">No messages yet.</p>
-      <p className="mt-1 text-sm text-[#5f5f5f]">
+      <p className="mt-3 text-sm font-semibold text-foreground">No messages yet.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
         Start with a short update or attach a file for the work context.
       </p>
     </div>
@@ -618,9 +622,9 @@ function MessageComposer({
   };
 
   return (
-    <div className="space-y-2 border-t border-border bg-white pt-3">
+    <div className="space-y-2 border-t border-border bg-card pt-3">
       {showAttachments ? (
-        <div className="max-h-72 overflow-y-auto border border-border bg-[#fafafa] p-2">
+        <div className="max-h-72 overflow-y-auto rounded-2xl border border-border bg-muted p-3">
           <div className="mb-2 flex items-center justify-between px-1">
             <p className="hr-text-muted text-xs">Attachments</p>
             <AppButton
@@ -628,7 +632,7 @@ function MessageComposer({
               variant="ghost"
               size="icon"
               onClick={() => setShowAttachments(false)}
-              className="h-7 w-7 rounded-none text-[#5f5f5f] hover:bg-white"
+              className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-card"
               aria-label="Hide attachments"
             >
               <X className="h-4 w-4" />
@@ -651,10 +655,10 @@ function MessageComposer({
           size="icon"
           disabled={disabled || isSending}
           onClick={() => setShowAttachments((current) => !current)}
-          className={`h-10 w-10 shrink-0 rounded-none border ${
+          className={`h-11 w-11 shrink-0 rounded-xl border ${
             showAttachments || readyAttachmentIds.length > 0
               ? "hr-mode-text border-highrable-orange-2 bg-accent hover:bg-accent"
-              : "border-[#e1e1e1] bg-white text-[#5f5f5f] hover:bg-[#fafafa]"
+              : "border-input bg-card text-muted-foreground hover:bg-muted"
           }`}
           aria-label={showAttachments ? "Hide attachment uploader" : "Show attachment uploader"}
         >
@@ -671,7 +675,7 @@ function MessageComposer({
           placeholder="Write a secure work update..."
           rows={1}
           maxLength={MAX_MESSAGE_BODY_LENGTH}
-          className="max-h-28 min-h-10 flex-1 resize-none rounded-none border-[#e1e1e1] bg-white px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-ring/30"
+          className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border-input bg-card px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-ring/30"
         />
         <AppButton
           type="button"
@@ -679,7 +683,7 @@ function MessageComposer({
           onClick={() => void handleSend()}
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "h-10 w-10 shrink-0 rounded-none p-0 text-white shadow-none disabled:cursor-not-allowed disabled:opacity-60",
+            "h-11 w-11 shrink-0 rounded-xl p-0 text-primary-foreground shadow-none disabled:cursor-not-allowed disabled:opacity-60",
           )}
           aria-label="Send message"
         >
@@ -693,12 +697,12 @@ function MessageComposer({
         </p>
       ) : null}
       {replyToMessage ? (
-        <div className="mx-12 flex items-start gap-2 border border-[#ffd7bd] bg-[#fff7f1] px-3 py-2">
+        <div className="mx-12 flex items-start gap-2 rounded-xl border border-(--mode-border) bg-(--mode-soft) px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[#a74600]">
+            <p className="text-xs text-(--mode-text)">
               Replying to {getReplySenderLabel(replyToMessage)}
             </p>
-            <p className="mt-0.5 truncate text-xs text-[#5f2a00]">
+            <p className="mt-0.5 truncate text-xs text-foreground">
               {getReplyPreview(replyToMessage)}
             </p>
           </div>
@@ -707,7 +711,7 @@ function MessageComposer({
             variant="ghost"
             size="icon"
             onClick={onCancelReply}
-            className="h-6 w-6 shrink-0 rounded-none text-[#a74600] hover:bg-[#ffe8d8]"
+            className="h-7 w-7 shrink-0 rounded-lg text-(--mode-text) hover:bg-(--mode-soft-2)"
             aria-label="Cancel reply"
           >
             <X className="h-3.5 w-3.5" />
@@ -716,7 +720,7 @@ function MessageComposer({
       ) : null}
       <div className="flex items-center justify-between gap-3 px-12">
         {error ? <p className="text-sm text-red-700">{error}</p> : <span />}
-        <p className="font-mono text-[0.62rem] text-[#7f7f7f]">
+        <p className="font-mono text-[0.62rem] text-muted-foreground">
           {sanitizedBody.length}/{MAX_MESSAGE_BODY_LENGTH}
         </p>
       </div>
@@ -774,6 +778,11 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
     return byId;
   }, [messages]);
   const latestMessageId = messages.at(-1)?._id;
+  const isReadOnly = conversation?.status === "locked" || conversation?.status === "archived";
+  const readOnlyMessage =
+    conversation?.status === "locked"
+      ? "This conversation is locked. New messages are unavailable."
+      : "This conversation is archived. New messages are unavailable.";
 
   useEffect(() => {
     if (!token || activeConversationId) {
@@ -833,7 +842,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
           aria-label="Open work chat"
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "h-11 rounded-md px-4 text-sm font-medium shadow-md",
+            "h-11 rounded-xl px-5 text-sm font-semibold shadow-sm",
           )}
         >
           <MessageCircle className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -842,11 +851,11 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="w-full gap-0 border-l border-border bg-white p-0 sm:max-w-[480px]"
+        className="w-full gap-0 border-l border-border bg-background p-0 sm:max-w-[480px]"
         aria-describedby="work-chat-description"
         showCloseButton={false}
       >
-        <SheetHeader className="flex-row items-start justify-between gap-3 border-b p-4">
+        <SheetHeader className="flex-row items-start justify-between gap-3 border-b bg-card p-5">
           <div className="min-w-0 flex-1">
             <SheetTitle className="hr-text-primary truncate text-base font-semibold">
               {title ?? "Work chat"}
@@ -874,18 +883,26 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
 
         <div className="flex min-h-0 flex-1 flex-col">
           {!token ? (
-            <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
+            <p
+              role="status"
+              className="m-4 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground"
+            >
               Verify your wallet session to view messages.
             </p>
           ) : error ? (
-            <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
+            <p
+              role="alert"
+              className="m-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-foreground"
+            >
               {error}
             </p>
           ) : !activeConversationId || messageStatus === "LoadingFirstPage" ? (
-            <p className="p-4 text-sm text-[#5f5f5f]">Loading conversation...</p>
+            <p role="status" className="p-4 text-sm text-muted-foreground">
+              Loading conversation...
+            </p>
           ) : (
             <>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#fafafa] p-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/70 p-4 sm:p-5">
                 {messageStatus === "CanLoadMore" ? (
                   <div className="text-center">
                     <AppButton
@@ -927,12 +944,18 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
                 )}
                 <div ref={latestMessageRef} />
               </div>
-              <div className="bg-white px-3 pb-3">
+              <div className="bg-card px-4 pb-4">
+                {isReadOnly ? (
+                  <p
+                    role="status"
+                    className="mb-3 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
+                  >
+                    {readOnlyMessage}
+                  </p>
+                ) : null}
                 <MessageComposer
                   conversationId={activeConversationId}
-                  disabled={
-                    conversation?.status === "locked" || conversation?.status === "archived"
-                  }
+                  disabled={isReadOnly}
                   senderRole={senderRole}
                   replyToMessage={replyToMessage}
                   onCancelReply={() => setReplyToMessage(null)}

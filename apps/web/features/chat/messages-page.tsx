@@ -9,6 +9,7 @@ import {
 } from "@/features/attachments/components";
 import { formatAttachmentSize } from "@/features/attachments/lib";
 import { getReadableChatError } from "@/features/chat/lib/errors";
+import { ProductPageHero } from "@/features/common/components/layout/product-page-hero";
 import { SocialSession, useSocialSession } from "@/features/newsfeed/session";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
@@ -64,22 +65,22 @@ class MessagesErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <main className="mx-auto max-w-3xl rounded-lg border border-amber-300 bg-amber-50 p-6 text-amber-950">
-          <h1 className="text-xl font-semibold">Messages could not be loaded</h1>
-          <p role="alert" className="mt-2 text-sm">
-            {getReadableChatError(
-              this.state.error,
-              "Your session may have expired. Reconnect and verify your wallet, then reload messages.",
-            )}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => window.location.reload()}
-          >
-            Reload messages
-          </Button>
+        <main className="w-full max-w-4xl space-y-6">
+          <ProductPageHero title="Messages" meta="Inbox" />
+          <section className="hr-card-surface space-y-4 rounded-3xl p-5 sm:p-7">
+            <div>
+              <h2 className="text-lg font-semibold">Messages could not be loaded</h2>
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {getReadableChatError(
+                  this.state.error,
+                  "Your session may have expired. Reconnect and verify your wallet, then reload messages.",
+                )}
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={() => window.location.reload()}>
+              Reload messages
+            </Button>
+          </section>
         </main>
       );
     }
@@ -107,15 +108,15 @@ function MessageAttachment({ attachment }: { attachment: TMessageAttachment }) {
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
-        className="block overflow-hidden rounded-md border bg-background"
+        className="block overflow-hidden rounded-xl border border-border bg-card"
       >
         <img
           src={attachment.url}
           alt={attachment.name}
           loading="lazy"
-          className="max-h-72 w-full bg-muted/40 object-contain"
+          className="max-h-72 w-full bg-muted object-contain"
         />
-        <span className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
+        <span className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
           <span className="truncate text-xs font-medium">{attachment.name}</span>
           <AttachmentTypeBadge type={attachment.type as TAttachmentType} />
         </span>
@@ -125,7 +126,7 @@ function MessageAttachment({ attachment }: { attachment: TMessageAttachment }) {
 
   if (attachment.type === "video" && attachment.url) {
     return (
-      <figure className="overflow-hidden rounded-md border bg-background">
+      <figure className="overflow-hidden rounded-xl border border-border bg-card">
         {/* oxlint-disable-next-line jsx-a11y/media-has-caption -- Chat uploads do not collect caption tracks yet. */}
         <video
           controls
@@ -135,7 +136,7 @@ function MessageAttachment({ attachment }: { attachment: TMessageAttachment }) {
         >
           <source src={attachment.url} type={attachment.mimeType ?? undefined} />
         </video>
-        <figcaption className="flex items-center justify-between gap-2 border-t px-2 py-1.5">
+        <figcaption className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
           <span className="truncate text-xs font-medium">{attachment.name}</span>
           <AttachmentTypeBadge type={attachment.type as TAttachmentType} />
         </figcaption>
@@ -148,7 +149,7 @@ function MessageAttachment({ attachment }: { attachment: TMessageAttachment }) {
       href={href}
       target={href ? "_blank" : undefined}
       rel={href ? "noreferrer" : undefined}
-      className="flex min-w-48 items-center gap-2 rounded-md border bg-background px-3 py-2 hover:border-primary/50"
+      className="flex min-w-48 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 hover:border-primary/50"
     >
       <AttachmentFileIcon type={attachment.type as TAttachmentType} />
       <span className="min-w-0 flex-1">
@@ -247,7 +248,10 @@ function SearchPeople({
   };
 
   return (
-    <section className="space-y-3 border-b border-border p-4" aria-label="Start a conversation">
+    <section
+      className="hr-card-surface space-y-4 rounded-3xl p-4 sm:p-5"
+      aria-label="Start a conversation"
+    >
       <div className="flex gap-2">
         <Input
           value={term}
@@ -267,7 +271,7 @@ function SearchPeople({
         </Button>
       </div>
       {showGroup ? (
-        <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+        <div className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4">
           <label className="sr-only" htmlFor="new-group-name">
             Group name
           </label>
@@ -304,7 +308,7 @@ function SearchPeople({
               return (
                 <li
                   key={person.userId}
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-muted"
                 >
                   {showGroup ? (
                     <button
@@ -397,8 +401,8 @@ function MemberManager({
   };
 
   return (
-    <details className="border-b border-border p-3">
-      <summary className="cursor-pointer text-sm font-medium">
+    <details className="border-b border-border bg-card px-4 py-3">
+      <summary className="cursor-pointer rounded-lg text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         Group members · {activeWallets.length}
       </summary>
       <div className="mt-3 space-y-3">
@@ -522,6 +526,11 @@ function ConversationPane({
   onLeave: () => void;
 }) {
   const wallet = useHighrableWalletIdentity().walletAddress?.toUpperCase() ?? "";
+  const isReadOnly = conversation.status === "locked" || conversation.status === "archived";
+  const readOnlyMessage =
+    conversation.status === "locked"
+      ? "This conversation is locked. New messages are unavailable."
+      : "This conversation is archived. New messages are unavailable.";
   const markRead = useMutation(api.conversations.markConversationRead);
   const sendMessage = useMutation(api.conversations.sendMessage);
   const deleteMessage = useMutation(api.conversations.softDeleteMessage);
@@ -565,7 +574,7 @@ function ConversationPane({
   }, [conversation._id, conversation.lastMessageId, markRead, token]);
 
   const submit = async () => {
-    if (!body.trim() && readyAttachmentIds.length === 0) return;
+    if (isReadOnly || (!body.trim() && readyAttachmentIds.length === 0)) return;
     setSending(true);
     setError("");
     try {
@@ -589,7 +598,7 @@ function ConversationPane({
 
   return (
     <section className="flex min-h-[65vh] min-w-0 flex-1 flex-col" aria-label="Conversation">
-      <header className="flex items-center gap-3 border-b border-border p-4">
+      <header className="flex items-center gap-3 border-b border-border bg-card p-4">
         <Button
           type="button"
           size="icon"
@@ -614,7 +623,7 @@ function ConversationPane({
       {conversation.parentType === "group" ? (
         <MemberManager conversation={conversation} token={token} onLeave={onLeave} />
       ) : null}
-      <div className="flex-1 space-y-3 overflow-y-auto bg-muted/20 p-4" aria-live="polite">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-muted/70 p-4 sm:p-5" aria-live="polite">
         {status === "LoadingFirstPage" ? (
           <p role="status" className="text-sm text-muted-foreground">
             Loading messages…
@@ -633,7 +642,7 @@ function ConversationPane({
           </p>
         ) : null}
         {messages.length === 0 && status !== "LoadingFirstPage" ? (
-          <div className="grid min-h-48 place-items-center text-center">
+          <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-border bg-card p-6 text-center">
             <div>
               <MessageCircle className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
               <p className="mt-2 font-medium">No messages yet</p>
@@ -648,7 +657,7 @@ function ConversationPane({
             return (
               <p
                 key={message._id}
-                className="mx-auto max-w-lg rounded-md border bg-background px-3 py-2 text-center text-xs text-muted-foreground"
+                className="mx-auto max-w-lg rounded-xl border border-(--mode-border) bg-(--mode-soft) px-3 py-2 text-center text-xs text-foreground"
               >
                 {message.body}
               </p>
@@ -660,15 +669,19 @@ function ConversationPane({
           return (
             <article key={message._id} className={`flex ${own ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[88%] rounded-lg border px-3 py-2 ${own ? "border-orange-300 bg-orange-50 dark:bg-orange-950/30" : "bg-background"}`}
+                className={`max-w-[88%] rounded-[20px] border px-4 py-3 shadow-sm ${own ? "hr-gradient-primary rounded-tr-md border-transparent text-[var(--mode-on)]" : "rounded-tl-md border-border bg-card text-foreground"}`}
               >
-                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                <p
+                  className={`mb-1 text-xs font-medium ${own ? "text-current/75" : "text-muted-foreground"}`}
+                >
                   {own
                     ? "You"
                     : (message.senderProfile?.displayName ?? shortWallet(message.senderWallet))}
                 </p>
                 {reply ? (
-                  <div className="mb-2 border-l-2 border-orange-400 pl-2 text-xs text-muted-foreground">
+                  <div
+                    className={`mb-2 rounded-lg border-l-2 py-1 pl-2 text-xs ${own ? "border-black/20 bg-black/5 text-[var(--mode-on)]/80" : "border-(--mode-text) bg-(--mode-soft) text-foreground"}`}
+                  >
                     <p>
                       Reply to {reply.senderProfile?.displayName ?? shortWallet(reply.senderWallet)}
                     </p>
@@ -687,7 +700,9 @@ function ConversationPane({
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-2 flex items-center justify-between gap-4 text-[0.68rem] text-muted-foreground">
+                <div
+                  className={`mt-2 flex items-center justify-between gap-4 text-[0.68rem] ${own ? "text-[var(--mode-on)]/75" : "text-muted-foreground"}`}
+                >
                   <time dateTime={new Date(message.createdAt).toISOString()}>
                     {new Date(message.createdAt).toLocaleString()}
                   </time>
@@ -726,23 +741,36 @@ function ConversationPane({
           );
         })}
       </div>
-      <div className="border-t border-border bg-background p-3">
+      <div className="border-t border-border bg-card p-4 sm:p-5">
+        {isReadOnly ? (
+          <p
+            role="status"
+            className="mb-3 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
+          >
+            {readOnlyMessage}
+          </p>
+        ) : null}
         {replyTo ? (
-          <div className="mb-2 flex items-start gap-2 rounded bg-muted p-2 text-xs">
+          <div className="mb-3 flex items-start gap-2 rounded-xl border border-border bg-muted p-3 text-xs">
             <p className="min-w-0 flex-1 truncate">
               Replying to {replyTo.senderProfile?.displayName ?? "member"}: {replyTo.body}
             </p>
-            <button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply">
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              aria-label="Cancel reply"
+              className="rounded-lg p-1 text-muted-foreground hover:bg-background"
+            >
               <X className="size-3.5" />
             </button>
           </div>
         ) : null}
         {showAttachments ? (
-          <div className="mb-3 max-h-72 overflow-y-auto rounded-md border bg-muted/20 p-2">
+          <div className="mb-3 max-h-72 overflow-y-auto rounded-2xl border bg-muted/70 p-3">
             <AttachmentUploader
               value={attachments}
               onChange={setAttachments}
-              disabled={sending}
+              disabled={sending || isReadOnly}
               context="chat"
             />
           </div>
@@ -753,7 +781,7 @@ function ConversationPane({
             size="icon"
             variant="outline"
             onClick={() => setShowAttachments((value) => !value)}
-            disabled={sending}
+            disabled={sending || isReadOnly}
             aria-label={showAttachments ? "Hide attachment uploader" : "Attach files or media"}
             aria-expanded={showAttachments}
           >
@@ -761,6 +789,7 @@ function ConversationPane({
           </Button>
           <Textarea
             value={body}
+            disabled={isReadOnly}
             onChange={(event) => setBody(event.target.value.slice(0, 4000))}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -772,13 +801,14 @@ function ConversationPane({
             maxLength={4000}
             placeholder="Write a message…"
             aria-label="Message text"
-            className="resize-none"
+            className="min-h-11 resize-none"
           />
           <Button
             type="button"
             size="icon"
             onClick={() => void submit()}
             disabled={
+              isReadOnly ||
               sending ||
               hasUploadingAttachments ||
               (!body.trim() && readyAttachmentIds.length === 0)
@@ -842,12 +872,13 @@ function MessagesContent() {
 
   if (!token) {
     return (
-      <main className="mx-auto w-full max-w-4xl space-y-3">
-        <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-          Inbox
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Messages</h1>
-        <div className="rounded-lg border bg-background p-5 text-sm" role="status">
+      <main className="w-full space-y-6">
+        <ProductPageHero
+          title="Messages"
+          meta="Inbox"
+          description="Your work conversations and direct chats in one place."
+        />
+        <div className="hr-card-surface rounded-3xl p-5 text-sm sm:p-7" role="status">
           Verify your connected wallet or passkey to open messages.
         </div>
       </main>
@@ -855,22 +886,22 @@ function MessagesContent() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Inbox{unreadCount ? ` · ${unreadCount} unread` : ""}
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Messages</h1>
-        </div>
-        <Button
-          type="button"
-          onClick={() => setShowSearch((value) => !value)}
-          aria-expanded={showSearch}
-        >
-          <Plus className="mr-2 size-4" /> New message
-        </Button>
-      </header>
+    <main className="w-full space-y-6">
+      <ProductPageHero
+        title="Messages"
+        meta={`Inbox${unreadCount ? ` · ${unreadCount} unread` : ""}`}
+        description="Your work conversations and direct chats in one place."
+        actions={
+          <Button
+            type="button"
+            className="hr-v2-button-primary h-10 rounded-xl px-5 font-semibold"
+            onClick={() => setShowSearch((value) => !value)}
+            aria-expanded={showSearch}
+          >
+            <Plus className="mr-2 size-4" aria-hidden="true" /> New message
+          </Button>
+        }
+      />
       {showSearch && token ? (
         <SearchPeople token={token} onStartDirect={startDirect} onStartGroup={startGroup} />
       ) : null}
@@ -879,12 +910,12 @@ function MessagesContent() {
           {actionError}
         </p>
       ) : null}
-      <div className="grid min-h-[70vh] overflow-hidden rounded-lg border bg-background md:grid-cols-[19rem_minmax(0,1fr)]">
+      <div className="hr-card-surface grid min-h-[70vh] overflow-hidden rounded-3xl md:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
         <aside
-          className={`min-w-0 border-r md:flex md:flex-col ${selected ? "hidden" : "flex flex-col"}`}
+          className={`min-w-0 border-r border-border md:flex md:flex-col ${selected ? "hidden" : "flex flex-col"}`}
         >
           <div
-            className="grid grid-cols-2 border-b p-2"
+            className="grid grid-cols-2 border-b border-border bg-muted/70 p-2"
             role="group"
             aria-label="Message categories"
           >
@@ -892,7 +923,7 @@ function MessagesContent() {
               type="button"
               aria-pressed={tab === "general"}
               onClick={() => setTab("general")}
-              className={`rounded px-3 py-2 text-sm font-medium ${tab === "general" ? "bg-muted" : "text-muted-foreground"}`}
+              className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${tab === "general" ? "hr-v2-button-primary shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground"}`}
             >
               General <span className="sr-only">direct and group chats</span>
             </button>
@@ -900,7 +931,7 @@ function MessagesContent() {
               type="button"
               aria-pressed={tab === "clients"}
               onClick={() => setTab("clients")}
-              className={`rounded px-3 py-2 text-sm font-medium ${tab === "clients" ? "bg-muted" : "text-muted-foreground"}`}
+              className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${tab === "clients" ? "hr-v2-button-primary shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground"}`}
             >
               Clients
             </button>
@@ -910,8 +941,8 @@ function MessagesContent() {
               Loading conversations…
             </p>
           ) : visible.length === 0 ? (
-            <div className="p-5 text-center">
-              <MessageCircle className="mx-auto size-7 text-muted-foreground" />
+            <div className="m-4 rounded-2xl border border-dashed border-border bg-background/70 p-5 text-center">
+              <MessageCircle className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
               <p className="mt-2 text-sm font-medium">
                 {tab === "general" ? "No general chats yet" : "No client conversations yet"}
               </p>
@@ -931,13 +962,13 @@ function MessagesContent() {
                       type="button"
                       onClick={() => setSelectedId(conversation._id)}
                       aria-current={selectedId === conversation._id ? "page" : undefined}
-                      className="w-full px-4 py-3 text-left hover:bg-muted/50 aria-[current=page]:bg-muted"
+                      className="w-full px-4 py-4 text-left transition-colors hover:bg-muted/70 aria-[current=page]:bg-(--mode-soft)"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium">{label}</span>
                         {conversation.unread ? (
                           <span
-                            className="size-2 shrink-0 rounded-full bg-orange-500"
+                            className="size-2 shrink-0 rounded-full bg-(--mode-solid)"
                             aria-label="Unread"
                           />
                         ) : null}
@@ -960,7 +991,7 @@ function MessagesContent() {
             onLeave={() => setSelectedId(null)}
           />
         ) : (
-          <div className="hidden flex-1 place-items-center p-8 text-center text-sm text-muted-foreground md:grid">
+          <div className="hidden flex-1 place-items-center rounded-r-3xl bg-muted/30 p-8 text-center text-sm text-muted-foreground md:grid">
             Select a conversation to read and reply.
           </div>
         )}

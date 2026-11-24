@@ -197,7 +197,7 @@ export function MarketplacePage() {
           mode === "client" ? (
             <AppButton
               type="button"
-              className="hr-v2-button-primary h-9 rounded-md px-4"
+              className="hr-v2-button-primary h-10 rounded-xl px-5 font-semibold"
               onClick={() => setIsCreateJobOpen((open) => !open)}
             >
               {isCreateJobOpen ? "Close job form" : "Post a job"}
@@ -212,9 +212,9 @@ export function MarketplacePage() {
         />
       ) : null}
 
-      <section className="hr-card-surface space-y-4 p-4 sm:p-5">
+      <section className="hr-card-surface space-y-5 rounded-3xl p-5 sm:p-7">
         <div>
-          <h2 className="hr-text-primary text-base font-semibold">Open jobs</h2>
+          <h2 className="hr-text-primary text-xl font-bold">Open jobs</h2>
           <p className="hr-text-secondary mt-1 text-sm">
             Search by brief, asset, or client wallet, then compare payment safety before opening a
             proposal.
@@ -253,7 +253,7 @@ export function MarketplacePage() {
           <div
             role="radiogroup"
             aria-label="Filter jobs"
-            className="flex items-center gap-1 rounded-md border bg-card p-0.5 sm:ml-auto"
+            className="flex items-center gap-1 rounded-2xl border bg-muted/70 p-1 sm:ml-auto"
           >
             {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
               <button
@@ -262,9 +262,9 @@ export function MarketplacePage() {
                 role="radio"
                 aria-checked={filter === f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 rounded px-3 py-1.5 text-sm whitespace-nowrap transition-colors sm:flex-none ${
+                className={`flex-1 rounded-xl px-4 py-2 text-sm whitespace-nowrap transition-colors sm:flex-none ${
                   filter === f
-                    ? "bg-(--mode-soft) font-medium text-(--mode-text)"
+                    ? "hr-v2-button-primary font-semibold shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

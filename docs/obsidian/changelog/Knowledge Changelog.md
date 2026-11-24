@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-19
+last_updated: 2026-11-24
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-11-24
+
+- Restored the shared admin sidebar and page session query. Restored Newsfeed passkey rule lookup with verification of the configured account WASM and a policy-free default rule. See [[architecture/Authentication Boundaries]].
 
 ## 2026-10-19
 

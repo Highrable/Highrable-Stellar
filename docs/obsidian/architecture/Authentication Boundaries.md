@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-24
 source_of_truth: repository
 ---
 
@@ -37,6 +37,12 @@ Convex admin functions independently check the shared secret and then enforce ow
 `GET /api/admin/session` returns the verified normalized wallet and `isOwner`/`isDisputeAdmin` capabilities with caching disabled. The browser parses the response as unknown and requires the existing Stellar public-key schema plus strict booleans; additive response fields remain compatible, while malformed successful responses become a generic, non-payload-bearing client error. The dispute queue/detail and owner-only pages use the shared runtime gate. Protected content is not mounted before verification, and TanStack queries are scoped by the verified wallet with cancellation and cache cleanup on disconnect, wallet change, or API 401/403, including owner queue membership reads. Session and protected reads retry only network/5xx failures, at most twice; invalid session responses require a manual access-check retry. Admin sign-in remains external-wallet-only; passkey admin authentication is not supported.
 
 Membership grants become active only after the saved contract transaction succeeds and current membership is verified. Revocation blocks app access immediately and remains incomplete until the owner-signed contract change is reconciled. Settlement recovery verifies a persisted transaction hash and its exact contract invocation server-side; recovery does not submit another transaction.
+
+The admin sidebar shares the wallet- and session-expiry-scoped query in `features/admin/lib/admin-session-query.ts` with the protected page gate. It shows Overview and Admins only when the session verifies the connected external wallet as owner. The server route and Convex functions enforce access independently.
+
+## Newsfeed passkey session
+
+The passkey branch of `POST /api/newsfeed/session` checks the account's on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading its default context rule. It accepts a policy-free rule with one external signer, checks the ledger expiry and configured WebAuthn verifier, and verifies the assertion before consuming the challenge nonce. Accounts with a different executable or additional policies cannot use this sign-in path.
 
 ## Public Convex limitation
 

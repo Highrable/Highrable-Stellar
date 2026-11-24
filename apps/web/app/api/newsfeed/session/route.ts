@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
       if (!input.proof || !input.assertion) throw new Error("Passkey verification is required.");
       const challenge = readSocialChallenge(input.proof);
       if (challenge.sub !== input.address) throw new Error("Account mismatch.");
+      const expectedWasmHash = env.NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH;
+      if (!expectedWasmHash) throw new Error("Passkey account verification is unavailable.");
       const [{ readDefaultContextRule }, { Keypair, rpc }, { api }, { ConvexHttpClient }] =
         await Promise.all([
           import("@/core/stellar/smart-account-context-rules"),
@@ -58,26 +60,19 @@ export async function POST(request: NextRequest) {
           rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
           networkPassphrase: env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
           sourceAccount: Keypair.random().publicKey(),
+          expectedWasmHash,
         }),
         new rpc.Server(env.NEXT_PUBLIC_STELLAR_RPC_URL).getLatestLedger(),
       ]).finally(() => timings.push(`rpc;dur=${(performance.now() - rpcStarted).toFixed(1)}`));
-      // A single proof cannot satisfy a multi-signer or policy-constrained account.
-      if (!rule || rule.policies.length || rule.signers.length !== 1)
-        throw new Error("This account requires an unsupported multi-signer authorization policy.");
-      if (
-        rule.valid_until !== undefined &&
-        rule.valid_until !== null &&
-        rule.valid_until < ledger.sequence
-      )
+      if (!rule) throw new Error("This account could not be verified with a single passkey.");
+      if (rule.valid_until !== null && rule.valid_until < ledger.sequence)
         throw new Error("Account signer has expired.");
-      const signer = rule.signers[0]!;
+      const { verifier, keyData } = rule.signer;
       if (
-        signer.tag !== "External" ||
         !env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID ||
-        signer.values[0] !== env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID
+        verifier !== env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID
       )
         throw new Error("An authorized passkey signer was not found.");
-      const keyData = Buffer.from(signer.values[1]);
       if (!keyData.subarray(65).equals(Buffer.from(input.assertion.credentialId, "base64url")))
         throw new Error("Passkey does not belong to this account.");
       verifyPasskeyProof(input.assertion, keyData.subarray(0, 65), challenge.challenge, origin);

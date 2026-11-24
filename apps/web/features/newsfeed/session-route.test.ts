@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     NEXT_PUBLIC_CONVEX_URL: "https://example.convex.cloud",
     NEXT_PUBLIC_STELLAR_RPC_URL: "https://rpc.example",
     NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: "test",
+    NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: "a".repeat(64),
   },
 }));
 vi.mock("@/core/config/env", () => ({ env: mocks.config }));
@@ -107,8 +108,8 @@ it("binds a valid passkey assertion to the on-chain account signer and atomicall
     ).toString("base64url"),
   };
   mocks.rule.mockResolvedValue({
-    policies: [],
-    signers: [{ tag: "External", values: ["CVERIFIER", Buffer.concat([publicKey, credential])] }],
+    valid_until: null,
+    signer: { verifier: "CVERIFIER", keyData: Buffer.concat([publicKey, credential]) },
   });
   mocks.mutate.mockResolvedValue(null);
   const result = await POST(

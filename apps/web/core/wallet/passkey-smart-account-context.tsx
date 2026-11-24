@@ -3,12 +3,10 @@
 import { isWebAuthnSupported } from "@/core/passkeys/webauthn-support";
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
-  assertPasskeyFeatureEnabled,
   assertSmartAccountConfigCanDeployCompatibleAccount,
   hasSmartAccountConfig,
   PasskeyConfigError,
   PasskeySmartAccountCompatibilityError,
-  isPasskeyFeatureEnabled,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
 import { api } from "@repo/convex-client";
@@ -43,7 +41,6 @@ export type TPasskeySmartAccountState = {
 
 type TPasskeySmartAccountContextValue = TPasskeySmartAccountState & {
   isSupported: boolean;
-  isEnabled: boolean;
   hasConfig: boolean;
   activeWalletMode: TActiveWalletMode;
   discoveredContracts: readonly IndexedContractSummary[];
@@ -120,7 +117,6 @@ function isIndexedDbClosingError(error: unknown): boolean {
 }
 
 function ensurePasskeyReady(): void {
-  assertPasskeyFeatureEnabled();
   if (!isWebAuthnSupported()) {
     throw new Error("Browser does not support passkeys/WebAuthn.");
   }
@@ -185,27 +181,14 @@ function resetDiscoveredContracts(
 
 export function PasskeySmartAccountProvider({ children }: { readonly children: React.ReactNode }) {
   const [state, setState] = useState<TPasskeySmartAccountState>(DEFAULT_STATE);
-  const [activeWalletMode, setActiveWalletModeState] =
-    useState<TActiveWalletMode>("external_wallet");
+  const [activeWalletMode, setActiveWalletMode] = useState<TActiveWalletMode>("external_wallet");
   const [discoveredContracts, setDiscoveredContracts] = useState<IndexedContractSummary[]>([]);
   const [pendingCredentialId, setPendingCredentialId] = useState<string | null>(null);
   const [isContractPickerOpen, setIsContractPickerOpen] = useState(false);
   const restoreAttemptedRef = useRef(false);
   const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
   const isSupported = isWebAuthnSupported();
-  const isEnabled = isPasskeyFeatureEnabled();
   const hasConfig = hasSmartAccountConfig();
-
-  const setActiveWalletMode = useCallback(
-    (mode: TActiveWalletMode) => {
-      if (mode === "passkey_smart_account" && !isEnabled) {
-        return;
-      }
-
-      setActiveWalletModeState(mode);
-    },
-    [isEnabled],
-  );
 
   const setConnectedState = useCallback(
     (input: {
@@ -229,7 +212,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         setPendingCredentialId,
         setIsContractPickerOpen,
       );
-      setActiveWalletModeState("passkey_smart_account");
+      setActiveWalletMode("passkey_smart_account");
     },
     [],
   );
@@ -245,7 +228,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   );
 
   const restorePasskeySession = useCallback(async (): Promise<string | null> => {
-    if (!isEnabled || !isSupported || !hasConfig) {
+    if (!isSupported || !hasConfig) {
       return null;
     }
 
@@ -284,7 +267,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       }));
       return null;
     }
-  }, [hasConfig, isEnabled, isSupported, setConnectedState]);
+  }, [hasConfig, isSupported, setConnectedState]);
 
   const createPasskeyAccount = useCallback(async (): Promise<string> => {
     try {
@@ -332,19 +315,12 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
       let result;
-      const {
-        discoverPasskeyContractsWithFallback,
-        ensureConnectedPasskeyWalletShape,
-        getSmartAccountKit,
-        resetSmartAccountKit,
-      } = await loadSmartAccountRuntime();
+      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit, resetSmartAccountKit } =
+        await loadSmartAccountRuntime();
       try {
         const kit = getSmartAccountKit();
         const authentication = await kit.authenticatePasskey();
-        const contracts = await discoverPasskeyContractsWithFallback(
-          kit,
-          authentication.credentialId,
-        );
+        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
@@ -379,10 +355,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         await resetSmartAccountKit();
         const kit = getSmartAccountKit();
         const authentication = await kit.authenticatePasskey();
-        const contracts = await discoverPasskeyContractsWithFallback(
-          kit,
-          authentication.credentialId,
-        );
+        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
@@ -539,7 +512,6 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
     () => ({
       ...state,
       isSupported,
-      isEnabled,
       hasConfig,
       activeWalletMode,
       discoveredContracts,
@@ -563,10 +535,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       discoveredContracts,
       disconnectPasskeyAccount,
       hasConfig,
-      isEnabled,
       isContractPickerOpen,
       isSupported,
-      setActiveWalletMode,
       reconnectPasskeyAccount,
       restorePasskeySession,
       selectDiscoveredPasskeyContract,

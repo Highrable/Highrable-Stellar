@@ -35,14 +35,6 @@ interface IAdminSectionProps {
   readonly action?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
-  /** `card` draws a bordered container with a header strip; use it for forms and grouped facts. */
-  readonly variant?: "plain" | "card";
-  /**
-   * Card header colour: `band` fills the header with the admin orange-to-yellow gradient (use for
-   * the main working cards); `line` adds a thin gradient strip above a neutral header.
-   */
-  readonly accent?: "band" | "line";
-  readonly bodyClassName?: string;
 }
 
 interface IAdminMetricRailProps {
@@ -67,8 +59,6 @@ interface IAdminDisputeQueueProps {
   readonly onAssign?: (disputeId: string, assignedAdminWallet: string | null) => void;
 }
 
-const QUEUE_GRID_COLUMNS = "lg:grid-cols-[minmax(0,1fr)_170px_190px_minmax(150px,auto)]";
-
 function formatBreakdownLabel(label: string): string {
   return label.replaceAll("_", " ");
 }
@@ -83,48 +73,7 @@ export function AdminSection({
   action,
   children,
   className,
-  variant = "plain",
-  accent = "line",
-  bodyClassName,
 }: IAdminSectionProps) {
-  if (variant === "card") {
-    const isBand = accent === "band";
-
-    return (
-      <section className={cn("overflow-hidden rounded-lg border bg-card", className)}>
-        {isBand ? null : <div className="h-1 bg-(image:--mode-gradient)" aria-hidden="true" />}
-        <header
-          className={cn(
-            "flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3 sm:px-5",
-            isBand ? "hr-mode-band" : "bg-muted/30",
-          )}
-        >
-          <div className="min-w-0">
-            <h2
-              className={cn("text-sm font-semibold", isBand ? "text-inherit" : "hr-text-primary")}
-            >
-              {title}
-            </h2>
-            {description ? (
-              <p
-                className={cn(
-                  "mt-0.5 text-xs leading-relaxed",
-                  isBand ? "text-inherit opacity-80" : "hr-text-secondary",
-                )}
-              >
-                {description}
-              </p>
-            ) : null}
-          </div>
-          {action ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
-          ) : null}
-        </header>
-        <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
-      </section>
-    );
-  }
-
   return (
     <section className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -143,7 +92,7 @@ export function AdminSection({
 
 export function AdminMetricRail({ items }: IAdminMetricRailProps) {
   return (
-    <div className="relative grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border pt-1 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-(image:--mode-gradient) lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="bg-card p-4">
           <StatCard label={item.label} value={item.value} description={item.description} />
@@ -203,13 +152,8 @@ export function AdminDisputeQueue({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <div
-        className={cn(
-          "hr-mode-band hidden gap-4 border-b px-4 py-2 text-xs font-semibold lg:grid",
-          QUEUE_GRID_COLUMNS,
-        )}
-      >
+    <div className="overflow-hidden rounded-lg border">
+      <div className="hr-text-secondary hidden grid-cols-[minmax(220px,1fr)_180px_220px_130px] gap-4 border-b bg-muted/50 px-4 py-2 text-xs font-medium lg:grid">
         <span>Dispute</span>
         <span>Reason</span>
         <span>Status</span>
@@ -220,10 +164,7 @@ export function AdminDisputeQueue({
         {disputes.map((dispute) => (
           <article
             key={dispute.disputeId}
-            className={cn(
-              "hr-clickable-card grid gap-3 px-4 py-3.5 transition-colors hover:bg-muted/30 lg:items-center lg:gap-4",
-              QUEUE_GRID_COLUMNS,
-            )}
+            className="hr-clickable-card grid gap-3 px-4 py-3 hover:bg-muted/30 lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center lg:gap-4"
           >
             {(() => {
               const normalizedAssignedWallet = normalizeAdminWallet(dispute.assignedAdminWallet);
@@ -239,8 +180,8 @@ export function AdminDisputeQueue({
               return (
                 <>
                   <div className="min-w-0">
-                    <p className="hr-text-muted font-mono text-xs">{dispute.disputeNumber}</p>
-                    <h3 className="mt-0.5 text-sm leading-snug font-medium">
+                    <p className="font-mono text-xs text-[#7f7f7f]">{dispute.disputeNumber}</p>
+                    <h3 className="mt-0.5 text-sm font-medium">
                       <Link
                         href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}
                         className="hr-card-link hr-text-primary"
@@ -248,28 +189,21 @@ export function AdminDisputeQueue({
                         {dispute.title}
                       </Link>
                     </h3>
-                    <p className="hr-text-secondary mt-1 text-xs leading-relaxed">
+                    <p className="mt-1 text-xs leading-relaxed text-[#5f5f5f]">
                       {compact ? "Updated" : "Opened"}{" "}
                       {formatDisputeDate(compact ? dispute.updatedAt : dispute.openedAt)}
-                      {!compact ? ` · Updated ${formatDisputeDate(dispute.updatedAt)}` : null}
+                      {!compact ? ` | Updated ${formatDisputeDate(dispute.updatedAt)}` : null}
                     </p>
-                    <p
-                      className={cn(
-                        "mt-0.5 truncate text-xs",
-                        dispute.assignedAdminWallet ? "hr-text-muted font-mono" : "text-amber-700",
-                      )}
-                      title={dispute.assignedAdminWallet ?? undefined}
-                    >
+                    <p className="mt-0.5 text-xs break-all text-[#7f7f7f]">
                       Assigned: {dispute.assignedAdminWallet ?? "Unassigned"}
                     </p>
                   </div>
 
-                  <p className="hr-text-secondary text-sm">
-                    <span className="hr-text-muted text-xs lg:hidden">Reason: </span>
+                  <p className="text-sm text-[#5f5f5f]">
                     {getDisputeReasonLabel(dispute.reasonCategory)}
                   </p>
 
-                  <div className="flex flex-col items-start gap-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
                     <DisputeStatusBadge status={dispute.status} />
                     <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
                   </div>
@@ -289,8 +223,7 @@ export function AdminDisputeQueue({
                     {isOwner && onAssign ? (
                       <select
                         aria-label={`Assign ${dispute.disputeNumber}`}
-                        title="Assign this case to a dispute admin"
-                        className="h-8 w-40 truncate rounded-md border bg-background px-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                        className="h-8 max-w-44 rounded-md border bg-white px-2 text-xs"
                         value={normalizedAssignedWallet}
                         disabled={busyDisputeId === dispute.disputeId || !canAssign}
                         onChange={(event) =>

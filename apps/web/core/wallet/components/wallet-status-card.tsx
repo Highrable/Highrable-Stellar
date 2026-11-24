@@ -1,7 +1,5 @@
 "use client";
 
-import { WALLET_NETWORK_LABEL } from "@/core/wallet/config";
-import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
   DropdownMenu,
@@ -10,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/components/ui/dropdown-menu";
 import { Check, Copy, Coins, MoreVertical, RefreshCw, Wallet } from "lucide-react";
-import React from "react";
 import { useState } from "react";
 
 /** Splits the address into groups of four so it reads like a card number. */
@@ -20,21 +17,13 @@ function formatAddressGroups(address: string): string {
 
 export function WalletStatusCard() {
   const { walletState, refreshWalletState, checkFundingStatus, fundTestnetAccount } = useWallet();
-  const walletIdentity = useHighrableWalletIdentity();
   const [copied, setCopied] = useState(false);
-  const isPasskeyAccount = walletIdentity.walletType === "passkey_smart_account";
-  const address = walletIdentity.walletAddress;
 
-  if (!walletIdentity.isConnected || !address) {
+  if (!walletState.isConnected) {
     return null;
   }
 
-  const network = isPasskeyAccount
-    ? WALLET_NETWORK_LABEL
-    : (walletState.network ?? "Unknown network");
-  const walletLabel = isPasskeyAccount
-    ? "Passkey Smart Account"
-    : (walletState.selectedWallet ?? "Stellar Wallet");
+  const address = walletState.walletAddress ?? "";
 
   const handleCopy = async () => {
     try {
@@ -69,49 +58,45 @@ export function WalletStatusCard() {
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5" aria-hidden="true" />
-              <h2 className="font-sans text-sm font-bold">
-                {isPasskeyAccount ? "Your Passkey Account" : "Your Connected Wallet"}
-              </h2>
+              <h2 className="font-sans text-sm font-bold">Your Connected Wallet</h2>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-black/15 px-3 py-0.5 font-mono text-[11px] font-semibold tracking-wider uppercase">
-                {network}
+                {walletState.network ?? "Unknown network"}
               </span>
-              {!isPasskeyAccount ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Wallet options"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/15 transition-colors hover:bg-black/25"
-                    >
-                      <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem onSelect={() => void refreshWalletState()}>
-                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                      Refresh
-                    </DropdownMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Wallet options"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/15 transition-colors hover:bg-black/25"
+                  >
+                    <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                  <DropdownMenuItem onSelect={() => void refreshWalletState()}>
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Refresh
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!walletState.isTestnet || walletState.isCheckingFunding}
+                    onSelect={() => void checkFundingStatus()}
+                  >
+                    <Coins className="h-4 w-4" aria-hidden="true" />
+                    Check Funding
+                  </DropdownMenuItem>
+                  {walletState.isTestnet && walletState.isFunded === false ? (
                     <DropdownMenuItem
-                      disabled={!walletState.isTestnet || walletState.isCheckingFunding}
-                      onSelect={() => void checkFundingStatus()}
+                      disabled={walletState.isFundingWithFriendbot}
+                      onSelect={() => void fundTestnetAccount()}
                     >
                       <Coins className="h-4 w-4" aria-hidden="true" />
-                      Check Funding
+                      {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
                     </DropdownMenuItem>
-                    {walletState.isTestnet && walletState.isFunded === false ? (
-                      <DropdownMenuItem
-                        disabled={walletState.isFundingWithFriendbot}
-                        onSelect={() => void fundTestnetAccount()}
-                      >
-                        <Coins className="h-4 w-4" aria-hidden="true" />
-                        {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -145,9 +130,9 @@ export function WalletStatusCard() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-mono text-[11px] tracking-[0.12em] uppercase opacity-80">
-                {walletLabel}
+                {walletState.selectedWallet ?? "Stellar Wallet"}
               </p>
-              {!isPasskeyAccount && walletState.isTestnet && walletState.isFunded === false ? (
+              {walletState.isTestnet && walletState.isFunded === false ? (
                 <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-amber-800 uppercase">
                   Unfunded · open menu to fund
                 </span>

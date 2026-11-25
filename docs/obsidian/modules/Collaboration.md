@@ -2,7 +2,7 @@
 type: module
 area: collaboration
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -16,7 +16,9 @@ Provide parent-linked conversations, messages, read tracking, attachments, prote
 
 Implemented in Convex and used by marketplace, submission, dispute, cancellation, and agreement surfaces. Attachment protection is a policy/deterrence layer; it is not a guarantee against screenshots or client-side capture.
 
-The `/messages` inbox and embedded work thread use the shared product shell and theme tokens. Both retain participant-scoped access, read tracking, replies, and attachments; locked or archived conversations show a read-only notice and disable composing.
+The `/messages` inbox presents the conversation list and active conversation in separate rounded panels. Its list panel contains the Messages heading, new-conversation action, General/Clients category controls, and a local search that matches the displayed conversation name and last-message preview. The new-conversation action retains registered-person search and group creation. On narrow screens, the list and active conversation use a single-panel flow with a back action. List avatars and timestamps come from available participant profile and conversation data; no presence, call, video, or read-receipt controls are shown.
+
+Embedded work threads use the same bubble, date-divider, avatar, and compact-composer visual language within their narrower sheet. Inbox and work threads retain participant-scoped access, read tracking, pagination, replies, deletion, and attachments; locked or archived conversations show a read-only notice and disable composing.
 
 ## Primary Locations
 

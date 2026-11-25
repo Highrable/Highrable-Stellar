@@ -32,7 +32,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
   const { token } = useSocialSession();
   return (
     <>
-      <div className="mb-3 flex items-center justify-between border-b border-slate-200 pb-2 text-xs text-slate-500 dark:border-slate-800">
+      <div className="hr-newsfeed-breadcrumb mb-3 flex items-center justify-between border-b border-slate-200 pb-2 text-xs text-slate-500 dark:border-slate-800">
         <nav aria-label="Breadcrumb">
           <ol className="flex items-center gap-2">
             <li>Highrable</li>
@@ -62,12 +62,12 @@ function NewsfeedContent({ postId }: { postId?: string }) {
           <Permalink id={postId} />
         </main>
       ) : (
-        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
-          <main className="min-w-0 space-y-4">
+        <div className="hr-newsfeed-feed-layout grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,2.25fr)_minmax(15rem,1fr)] lg:gap-6">
+          <main className="min-w-0 space-y-8 sm:space-y-4">
             <>
-              <Stories />
               <Composer />
-              <div className="flex flex-wrap items-center justify-between gap-3 py-1">
+              <Stories />
+              <div className="hidden flex-wrap items-center justify-between gap-3 py-1 sm:flex">
                 <div
                   role="group"
                   aria-label="Newsfeed filter"
@@ -104,7 +104,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
               <Feed followingOnly={followingOnly} />
             </>
           </main>
-          <NewsfeedSidebar />
+          <NewsfeedSidebar variant="feed" />
         </div>
       )}
     </>
@@ -114,7 +114,7 @@ function NewsfeedContent({ postId }: { postId?: string }) {
 export function NewsfeedPage({ postId }: { postId?: string }) {
   return (
     <div
-      className={`hr-newsfeed-page mx-auto w-full px-3 py-3 sm:px-5 sm:py-4 ${postId ? "max-w-5xl" : "max-w-7xl"}`}
+      className={`hr-newsfeed-page mx-auto w-full px-3 py-3 sm:px-5 sm:py-4 ${postId ? "max-w-5xl" : "max-w-7xl max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:px-2 max-sm:py-0"}`}
     >
       <FeedBoundary>
         <SocialSession>

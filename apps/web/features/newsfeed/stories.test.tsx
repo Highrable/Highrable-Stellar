@@ -121,13 +121,12 @@ afterEach(() => {
 it("groups stories by author and navigates through stories", async () => {
   render(<Stories />);
   const createStory = screen.getByRole("button", { name: "Create a showcase" });
-  expect(createStory.textContent).toContain("Create showcase");
+  expect(createStory.textContent).toContain("Add showcase");
   expect(createStory.querySelector("svg")).toBeTruthy();
   const authorStory = screen.getByRole("button", { name: "View Ada Builder's showcase" });
-  expect(authorStory.className).toContain("h-36 w-24");
-  await waitFor(() =>
-    expect(authorStory.querySelector('img[src="data:image/jpeg;base64,dGh1bWI="]')).toBeTruthy(),
-  );
+  expect(authorStory.className).toContain("flex-col");
+  expect(authorStory.querySelector('[class*="rounded-full"]')).toBeTruthy();
+  expect(authorStory.textContent).toContain("Ada Builder");
   expect(screen.getAllByRole("button", { name: "View Ada Builder's showcase" })).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's showcase" }));
   await screen.findByRole("dialog");

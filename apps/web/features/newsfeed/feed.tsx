@@ -238,22 +238,41 @@ function PostText({ post }: { post: Pick<Post, "preview" | "bodyId" | "bodySize"
     </>
   );
 }
-function Author({ author }: { author: Post["author"] }) {
+function Author({
+  author,
+  avatarClassName = "size-11",
+  mobileMeta,
+}: {
+  author: Post["author"];
+  avatarClassName?: string;
+  mobileMeta?: string;
+}) {
   return (
     <Link href={`/people/${author.id}`} className="flex min-w-0 items-center gap-3 font-semibold">
-      <Avatar className="size-11">
+      <Avatar className={avatarClassName}>
         <AvatarImage src={author.avatarUrl ?? undefined} alt="" />
         <AvatarFallback>{author.name.slice(0, 1).toUpperCase()}</AvatarFallback>
       </Avatar>
       <span className="min-w-0 truncate">
-        <span className="block truncate text-sm">{author.name}</span>
+        <span className={`block truncate ${mobileMeta ? "text-base sm:text-sm" : "text-sm"}`}>
+          {author.name}
+        </span>
+        {mobileMeta && (
+          <span className="block truncate text-xs font-normal text-muted-foreground sm:hidden">
+            {mobileMeta}
+          </span>
+        )}
         {author.headline && (
-          <span className="block truncate text-xs font-normal text-muted-foreground">
+          <span
+            className={`block truncate text-xs font-normal text-muted-foreground ${mobileMeta ? "hidden sm:block" : ""}`}
+          >
             {author.headline}
           </span>
         )}
         {author.availability && (
-          <span className="mt-0.5 block w-fit truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <span
+            className={`mt-0.5 block w-fit truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 ${mobileMeta ? "hidden sm:block" : ""}`}
+          >
             {author.availability}
           </span>
         )}
@@ -815,10 +834,18 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         </div>
       )}
       <header
-        className={`flex items-start justify-between gap-3 ${variant === "detail" ? "border-b bg-card p-5 sm:p-6" : "px-4 pt-4 sm:px-5 sm:pt-5"}`}
+        className={`flex items-start justify-between gap-3 ${variant === "detail" ? "border-b bg-card p-5 sm:p-6" : "px-7 pt-7 sm:px-5 sm:pt-5"}`}
       >
         <div className="flex min-w-0 items-start gap-3">
-          <Author author={post.author} />
+          <Author
+            author={post.author}
+            avatarClassName="size-12 sm:size-11"
+            mobileMeta={
+              variant === "feed"
+                ? `${relativePostTime(published)}${post.author.headline ? ` · ${post.author.headline}` : ""}`
+                : undefined
+            }
+          />
           {variant === "detail" && (
             <span className="mt-1 hidden rounded-md bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700 sm:inline-flex dark:bg-orange-950/40 dark:text-orange-200">
               Public Ecosystem
@@ -827,7 +854,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         </div>
         <div className="flex max-w-[45%] min-w-0 shrink-0 items-center gap-1 sm:max-w-none">
           <Link
-            className="min-w-0 text-right text-xs text-muted-foreground hover:underline"
+            className={`min-w-0 text-right text-xs text-muted-foreground hover:underline ${variant === "feed" ? "hidden sm:block" : ""}`}
             href={`/newsfeed/${post._id}`}
           >
             <time className="block truncate" dateTime={new Date(published).toISOString()}>
@@ -928,10 +955,14 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
           </Popover>
         </div>
       </header>
-      <div className={`space-y-4 py-4 ${variant === "detail" ? "px-5 sm:px-7" : "px-4 sm:px-5"}`}>
+      <div
+        className={`space-y-4 ${variant === "detail" ? "px-5 py-4 sm:px-7" : "px-7 py-6 sm:px-5 sm:py-4"}`}
+      >
         <div
           className={
-            variant === "detail" ? "text-lg leading-8 sm:text-xl" : "text-base leading-7 sm:text-lg"
+            variant === "detail"
+              ? "text-lg leading-8 sm:text-xl"
+              : "text-xl leading-8 sm:text-lg sm:leading-7"
           }
         >
           <PostText key={post.bodyId ?? "empty"} post={post} />
@@ -972,7 +1003,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
           ))}
       </div>
       <div
-        className={`flex items-center justify-between border-b py-3 text-sm text-muted-foreground ${variant === "detail" ? "px-5 sm:px-7" : "px-4 sm:px-5"}`}
+        className={`hr-newsfeed-post-engagement flex items-center justify-between border-b py-3 text-sm text-muted-foreground ${variant === "detail" ? "px-5 sm:px-7" : "px-4 sm:px-5"}`}
       >
         <span className="flex items-center gap-1.5">
           {post.reactionCount > 0 && (
@@ -987,7 +1018,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
         </button>
       </div>
       <div
-        className={`grid ${viewer ? "grid-cols-3" : "grid-cols-1"} gap-1 border-b py-1 ${variant === "detail" ? "px-5 sm:px-7" : "px-3 sm:px-4"}`}
+        className={`hr-newsfeed-post-actions grid ${viewer ? "grid-cols-3" : "grid-cols-1"} gap-1 border-b py-1 ${variant === "detail" ? "px-5 sm:px-7" : "px-3 sm:px-4"}`}
       >
         {viewer && (
           <Popover>
@@ -1130,7 +1161,7 @@ export function Feed({
     { initialNumItems: 10 },
   );
   return (
-    <div className="space-y-4">
+    <div className="hr-newsfeed-feed-list space-y-4">
       {status === "LoadingFirstPage" ? (
         <p role="status">Loading posts…</p>
       ) : results.length === 0 ? (

@@ -11,7 +11,7 @@ import { RegistryRegistrationCard } from "@/features/dashboard/components/regist
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
-import { DeadlineNotificationsPanel } from "@/features/deadlines";
+import { DeadlineNotificationsPanel, useDeadlineNotifications } from "@/features/deadlines";
 import { useAppMode } from "@/features/mode";
 import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -52,13 +52,14 @@ function formatAssetAmountList(rows: TAssetAmount[]): string {
 function SummarySkeleton() {
   return (
     <div
-      className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-5"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
       aria-hidden="true"
     >
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="space-y-2 bg-card p-4">
+        <div key={i} className="hr-card-surface space-y-3 rounded-3xl p-5 sm:p-6">
           <div className="h-3 w-20 animate-pulse rounded bg-muted" />
-          <div className="h-5 w-16 animate-pulse rounded bg-muted" />
+          <div className="h-7 w-24 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-32 animate-pulse rounded bg-muted" />
         </div>
       ))}
     </div>
@@ -71,9 +72,12 @@ export function DashboardPage() {
   const onboardingGuard = useRequireOnboarding();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
   const { mode: selectedMode, isReady: isModeReady } = useAppMode();
+  const deadlineNotifications = useDeadlineNotifications();
 
   const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
   const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
+  const hasDeadlineNotifications =
+    Boolean(deadlineNotifications.walletAddress) && deadlineNotifications.rows.length > 0;
   const copy = DASHBOARD_COPY[selectedMode];
 
   if (!isConnected) {
@@ -94,12 +98,12 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ProductPageHero
         title={copy.title}
         description={copy.description}
         actions={
-          <AppButton asChild className="hr-v2-button-primary h-9 rounded-md px-4">
+          <AppButton asChild className="hr-v2-button-primary h-11 rounded-xl px-6 font-semibold">
             <Link href={copy.action.href}>{copy.action.label}</Link>
           </AppButton>
         }
@@ -116,41 +120,43 @@ export function DashboardPage() {
         </RouteCallout>
       ) : null}
 
-      <DeadlineNotificationsPanel />
+      {!showFreelancerSections && !showClientSections ? (
+        <DeadlineNotificationsPanel state={deadlineNotifications} />
+      ) : null}
 
       {showFreelancerSections && isLoading ? <SummarySkeleton /> : null}
 
       {showFreelancerSections && !isLoading && summary ? (
         <section
           aria-label="Earnings summary"
-          className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-5"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
         >
           <StatCard
-            className="col-span-2 bg-card p-4 lg:col-span-1"
+            className="hr-card-surface rounded-3xl p-5 sm:p-6"
             label="Total earned"
             value={formatAssetAmountList(summary.totalEarnedByAsset)}
             description="Paid for finished jobs"
           />
           <StatCard
-            className="col-span-2 bg-card p-4 lg:col-span-1"
+            className="hr-card-surface rounded-3xl p-5 sm:p-6"
             label="On hold for you"
             value={formatAssetAmountList(summary.pendingEscrowByAsset)}
             description="Set aside by clients"
           />
           <StatCard
-            className="bg-card p-4"
+            className="hr-card-surface rounded-3xl p-5 sm:p-6"
             label="In progress"
             value={summary.activeJobs.toString()}
             description="Funded or handed in"
           />
           <StatCard
-            className="bg-card p-4"
+            className="hr-card-surface rounded-3xl p-5 sm:p-6"
             label="Awaiting funding"
             value={summary.awaitingFunding.toString()}
             description="Picked, not yet funded"
           />
           <StatCard
-            className="col-span-2 bg-card p-4 lg:col-span-1"
+            className="hr-card-surface rounded-3xl p-5 sm:p-6"
             label="Finished"
             value={summary.completedJobs.toString()}
             description="Jobs you were paid for"
@@ -159,31 +165,59 @@ export function DashboardPage() {
       ) : null}
 
       {showFreelancerSections ? (
-        <Tabs defaultValue="applied" className="gap-4">
-          <TabsList variant="line" className="h-auto w-full justify-start gap-6 border-b pb-0">
-            {WORK_TABS.map(([value, label]) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="flex-none rounded-none px-0 py-2.5 text-sm data-[state=active]:font-medium data-[state=active]:after:bg-(--mode-solid)"
+        <div
+          className={`grid grid-cols-1 items-start gap-6 ${
+            hasDeadlineNotifications ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.9fr)]" : ""
+          }`}
+        >
+          {hasDeadlineNotifications ? (
+            <DeadlineNotificationsPanel state={deadlineNotifications} />
+          ) : null}
+          <section
+            aria-label="Your work"
+            className="hr-card-surface min-w-0 rounded-3xl p-4 sm:p-6"
+          >
+            <Tabs defaultValue="applied" className="gap-5">
+              <TabsList
+                variant="line"
+                className="h-auto w-full justify-start gap-1 border-b border-border/70 px-0 pb-0 sm:gap-3"
               >
-                {label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="applied">
-            <AppliedJobsSection />
-          </TabsContent>
-          <TabsContent value="progress">
-            <OngoingJobsSection />
-          </TabsContent>
-          <TabsContent value="payments">
-            <RecentPayoutsList payouts={summary?.recentPayouts ?? []} />
-          </TabsContent>
-        </Tabs>
+                {WORK_TABS.map(([value, label]) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="h-auto min-w-0 rounded-none px-1.5 py-3 text-center text-xs leading-tight !whitespace-normal data-[state=active]:font-semibold data-[state=active]:text-(--mode-text) data-[state=active]:after:bg-(--mode-solid) sm:flex-none sm:px-3 sm:text-sm"
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="applied" className="min-h-64">
+                <AppliedJobsSection />
+              </TabsContent>
+              <TabsContent value="progress" className="min-h-64">
+                <OngoingJobsSection />
+              </TabsContent>
+              <TabsContent value="payments" className="min-h-64">
+                <RecentPayoutsList payouts={summary?.recentPayouts ?? []} />
+              </TabsContent>
+            </Tabs>
+          </section>
+        </div>
       ) : null}
 
-      {showClientSections ? <PostedJobsSection /> : null}
+      {showClientSections ? (
+        <div
+          className={`grid grid-cols-1 items-start gap-6 ${
+            hasDeadlineNotifications ? "lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.7fr)]" : ""
+          }`}
+        >
+          {hasDeadlineNotifications ? (
+            <DeadlineNotificationsPanel state={deadlineNotifications} />
+          ) : null}
+          <PostedJobsSection />
+        </div>
+      ) : null}
     </div>
   );
 }

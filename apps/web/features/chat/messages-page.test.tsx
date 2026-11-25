@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   wallet: "G" + "A".repeat(55),
   conversations: [] as Array<Record<string, unknown>>,
   people: [] as Array<Record<string, unknown>>,
+  messages: [] as Array<Record<string, unknown>>,
   mutation: vi.fn(),
   loadMore: vi.fn(),
 }));
@@ -54,7 +55,11 @@ vi.mock("convex/react", () => ({
     return undefined;
   },
   useMutation: () => mocks.mutation,
-  usePaginatedQuery: () => ({ results: [], status: "Exhausted", loadMore: mocks.loadMore }),
+  usePaginatedQuery: () => ({
+    results: mocks.messages,
+    status: "Exhausted",
+    loadMore: mocks.loadMore,
+  }),
 }));
 
 beforeEach(() => {
@@ -62,6 +67,7 @@ beforeEach(() => {
   mocks.token = "verified-session";
   mocks.conversations = [];
   mocks.people = [];
+  mocks.messages = [];
   mocks.mutation.mockReset();
   mocks.loadMore.mockReset();
   mocks.mutation.mockImplementation(async () => "conversation-1");
@@ -87,6 +93,49 @@ it("renders the General and Clients empty states and switches categories accessi
   fireEvent.click(screen.getByRole("button", { name: "Clients" }));
   expect(screen.getByText("No client conversations yet")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Clients" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("filters the selected category locally by conversation name and preview", () => {
+  mocks.conversations = [
+    {
+      _id: "conversation-marcus",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Marcus Thorne" },
+      ],
+      lastMessagePreview: "The gradient looks much better now.",
+      unread: false,
+      status: "active",
+    },
+    {
+      _id: "conversation-elena",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "C".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "C".repeat(55), displayName: "Elena Rodriguez" },
+      ],
+      lastMessagePreview: "Sent a voice message",
+      unread: false,
+      status: "active",
+    },
+  ];
+  render(<MessagesPage />);
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Search conversations" }), {
+    target: { value: "gradient" },
+  });
+
+  expect(screen.getByRole("button", { name: /Marcus Thorne/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Elena Rodriguez/ })).toBeNull();
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Search conversations" }), {
+    target: { value: "marcus" },
+  });
+  expect(screen.getByRole("button", { name: /Marcus Thorne/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Elena Rodriguez/ })).toBeNull();
 });
 
 it("finds a registered person and opens a direct conversation", async () => {
@@ -181,6 +230,92 @@ it("submits with Enter from the keyboard composer", async () => {
         sessionToken: "verified-session",
         body: "Quick update",
       }),
+    ),
+  );
+});
+
+it("shows the mobile back action and returns to the conversation list", () => {
+  mocks.conversations = [
+    {
+      _id: "conversation-1",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      ],
+      unread: false,
+      status: "active",
+    },
+  ];
+  render(<MessagesPage />);
+  fireEvent.click(screen.getByRole("button", { name: /Ben Designer/ }));
+  expect(screen.getByRole("button", { name: "Back to conversations" })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Back to conversations" }));
+
+  expect(screen.queryByRole("region", { name: "Conversation" })).toBeNull();
+  expect(screen.getByRole("button", { name: /Ben Designer/ })).toBeTruthy();
+});
+
+it("keeps reply and delete actions connected to the selected messages", async () => {
+  mocks.conversations = [
+    {
+      _id: "conversation-1",
+      parentType: "direct",
+      participantWallets: [mocks.wallet, "G" + "B".repeat(55)],
+      participantProfiles: [
+        { walletAddress: mocks.wallet, displayName: "Ada" },
+        { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      ],
+      unread: false,
+      status: "active",
+    },
+  ];
+  mocks.messages = [
+    {
+      _id: "message-incoming",
+      kind: "user",
+      body: "Can you review this?",
+      senderWallet: "G" + "B".repeat(55),
+      senderProfile: { walletAddress: "G" + "B".repeat(55), displayName: "Ben Designer" },
+      status: "active",
+      createdAt: Date.now(),
+      attachments: [],
+    },
+    {
+      _id: "message-own",
+      kind: "user",
+      body: "I will take a look.",
+      senderWallet: mocks.wallet,
+      senderProfile: { walletAddress: mocks.wallet, displayName: "Ada" },
+      status: "active",
+      createdAt: Date.now() + 1000,
+      attachments: [],
+    },
+  ];
+  render(<MessagesPage />);
+  fireEvent.click(screen.getByRole("button", { name: /Ben Designer/ }));
+
+  fireEvent.click(screen.getAllByRole("button", { name: "Reply" })[0]!);
+  const composer = screen.getByRole("textbox", { name: "Message text" });
+  fireEvent.change(composer, { target: { value: "Thanks, reviewing now." } });
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+  await waitFor(() =>
+    expect(mocks.mutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId: "conversation-1",
+        body: "Thanks, reviewing now.",
+        replyToMessageId: "message-incoming",
+      }),
+    ),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await waitFor(() =>
+    expect(mocks.mutation).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "message-own", sessionToken: "verified-session" }),
     ),
   );
 });

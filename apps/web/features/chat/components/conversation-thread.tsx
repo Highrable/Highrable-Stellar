@@ -276,6 +276,7 @@ function MessageAvatar({
           ? "border-(--mode-border) bg-(--mode-solid) text-[var(--mode-on)]"
           : "border-(--mode-border) bg-(--mode-soft) text-(--mode-text)",
       )}
+      role="img"
       aria-label={`${label} avatar`}
     >
       {safeAvatarUrl ? <AvatarImage src={safeAvatarUrl} alt={`${label} avatar`} /> : null}
@@ -294,16 +295,25 @@ function MessageAvatar({
 }
 
 function DateDivider({ timestamp }: { timestamp: number }) {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const label =
+    date.toDateString() === today.toDateString()
+      ? "Today"
+      : date.toDateString() === yesterday.toDateString()
+        ? "Yesterday"
+        : new Intl.DateTimeFormat(undefined, {
+            month: "short",
+            day: "numeric",
+          }).format(date);
+
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className="h-px flex-1 bg-border" />
-      <p className="text-xs whitespace-nowrap text-muted-foreground">
-        {new Intl.DateTimeFormat(undefined, {
-          month: "short",
-          day: "numeric",
-        }).format(new Date(timestamp))}
+    <div className="flex justify-center py-1">
+      <p className="rounded-full border border-border bg-card px-3 py-1 text-[0.68rem] font-semibold tracking-wide text-muted-foreground uppercase shadow-sm">
+        {label}
       </p>
-      <div className="h-px flex-1 bg-border" />
     </div>
   );
 }
@@ -458,67 +468,69 @@ function MessageBubble({
           label={senderLabel}
         />
       ) : null}
-      <article
-        className={`group max-w-[82%] rounded-[20px] border px-4 py-3 shadow-sm ${
-          isOwnMessage
-            ? "hr-gradient-primary rounded-br-sm border-transparent text-[var(--mode-on)]"
-            : "rounded-bl-sm border-border bg-card text-foreground"
-        }`}
+      <div
+        className={`flex max-w-[min(82%,38rem)] flex-col ${isOwnMessage ? "items-end" : "items-start"}`}
       >
-        <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs opacity-80">{senderLabel}</span>
-          <WalletTypeBadge walletType={message.senderWalletType} />
-        </div>
-        <ReplyPreview replyToMessage={replyToMessage} isOwnMessage={isOwnMessage} />
-        {message.status === "deleted" ? (
-          <p
-            className={
-              isOwnMessage
-                ? "text-sm text-current/70 italic"
-                : "text-sm text-muted-foreground italic"
-            }
-          >
-            Message deleted.
-          </p>
-        ) : message.body.trim() ? (
-          <p className="text-[0.84rem] leading-snug whitespace-pre-wrap">{message.body}</p>
-        ) : null}
-        <MessageAttachmentList attachments={message.attachments} isOwnMessage={isOwnMessage} />
-        <p
-          className={`mt-2 text-right font-mono text-xs ${
-            isOwnMessage ? "text-current/70" : "text-muted-foreground"
+        <article
+          className={`group w-fit max-w-full rounded-[20px] border px-4 py-3 shadow-sm ${
+            isOwnMessage
+              ? "hr-gradient-primary rounded-br-sm border-transparent text-[var(--mode-on)]"
+              : "rounded-bl-sm border-border bg-card text-foreground"
           }`}
         >
+          <div className="mb-1 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold opacity-80">{senderLabel}</span>
+            <WalletTypeBadge walletType={message.senderWalletType} />
+          </div>
+          <ReplyPreview replyToMessage={replyToMessage} isOwnMessage={isOwnMessage} />
+          {message.status === "deleted" ? (
+            <p
+              className={
+                isOwnMessage
+                  ? "text-sm text-current/70 italic"
+                  : "text-sm text-muted-foreground italic"
+              }
+            >
+              Message deleted.
+            </p>
+          ) : message.body.trim() ? (
+            <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+              {message.body}
+            </p>
+          ) : null}
+          <MessageAttachmentList attachments={message.attachments} isOwnMessage={isOwnMessage} />
+          {message.status !== "deleted" ? (
+            <div
+              className={`mt-2 flex gap-3 text-xs ${isOwnMessage ? "text-current/80" : "text-muted-foreground"}`}
+            >
+              <button
+                type="button"
+                onClick={() => onReply(message)}
+                className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <Reply className="mr-1 inline h-3 w-3" /> Reply
+              </button>
+              {isOwnMessage ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void deleteMessage({ messageId: message._id, sessionToken: token }).catch(
+                      (caughtError) =>
+                        onError(getReadableChatError(caughtError, "Message could not be deleted.")),
+                    );
+                  }}
+                  className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  Delete
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </article>
+        <p className="mt-1.5 px-2 text-xs text-muted-foreground">
           {formatMessageTimestamp(message.createdAt)}
         </p>
-        {message.status !== "deleted" ? (
-          <button
-            type="button"
-            onClick={() => onReply(message)}
-            className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] transition-colors ${
-              isOwnMessage
-                ? "text-current/75 hover:bg-black/5 hover:text-[var(--mode-on)]"
-                : "text-muted-foreground hover:bg-accent hover:text-(--mode-text)"
-            }`}
-          >
-            <Reply className="h-3 w-3" /> Reply
-          </button>
-        ) : null}
-        {isOwnMessage && message.status !== "deleted" ? (
-          <button
-            type="button"
-            onClick={() => {
-              void deleteMessage({ messageId: message._id, sessionToken: token }).catch(
-                (caughtError) =>
-                  onError(getReadableChatError(caughtError, "Message could not be deleted.")),
-              );
-            }}
-            className="mt-1 ml-2 inline-flex items-center px-2 py-0.5 text-[0.65rem] text-current opacity-70 hover:bg-white/10 hover:opacity-100"
-          >
-            Delete
-          </button>
-        ) : null}
-      </article>
+      </div>
       {isOwnMessage ? (
         <MessageAvatar
           avatarUrl={message.senderProfile?.avatarUrl}
@@ -648,14 +660,14 @@ function MessageComposer({
         </div>
       ) : null}
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 rounded-2xl border border-input bg-muted/40 p-1.5 focus-within:ring-2 focus-within:ring-ring/40">
         <AppButton
           type="button"
           variant="ghost"
           size="icon"
           disabled={disabled || isSending}
           onClick={() => setShowAttachments((current) => !current)}
-          className={`h-11 w-11 shrink-0 rounded-xl border ${
+          className={`h-10 w-10 shrink-0 rounded-xl border-0 ${
             showAttachments || readyAttachmentIds.length > 0
               ? "hr-mode-text border-highrable-orange-2 bg-accent hover:bg-accent"
               : "border-input bg-card text-muted-foreground hover:bg-muted"
@@ -673,9 +685,10 @@ function MessageComposer({
           }}
           onKeyDown={handleKeyDown}
           placeholder="Write a secure work update..."
+          aria-label="Message text"
           rows={1}
           maxLength={MAX_MESSAGE_BODY_LENGTH}
-          className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border-input bg-card px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-ring/30"
+          className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-3 py-2 text-sm leading-5 shadow-none focus-visible:ring-0"
         />
         <AppButton
           type="button"
@@ -683,7 +696,7 @@ function MessageComposer({
           onClick={() => void handleSend()}
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "h-11 w-11 shrink-0 rounded-xl p-0 text-primary-foreground shadow-none disabled:cursor-not-allowed disabled:opacity-60",
+            "h-10 w-10 shrink-0 rounded-xl p-0 text-primary-foreground shadow-none disabled:cursor-not-allowed disabled:opacity-60",
           )}
           aria-label="Send message"
         >
@@ -902,7 +915,10 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
             </p>
           ) : (
             <>
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-muted/70 p-4 sm:p-5">
+              <div
+                className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-background/70 p-4 sm:p-5"
+                aria-live="polite"
+              >
                 {messageStatus === "CanLoadMore" ? (
                   <div className="text-center">
                     <AppButton

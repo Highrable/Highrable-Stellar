@@ -12,10 +12,12 @@ export function FollowButton({
   userId,
   initialFollowing,
   size = "sm",
+  compact = false,
 }: {
   userId: TConvexId<"users">;
   initialFollowing?: boolean;
   size?: "sm" | "default";
+  compact?: boolean;
 }) {
   const { token } = useSocialSession();
   const state = useQuery(api.newsfeed.queries.followState, {
@@ -68,20 +70,29 @@ export function FollowButton({
     <span className="inline-flex flex-col items-end gap-1">
       <Button
         type="button"
-        size={size}
-        variant={following ? "outline" : "default"}
+        size={compact ? "icon-sm" : size}
+        variant={compact ? "ghost" : following ? "outline" : "default"}
         disabled={!token || busy}
         onClick={() => void toggle()}
         aria-pressed={following}
         aria-label={token ? (following ? "Unfollow" : "Follow") : "Sign in to follow"}
-        className={!following ? "hr-v2-button-primary" : undefined}
+        title={
+          compact ? (token ? (following ? "Unfollow" : "Follow") : "Sign in to follow") : undefined
+        }
+        className={
+          compact
+            ? "text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:text-orange-300 dark:hover:bg-orange-950/40"
+            : !following
+              ? "hr-v2-button-primary"
+              : undefined
+        }
       >
         {following ? (
-          <UserRoundCheck className="mr-1.5 size-4" />
+          <UserRoundCheck className={compact ? "size-4" : "mr-1.5 size-4"} />
         ) : (
-          <UserPlus className="mr-1.5 size-4" />
+          <UserPlus className={compact ? "size-4" : "mr-1.5 size-4"} />
         )}
-        {!token ? "Sign in to follow" : following ? "Following" : "Follow"}
+        {!compact && (!token ? "Sign in to follow" : following ? "Following" : "Follow")}
       </Button>
       {error && (
         <span role="alert" className="max-w-36 text-right text-[11px] text-destructive">

@@ -12,16 +12,7 @@ import {
   ResponsiveDialogTitle as DialogTitle,
 } from "@repo/ui/responsive-dialog";
 import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Globe2,
-  ImagePlus,
-  Plus,
-  Trash2,
-  Video,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Globe2, ImagePlus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +21,7 @@ import type { FunctionReturnType } from "convex/server";
 
 import { MediaItem } from "./feed";
 import { ImageEditor } from "./image-editor";
-import { readMedia, uploadMedia } from "./media-client";
+import { uploadMedia } from "./media-client";
 import { useSocialSession } from "./session";
 
 type Groups = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.activeStories>>;
@@ -124,69 +115,6 @@ async function createStoryPoster(file: File): Promise<string | undefined> {
     }
     URL.revokeObjectURL(sourceUrl);
   }
-}
-
-function StoryPreview({ media }: { media: Story["media"][number] | undefined }) {
-  const client = useConvex();
-  const container = useRef<HTMLDivElement>(null);
-  const [requested, setRequested] = useState(false);
-  const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
-  const preview = useQuery(
-    api.newsfeed.queries.storyPreview,
-    media && requested ? { mediaId: media._id } : "skip",
-  );
-  useEffect(
-    () => () => {
-      if (url) URL.revokeObjectURL(url);
-    },
-    [url],
-  );
-  useEffect(() => {
-    if (!media || !container.current) return;
-    if (typeof IntersectionObserver === "undefined") {
-      const timeout = window.setTimeout(() => setRequested(true), 0);
-      return () => window.clearTimeout(timeout);
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        setRequested(true);
-      },
-      { rootMargin: "120px" },
-    );
-    observer.observe(container.current);
-    return () => observer.disconnect();
-  }, [media?._id]);
-  useEffect(() => {
-    if (!requested || !media || preview !== null || url || !media.mime.startsWith("image/")) return;
-    void readMedia(client, media._id, media.mime)
-      .then((blob) => setUrl(URL.createObjectURL(blob)))
-      .catch((reason) => setError(errorText(reason)));
-  }, [client, media, preview, requested, url]);
-  return (
-    <div ref={container} className="absolute inset-0 bg-muted">
-      {preview ? (
-        <img src={preview} alt="" className="size-full object-cover" />
-      ) : url ? (
-        <img src={url} alt="" className="size-full object-cover" />
-      ) : (
-        <div className="flex size-full items-center justify-center bg-gradient-to-br from-sky-700 via-violet-700 to-rose-500 text-white">
-          {media?.mime.startsWith("video/") ? (
-            <Video aria-hidden="true" className="size-8" />
-          ) : (
-            <span className="text-3xl">H</span>
-          )}
-        </div>
-      )}
-      {error && (
-        <span className="absolute inset-x-1 bottom-1 rounded bg-background/90 p-1 text-center text-[10px] text-destructive">
-          Preview unavailable
-        </span>
-      )}
-    </div>
-  );
 }
 
 function StoryAvatar({
@@ -894,7 +822,7 @@ export function Stories() {
   );
   if (groups === undefined)
     return (
-      <section aria-label="Showcase" className="hr-card-surface p-4">
+      <section aria-label="Showcase" className="hr-card-surface hr-newsfeed-showcase rounded-2xl p-0 sm:p-4">
         <p role="status" className="text-sm text-muted-foreground">
           Loading showcase…
         </p>
@@ -903,62 +831,51 @@ export function Stories() {
   const selectedStory = selection ? groups[selection.group]?.stories[selection.story] : null;
   return (
     <>
-      <section aria-label="Showcase" className="hr-card-surface rounded-2xl p-4">
-        <header className="mb-3">
-          <h2 className="font-semibold">Showcase</h2>
-          <p className="text-xs text-muted-foreground">Photos and videos stay up for 24 hours.</p>
+      <section
+        aria-label="Showcase"
+        className="hr-card-surface hr-newsfeed-showcase rounded-2xl p-0 sm:px-5 sm:py-4"
+      >
+        <header className="mb-3 hidden items-center justify-between gap-3 sm:flex">
+          <h2 className="text-sm font-semibold">Showcase</h2>
+          <p className="text-xs text-muted-foreground">Photos and videos · 24 hours</p>
         </header>
-        <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="hr-newsfeed-showcase-list flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
           {viewer && (
             <button
               type="button"
-              className="hr-newsfeed-story-card relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-slate-800 text-left shadow-sm"
+              className="hr-newsfeed-story-card group flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
               onClick={() => setCreating(true)}
               aria-label="Create a showcase"
             >
-              {viewer.avatarUrl ? (
-                <img
-                  src={viewer.avatarUrl}
-                  alt=""
-                  className="absolute inset-0 size-full object-cover"
-                />
-              ) : (
-                <span className="absolute inset-0 bg-gradient-to-br from-orange-500 via-violet-700 to-slate-950" />
-              )}
-              <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/10 to-black/70" />
-              <span className="absolute inset-x-0 bottom-10 flex justify-center">
-                <span className="flex size-11 items-center justify-center rounded-full border-4 border-white bg-orange-600 text-white shadow-md">
-                  <Plus className="size-5" />
+              <span className="flex size-[4.5rem] items-center justify-center rounded-full border-2 border-dashed border-orange-500 bg-background transition-colors group-hover:bg-orange-50 sm:size-16 dark:group-hover:bg-orange-950/30">
+                <span className="flex size-8 items-center justify-center text-orange-600 dark:text-orange-300">
+                  <Plus className="size-6" />
                 </span>
               </span>
-              <span className="absolute inset-x-1 bottom-3 block text-center text-xs font-semibold text-white">
-                Create showcase
+              <span className="w-full truncate text-xs font-medium text-foreground">
+                <span className="sm:hidden">Add Story</span>
+                <span className="hidden sm:inline">Add showcase</span>
               </span>
             </button>
           )}
-          {groups.map((group, groupIndex) => {
-            const first = group.stories[0];
-            return (
-              <button
-                key={group.author.id}
-                type="button"
-                className="hr-newsfeed-story-card relative h-36 w-24 shrink-0 overflow-hidden rounded-2xl border bg-muted text-left text-white shadow-sm"
-                onClick={() => setSelection({ group: groupIndex, story: 0 })}
-                aria-label={`View ${group.author.name}'s showcase`}
-              >
-                <StoryPreview media={first?.media[0]} />
-                <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/70" />
-                <StoryAvatar
-                  src={group.author.avatarUrl}
-                  name={group.author.name}
-                  className="absolute top-2.5 left-2.5 size-10"
-                />
-                <span className="absolute inset-x-2 bottom-2.5 truncate text-left text-sm leading-5 font-semibold">
-                  {group.author.name}
-                </span>
-              </button>
-            );
-          })}
+          {groups.map((group, groupIndex) => (
+            <button
+              key={group.author.id}
+              type="button"
+              className="hr-newsfeed-story-card group flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
+              onClick={() => setSelection({ group: groupIndex, story: 0 })}
+              aria-label={`View ${group.author.name}'s showcase`}
+            >
+              <StoryAvatar
+                src={group.author.avatarUrl}
+                name={group.author.name}
+                className="size-[4.5rem] transition-transform group-hover:scale-[1.03] sm:size-16"
+              />
+              <span className="w-full truncate text-xs font-medium text-foreground">
+                {group.author.name}
+              </span>
+            </button>
+          ))}
           {groups.length === 0 && !viewer && (
             <p className="py-4 text-sm text-muted-foreground">No active showcases yet.</p>
           )}

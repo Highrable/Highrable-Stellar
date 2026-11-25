@@ -12,7 +12,7 @@ import {
   ResponsiveDialogTitle as DialogTitle,
 } from "@repo/ui/responsive-dialog";
 import { useConvex, useQuery } from "convex/react";
-import { ArrowRight, ImagePlus, Maximize2, Tags, Video } from "lucide-react";
+import { ArrowRight, ImagePlus, Maximize2, Smile, Tags, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ImageEditor } from "./image-editor";
@@ -198,6 +198,9 @@ export function Composer({
       ? selectedTags.filter((item) => item.toLowerCase() !== tag.toLowerCase())
       : [...selectedTags, tag].slice(0, 5);
     setTagText(next.join(", "));
+  }
+  function addEmoji() {
+    setBody((current) => `${current}${current && !/\s$/.test(current) ? " " : ""}😊`);
   }
   const form = (
     <>
@@ -486,15 +489,18 @@ export function Composer({
   return (
     <>
       {!originalId && (
-        <section aria-label="Create a post" className="hr-card-surface rounded-2xl p-3 sm:p-4">
+        <section
+          aria-label="Create a post"
+          className="hr-card-surface hr-newsfeed-composer rounded-2xl p-4 sm:p-5"
+        >
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void publish();
             }}
           >
-            <div className="flex items-center gap-3">
-              <Avatar className="size-11 shrink-0 border-2 border-orange-200">
+            <div className="flex items-center gap-5 sm:items-start sm:gap-3">
+              <Avatar className="size-14 shrink-0 border-2 border-orange-200 sm:size-11">
                 <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
                 <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
               </Avatar>
@@ -508,8 +514,8 @@ export function Composer({
                 disabled={busy}
                 rows={1}
                 maxLength={1200}
-                placeholder={`What are you working on or celebrating, ${displayName.split(" ")[0]}?`}
-                className="min-h-11 flex-1 resize-none rounded-full border-slate-200 bg-slate-50 px-4 py-2.5 text-sm leading-5 dark:border-slate-700 dark:bg-slate-900"
+                placeholder="What's on your mind?"
+                className="min-h-12 flex-1 resize-none rounded-none border-0 bg-transparent px-0 py-2 text-xl leading-7 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:bg-transparent sm:rounded-xl sm:border sm:border-slate-200 sm:bg-slate-50 sm:px-4 sm:py-3 sm:text-sm sm:leading-5 dark:sm:border-slate-700 dark:sm:bg-slate-900"
               />
               <Button
                 type="button"
@@ -518,12 +524,12 @@ export function Composer({
                 aria-label="Open post composer"
                 title="Open full post composer"
                 onClick={() => setOpen(true)}
-                className="shrink-0 text-slate-500"
+                className="hidden shrink-0 text-slate-500 sm:inline-flex"
               >
                 <Maximize2 aria-hidden="true" className="size-4" />
               </Button>
             </div>
-            <div className="mt-3 grid grid-cols-4 items-center gap-1 border-t border-slate-100 pt-3 sm:flex sm:flex-wrap sm:gap-2 dark:border-slate-800">
+            <div className="hr-newsfeed-quick-post-toolbar mt-4 ml-[4.875rem] flex flex-nowrap items-center justify-between gap-2 border-t border-slate-100 pt-4 sm:mt-3 sm:ml-0 sm:flex-wrap sm:gap-2 sm:pt-3 dark:border-slate-800">
               <Button
                 type="button"
                 variant="ghost"
@@ -533,11 +539,33 @@ export function Composer({
                   setOpen(true);
                   setTimeout(() => fileInput.current?.click(), 100);
                 }}
-                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
+                className="h-10 min-w-10 justify-center gap-1 px-2 sm:h-9 sm:min-w-0 sm:gap-2 sm:px-3 sm:text-sm"
               >
-                <ImagePlus className="mr-0 size-3.5 text-emerald-600 sm:mr-1.5 sm:size-4" />
-                <span className="truncate sm:hidden">Photo</span>
+                <ImagePlus className="mr-0 size-5 text-slate-500 sm:mr-1.5 sm:size-4 sm:text-emerald-600" />
                 <span className="hidden sm:inline">Photo/Video</span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Add video"
+                onClick={() => {
+                  setOpen(true);
+                  setTimeout(() => fileInput.current?.click(), 100);
+                }}
+                className="h-10 min-w-10 justify-center px-2 sm:hidden"
+              >
+                <Video aria-hidden="true" className="size-5 text-slate-500" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Add emoji"
+                onClick={addEmoji}
+                className="h-10 min-w-10 justify-center px-2 sm:hidden"
+              >
+                <Smile aria-hidden="true" className="size-5 text-slate-500" />
               </Button>
               <Button
                 type="button"
@@ -547,7 +575,7 @@ export function Composer({
                   setOpen(true);
                   setTimeout(() => document.getElementById("newsfeed-milestone")?.focus(), 100);
                 }}
-                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
+                className="hidden h-9 min-w-0 justify-center gap-1 px-2 text-xs sm:inline-flex sm:gap-2 sm:px-3 sm:text-sm"
               >
                 <span
                   aria-hidden="true"
@@ -565,7 +593,7 @@ export function Composer({
                   setOpen(true);
                   setTimeout(() => document.getElementById("newsfeed-post-tags")?.focus(), 100);
                 }}
-                className="h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:h-8 sm:w-auto sm:gap-2 sm:px-3 sm:text-sm"
+                className="hidden h-9 min-w-0 justify-center gap-1 px-2 text-xs sm:inline-flex sm:gap-2 sm:px-3 sm:text-sm"
               >
                 <Tags className="mr-0 size-3.5 text-blue-600 sm:mr-1.5 sm:size-4" />
                 <span className="truncate">Tags</span>
@@ -577,9 +605,10 @@ export function Composer({
                 type="submit"
                 size="sm"
                 disabled={busy || !body.trim() || Boolean(milestoneId && !milestoneConfirmed)}
-                className="hr-v2-button-primary h-10 w-full min-w-0 justify-center gap-1 px-1 text-[10px] sm:ml-0 sm:h-8 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
+                className="hr-v2-button-primary ml-0 h-14 w-[7.625rem] min-w-0 shrink-0 justify-center gap-1 rounded-full px-5 text-base font-semibold sm:ml-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
               >
-                <span className="truncate">
+                <span className="truncate sm:hidden">{busy ? "…" : error ? "Retry" : "Post"}</span>
+                <span className="hidden truncate sm:inline">
                   {busy ? "Publishing…" : error ? "Retry" : "Publish"}
                 </span>
               </Button>

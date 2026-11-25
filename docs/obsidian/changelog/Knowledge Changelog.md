@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-11-25
 
+- Refreshed shared product surfaces, controls, dialogs and toast feedback, status badges, upload presentation, and form-step progress. Marketplace job detail now renders existing milestones through a shared timeline; the four-step job form, three-step onboarding flow, upload validations, authorization, wallet execution, and Stellar recovery behavior remain unchanged. Newsfeed and Messages opt out of the new shared surface styling. See [[architecture/Frontend Architecture]], [[frontend/Frontend Overview]], [[frontend/Feature Slices]], and [[modules/Marketplace and Jobs]].
 - Verified the deployed multi-admin Testnet escrow membership interface and recorded owner membership through read-only RPC checks. Exact build provenance, delegated settlement, and event emission remain unverified. See [[contracts/Deployment Artifacts]].
 
 - Refreshed the Newsfeed showcase, post/repost, and image-edit dialogs with responsive, theme-aware layouts. Showcase uploads now support drag-and-drop through the existing media draft flow; preview, edit, removal, progress, cancellation, retries, verified-session gating, and milestone confirmation remain intact. See [[frontend/Feature Slices]].

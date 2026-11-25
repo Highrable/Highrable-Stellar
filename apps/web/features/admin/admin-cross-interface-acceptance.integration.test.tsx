@@ -311,6 +311,7 @@ vi.mock("lucide-react", () => {
   const Icon = (props: Record<string, unknown>) => createElement("span", props);
   return {
     Activity: Icon,
+    CloudUpload: Icon,
     Users: Icon,
     CheckCircle2: Icon,
     Clock: Icon,
@@ -1266,7 +1267,7 @@ function setAdminResolution(
 
 function getUploadInput(scope: HTMLElement): HTMLInputElement {
   const dropzone = within(scope).getByRole("button", { name: "Upload attachments" });
-  const input = dropzone.querySelector("input[type=file]");
+  const input = dropzone.parentElement?.querySelector("input[type=file]");
   if (!(input instanceof HTMLInputElement)) throw new Error("Expected a file input.");
   return input;
 }

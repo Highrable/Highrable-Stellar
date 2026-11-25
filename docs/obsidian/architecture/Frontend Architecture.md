@@ -2,7 +2,7 @@
 type: architecture
 area: frontend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -16,6 +16,8 @@ source_of_truth: repository
 2. Wallet provider with React Query, external wallet context, and passkey smart-account context.
 3. `@repo/ui` providers/theme.
 4. Onboarding route guard and the optional Highrable debugger.
+
+`AppShell` sets `data-mode` for role theming and `data-product-ui="refresh"` for shared product surfaces and portal dialogs. `/newsfeed` and `/messages` omit the product refresh marker so their shared primitive consumers keep the route-specific presentation.
 
 The root page and `/home` render the landing-v2 surface. Route files are thin: they select metadata, parse route parameters, and render a feature page.
 

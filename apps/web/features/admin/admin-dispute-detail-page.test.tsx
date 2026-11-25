@@ -173,6 +173,7 @@ vi.mock("@repo/ui/components/ui/textarea", () => ({
 }));
 
 vi.mock("lucide-react", () => ({
+  CloudUpload: () => createElement("span"),
   ArrowLeft: () => createElement("span"),
   ExternalLink: () => createElement("span"),
   RotateCcw: () => createElement("span"),

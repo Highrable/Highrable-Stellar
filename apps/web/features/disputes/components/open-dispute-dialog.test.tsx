@@ -99,7 +99,7 @@ vi.mock("@repo/ui/responsive-dialog", () => {
     ResponsiveDialogTitle: container,
   };
 });
-vi.mock("lucide-react", () => ({ AlertTriangle: () => null }));
+vi.mock("lucide-react", () => ({ AlertTriangle: () => null, CloudUpload: () => null }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) =>
     createElement("a", { href, ...props }, children),

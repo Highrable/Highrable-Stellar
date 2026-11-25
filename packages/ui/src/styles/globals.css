@@ -47,6 +47,10 @@
   --highrable-border: #e8e8e8;
   --highrable-surface-raised: #ffffff;
   --highrable-shadow-card: 0 4px 24px -1px rgb(255 140 66 / 6%);
+  --highrable-product-field: #f8f9fb;
+  --highrable-product-field-border: #e7e9ee;
+  --highrable-product-card-radius: 1.5rem;
+  --highrable-product-card-shadow: 0 10px 34px rgb(26 26 26 / 4%);
   --highrable-orange-1: #ff8c42;
   --highrable-orange-2: #ff6b6b;
   --highrable-orange-3: #e85d00;
@@ -108,6 +112,10 @@
   --highrable-border: #3a3a3a;
   --highrable-surface-raised: #232323;
   --highrable-shadow-card: 0 8px 24px rgb(0 0 0 / 24%);
+  --highrable-product-field: #252525;
+  --highrable-product-field-border: #414141;
+  --highrable-product-card-radius: 1.5rem;
+  --highrable-product-card-shadow: 0 8px 24px rgb(0 0 0 / 24%);
 }
 
 @theme inline {
@@ -524,4 +532,76 @@ input::selection {
   font-size: 1rem;
   font-weight: 700;
   color: #111827;
+}
+
+/* Product refresh is opt-in at AppShell. Social feed and messages keep their
+   existing treatment while the rest of the product shares these surfaces. */
+[data-product-ui="refresh"] {
+  --highrable-product-control-radius: 1rem;
+}
+
+[data-product-ui="refresh"]
+  :is(.hr-card-surface, .hr-panel, [data-slot="card"]):not([data-product-ui="preserve"]):not(
+    [data-product-ui="preserve"] *
+  ) {
+  border-radius: var(--highrable-product-card-radius);
+  box-shadow: var(--highrable-product-card-shadow);
+}
+
+[data-product-ui="refresh"] .hr-milestone-timeline article {
+  border-radius: 1.25rem;
+  background-color: var(--card);
+  box-shadow: var(--highrable-product-card-shadow);
+}
+
+[data-product-ui="refresh"]
+  :is(
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"],
+    [data-slot="native-select"]
+  ):not([data-product-ui="preserve"]):not([data-product-ui="preserve"] *) {
+  border-color: var(--highrable-product-field-border);
+  border-radius: var(--highrable-product-control-radius);
+  background-color: var(--highrable-product-field);
+}
+
+[data-product-ui="refresh"]
+  :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]):not(
+    [data-product-ui="preserve"]
+  ):not(
+    [data-product-ui="preserve"] *
+  ) {
+  border-radius: var(--highrable-product-card-radius);
+  box-shadow: var(--highrable-product-card-shadow);
+}
+
+[data-product-ui="refresh"] .toaster {
+  --border-radius: var(--highrable-product-card-radius) !important;
+}
+
+[data-product-ui="refresh"] [data-sonner-toast] {
+  border-radius: var(--highrable-product-card-radius) !important;
+  box-shadow: var(--highrable-product-card-shadow);
+}
+
+[data-product-ui="refresh"]
+  :is([data-slot="button"][data-size="default"], [data-slot="button"][data-size="lg"]):not(
+    [data-product-ui="preserve"]
+  ):not([data-product-ui="preserve"] *) {
+  border-radius: 9999px;
+}
+
+[data-product-ui="refresh"]
+  [data-slot="button"][data-variant="outline"]:not([data-product-ui="preserve"]):not(
+    [data-product-ui="preserve"] *
+  ) {
+  border-color: var(--highrable-product-field-border);
+  background-color: var(--card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-product-ui="refresh"] [data-slot="progress-indicator"] {
+    transition: none;
+  }
 }

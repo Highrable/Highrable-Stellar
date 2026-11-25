@@ -15,6 +15,15 @@ function isAdminPath(pathname: string) {
   return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
+function shouldUseProductRefresh(pathname: string) {
+  return !(
+    pathname === "/messages" ||
+    pathname.startsWith("/messages/") ||
+    pathname === "/newsfeed" ||
+    pathname.startsWith("/newsfeed/")
+  );
+}
+
 /**
  * Starts each newly visited page at the top. Next.js only scrolls when the new
  * page is out of view, which misses pages under our sticky header. Back/forward
@@ -66,17 +75,28 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
   const { mode } = useAppMode();
   const isAdminRoute = isAdminPath(pathname);
   const activeMode = isAdminRoute ? "admin" : mode;
+  const useProductRefresh = shouldUseProductRefresh(pathname);
 
-  // Dialogs and toasts render in portals outside this frame, so mirror the mode on <html>.
+  // Portals render outside this frame, so mirror the route theme on <html> too.
   useEffect(() => {
     document.documentElement.dataset.mode = activeMode;
+    if (useProductRefresh) {
+      document.documentElement.dataset.productUi = "refresh";
+    } else {
+      delete document.documentElement.dataset.productUi;
+    }
     return () => {
       delete document.documentElement.dataset.mode;
+      delete document.documentElement.dataset.productUi;
     };
-  }, [activeMode]);
+  }, [activeMode, useProductRefresh]);
 
   return (
-    <div data-mode={activeMode} className="min-h-screen bg-[var(--mode-page)] text-foreground">
+    <div
+      data-mode={activeMode}
+      data-product-ui={useProductRefresh ? "refresh" : undefined}
+      className="min-h-screen bg-[var(--mode-page)] text-foreground"
+    >
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset className="min-w-0 bg-muted/60">

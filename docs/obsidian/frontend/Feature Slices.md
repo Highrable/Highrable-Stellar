@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -33,13 +33,14 @@ source_of_truth: repository
 ## UI mode and stepped forms
 
 - `AppShell` wraps non-marketing routes in `AppModeProvider`. The mode (`freelancer` or `client`) reuses the per-wallet `highrable:dashboard:mode:<ADDRESS>` localStorage key and defaults from the user role. It is UI-only: it never changes backend authorization.
-- The shell sets `data-mode` on its wrapper and on `<html>` (so portal dialogs inherit it). `apps/web/app/globals.css` re-points the `--highrable-orange-*` tokens to yellow under `[data-mode="client"]`; Freelancer keeps orange. `/admin` routes always use the default orange theme, a dedicated admin nav, and no mode switch.
+- The shell sets `data-mode` on its wrapper and on `<html>` (so portal dialogs inherit it). Product pages also set `data-product-ui="refresh"`; `/newsfeed` and `/messages` opt out, and the portaled work-chat sheet opts out locally. `apps/web/app/globals.css` re-points the `--highrable-orange-*` tokens to yellow under `[data-mode="client"]`; Freelancer keeps orange. `/admin` routes always use the default orange theme, a dedicated admin nav, and no mode switch.
 - Client-only UI (`/post-job`, `/talent`, applicant lists, post-job button) is hidden in Freelancer mode, and apply forms/buttons are hidden in Client mode, using `ModeGate` (whole page) or `ModeOnly` (blocks).
-- `features/common/components/form/form-stepper.tsx` provides `FormStepTabs`, `FormStepPanel`, `FormStepNav`. Inactive panels stay mounted (hidden) so form state and validation are unchanged. Used by `CreateJobForm` (4 steps) and `OnboardingPage` (3 steps). Failed validation jumps to the step that holds the error.
-- Visual system: the page background is a mode tint (`--mode-page`) and every white container gets a mode-coloured border and soft shadow. Headings sit on a gradient band (`.hr-card-head`, `SectionCard`, `SectionHeading`); `/admin` uses an orange-to-yellow gradient (`data-mode="admin"`). `--primary` is re-pointed to the mode colour, so no black fills remain; text on yellow is dark (`--mode-on`).
+- `features/common/components/form/form-stepper.tsx` provides `FormStepTabs`, `FormStepPanel`, `FormStepNav`. The connected step strip reports progress and supports arrow/Home/End keyboard navigation. Hidden panels keep job form state mounted, and onboarding exposes labeled panels for each step. The job form remains four steps; onboarding remains three; failed validation still selects the step that contains the error.
+- Visual system: product routes use a neutral canvas, rounded white surfaces, restrained neutral fields, and a soft card shadow. Filled freelancer/admin actions use the orange-to-coral gradient; client actions remain yellow with dark labels (`--mode-on`). These shared styles do not apply to Newsfeed or Messages.
 - Summary cards use `StatCard` (or `HighrableV2Metric` with `tone` + `icon`) with pastel `hr-tone-*` backgrounds. Wallet addresses always use `WalletAddressTile` (sky blue, copyable). The header shows a profile shortcut (`HeaderProfileLink`) that opens the profile matching the current mode.
 - `/jobs` redirects to `/marketplace` (the single "Jobs and Applications" page). The My Work dashboard shows freelancer lists as tabs (Applied Jobs, Jobs in Progress, Payments Received). The mode switch and the connected-wallet card live only on the user's own profile pages. UI copy uses Title Case headings and plain words (payment hold, currency) instead of escrow/asset jargon, except on admin and dispute transaction-state screens.
-- Disputes (list, detail, composers, timeline, dialog) and admin pages share the same band/card/badge styling.
+- `StatusText` renders semantic status badges while domain status helpers continue to own label/tone mappings. `FileUploadZone` supplies an accessible drop and browse surface; attachment authorization, validation, upload progress, and retry remain feature-owned. `MilestoneTimeline` displays existing milestone records in order without changing their gates or actions.
+- Disputes (list, detail, composers, timeline, dialog) and admin pages share the same cards, controls, and status tones. Protected admin access and role-specific controls remain unchanged.
 - `TermHint` (`features/common/components/term-hint.tsx`) holds plain-language definitions (`PLAIN_TERMS`) for jargon such as escrow and wallet.
 - Newsfeed showcase uploads accept both file selection and drag-and-drop, then use the same preview, image-edit, removal, progress, cancellation, and retry flow. Post audiences remain informational, and attaching a milestone still requires explicit public confirmation.
 

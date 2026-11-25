@@ -2,7 +2,7 @@
 type: reference
 area: repository
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -18,7 +18,7 @@ Highrable is a pnpm workspace coordinated by Turborepo. The main architectural b
 | `apps/web/features` | Feature-sliced product behavior and UI. | `marketplace`, `jobs`, `post-job`, `work-agreements`, `work-submissions`, `disputes`, `cancellations`, `dashboard`, `profile`, `proof`, `admin`, and related slices. | [[frontend/Feature Slices]], [[modules/README]] |
 | `packages/backend/convex` | Convex schema, queries, mutations, actions, domain helpers, and internal functions. | Domain folders contain `schema.ts`, `queries.ts`, `mutations.ts`, and helpers; top-level files re-export public functions. | [[backend/Convex Overview]], [[data/Convex Schema]] |
 | `packages/convex-client` | Typed Convex client and generated API re-export layer consumed by the web app. | `src/index.ts` for browser client/types; `src/server.ts` for server route use. It is not a separate product SDK or indexer. | [[backend/Convex Overview]], [[architecture/Integration Boundaries]] |
-| `packages/ui` | Shared UI primitives, Highrable-specific components, theme/providers, email templates, and utilities. | `src/components/ui` is generic; `src/components/highrable` is product-specific; exports are package subpaths. | [[architecture/Frontend Architecture]] |
+| `packages/ui` | Shared UI primitives, Highrable-specific components, theme/providers, email templates, and utilities. | `src/components/ui` is generic and includes reusable `FileUploadZone` and `MilestoneTimeline`; `src/components/highrable` is product-specific; exports are package subpaths. | [[architecture/Frontend Architecture]] |
 | `packages/typescript-config` | Shared TypeScript presets (`base`, `nextjs`, `react-library`). | Change presets only when the workspace-wide compiler contract changes. | [[Development Guide]] |
 | `contracts/escrow` | Rust/Soroban escrow contract and unit tests. | `src/lib.rs` is authoritative for public methods, storage, auth, status transitions, transfers, and reputation calls; `src/test.rs` covers behavior. | [[contracts/Escrow Contract]], [[data/State Machines]] |
 | `contracts/reputation` | Rust/Soroban completion record and freelancer aggregate statistics contract. | `src/lib.rs` and `src/test.rs`; it is authorized by the escrow contract rather than by arbitrary users. | [[contracts/Reputation Contract]] |

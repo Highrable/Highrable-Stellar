@@ -18,11 +18,15 @@ import { SocialSession } from "@/features/newsfeed/session";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
+import {
+  MilestoneTimeline,
+  type TMilestoneTimelineState,
+} from "@repo/ui/components/ui/milestone-timeline";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import React from "react";
 
-import type { TConvexId } from "@repo/convex-client";
+import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 import { ApplicationsList } from "./applications-list";
 import { ApplyToJobForm } from "./apply-to-job-form";
@@ -33,6 +37,22 @@ import { JobSafetyBadge } from "./job-safety-badge";
 import { MilestoneCard } from "./milestone-card";
 import { ReportJobButton } from "./report-job-button";
 import { StatusBadge } from "./status-badge";
+
+function getMilestoneTimelineState(
+  status: TConvexDoc<"milestones">["status"],
+): TMilestoneTimelineState {
+  if (status === "released") return "complete";
+  if (status === "disputed") return "attention";
+  if (
+    status === "funded" ||
+    status === "submitted" ||
+    status === "revision_requested" ||
+    status === "revision_submitted"
+  ) {
+    return "active";
+  }
+  return "pending";
+}
 
 export function JobDetail({ jobId }: { jobId: string }) {
   const walletIdentity = useHighrableWalletIdentity();
@@ -265,24 +285,29 @@ export function JobDetail({ jobId }: { jobId: string }) {
               {projectSummary?.milestones.length === 0 ? (
                 <p className="text-sm text-muted-foreground">This project has no milestones.</p>
               ) : null}
-              <div className="space-y-4">
-                {projectSummary?.milestones.map((milestone, index) => {
-                  const applicationGate = projectSummary.applicationGates[index];
+              <MilestoneTimeline
+                ariaLabel="Milestone progress"
+                items={
+                  projectSummary?.milestones.flatMap((milestone, index) => {
+                    const applicationGate = projectSummary.applicationGates[index];
+                    if (!applicationGate) return [];
 
-                  if (!applicationGate) {
-                    return null;
-                  }
-
-                  return (
-                    <MilestoneCard
-                      key={milestone._id}
-                      job={job}
-                      milestone={milestone}
-                      applicationGate={applicationGate}
-                    />
-                  );
-                })}
-              </div>
+                    return [
+                      {
+                        id: milestone._id,
+                        state: getMilestoneTimelineState(milestone.status),
+                        content: (
+                          <MilestoneCard
+                            job={job}
+                            milestone={milestone}
+                            applicationGate={applicationGate}
+                          />
+                        ),
+                      },
+                    ];
+                  }) ?? []
+                }
+              />
             </section>
           ) : null}
 

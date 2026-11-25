@@ -302,33 +302,39 @@ export function OnboardingPage() {
           showStepSummary={false}
         />
 
-        <div
-          role="tabpanel"
-          id={`${ONBOARDING_ID_PREFIX}-panel-${ONBOARDING_STEPS[stepIndex]?.id ?? "about"}`}
-          aria-labelledby={`${ONBOARDING_ID_PREFIX}-tab-${ONBOARDING_STEPS[stepIndex]?.id ?? "about"}`}
-        >
-          <ProfileIdentityFields
-            visibleSections={ONBOARDING_STEPS[stepIndex]?.sections ?? []}
-            values={values}
-            skillsInput={skillsInput}
-            avatarFile={avatarFile}
-            avatarPreviewUrl={avatarPreviewUrl}
-            currentAvatarUrl={onboardingState?.avatarUrl ?? undefined}
-            displayName={[values.firstName, values.lastName].filter(Boolean).join(" ")}
-            onFieldChange={setField}
-            onSkillsInputChange={(value) => {
-              setSkillsInput(value);
-              setFormError(null);
-              registration.clearError();
-            }}
-            onAvatarFileChange={(file, validationError) => {
-              setAvatarFile(file);
-              setAvatarPreviewUrl(null);
-              setFormError(validationError);
-              registration.clearError();
-            }}
-          />
-        </div>
+        {ONBOARDING_STEPS.map((step, index) => (
+          <div
+            key={step.id}
+            role="tabpanel"
+            id={`${ONBOARDING_ID_PREFIX}-panel-${step.id}`}
+            aria-labelledby={`${ONBOARDING_ID_PREFIX}-tab-${step.id}`}
+            hidden={stepIndex !== index}
+          >
+            {stepIndex === index ? (
+              <ProfileIdentityFields
+                visibleSections={step.sections}
+                values={values}
+                skillsInput={skillsInput}
+                avatarFile={avatarFile}
+                avatarPreviewUrl={avatarPreviewUrl}
+                currentAvatarUrl={onboardingState?.avatarUrl ?? undefined}
+                displayName={[values.firstName, values.lastName].filter(Boolean).join(" ")}
+                onFieldChange={setField}
+                onSkillsInputChange={(value) => {
+                  setSkillsInput(value);
+                  setFormError(null);
+                  registration.clearError();
+                }}
+                onAvatarFileChange={(file, validationError) => {
+                  setAvatarFile(file);
+                  setAvatarPreviewUrl(null);
+                  setFormError(validationError);
+                  registration.clearError();
+                }}
+              />
+            ) : null}
+          </div>
+        ))}
 
         {stepIndex === ONBOARDING_STEPS.length - 1 ? (
           <div className="border-l-2 border-border py-1 pl-3 text-sm text-muted-foreground">

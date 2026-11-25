@@ -253,6 +253,7 @@ vi.mock("@repo/ui/components/ui/textarea", () => ({
   Textarea: (props: Record<string, unknown>) => createElement("textarea", props),
 }));
 vi.mock("lucide-react", () => ({
+  CloudUpload: () => createElement("span"),
   Activity: () => createElement("span"),
   AlertTriangle: () => createElement("span"),
   CheckCircle2: () => createElement("span"),

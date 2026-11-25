@@ -21,6 +21,7 @@ import {
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { FileUploadZone } from "@repo/ui/components/ui/file-upload-zone";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import {
@@ -43,10 +44,9 @@ import {
   Loader2,
   ShieldCheck,
   Trash2,
-  Upload,
   Video,
 } from "lucide-react";
-import React, { useCallback, useId, useRef, useState } from "react";
+import React, { useCallback, useId, useState } from "react";
 
 import type {
   TAttachmentProtectionSummary,
@@ -119,6 +119,7 @@ interface ILinkAttachmentInputProps {
 
 interface IAttachmentDropzoneProps {
   readonly disabled?: boolean;
+  readonly context?: "job" | "dispute" | "chat";
   readonly onFiles: (files: File[]) => void;
 }
 
@@ -471,77 +472,33 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
 // Dropzone
 
-export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzoneProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleFiles = (fileList: FileList | null) => {
-    if (!fileList || disabled) return;
-    onFiles(Array.from(fileList));
-    if (inputRef.current) inputRef.current.value = "";
-  };
+export function AttachmentDropzone({
+  disabled,
+  context = "job",
+  onFiles,
+}: IAttachmentDropzoneProps) {
+  const isChatContext = context === "chat";
 
   return (
-    <div
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled}
-      aria-label="Upload attachments"
-      onClick={() => {
-        if (!disabled) inputRef.current?.click();
-      }}
-      onKeyDown={(event) => {
-        if (disabled) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          inputRef.current?.click();
-        }
-      }}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setIsDragging(false);
-        handleFiles(event.dataTransfer.files);
-      }}
-      className={cn(
-        "grid cursor-pointer place-items-center rounded-lg border border-dashed p-6 text-center transition-colors",
-        isDragging
-          ? "border-highrable-orange-2 bg-orange-50"
-          : "border-border bg-muted/30 hover:border-highrable-orange-2/60 hover:bg-muted/50",
-        disabled ? "pointer-events-none opacity-60" : undefined,
-      )}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={ACCEPTED_ATTACHMENT_TYPES}
-        className="hidden"
-        disabled={disabled}
-        tabIndex={-1}
-        onChange={(event) => handleFiles(event.target.files)}
-      />
-
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
-        <Upload className="h-5 w-5" />
-      </div>
-
-      <p className="hr-text-primary mt-3 font-mono text-sm font-semibold">
-        Drop files or click to browse
-      </p>
-
-      <div className="mt-1 flex items-center justify-center gap-1.5">
-        <p className="hr-text-secondary font-sans text-xs">Images, docs, PDFs, Markdown, video</p>
-        <HighrableV2IconNotice
-          label="Attachment limits"
-          message="Images, documents, PDFs, and Markdown must be 10 MB or smaller. Videos must be 25 MB or smaller."
-        />
-      </div>
-    </div>
+    <FileUploadZone
+      ariaLabel="Upload attachments"
+      title={isChatContext ? "Drop files or click to browse" : "Drop files to upload"}
+      density={isChatContext ? "compact" : "comfortable"}
+      showBrowseAction={!isChatContext}
+      description={
+        <span className="inline-flex items-center justify-center gap-1.5">
+          Images, docs, PDFs, Markdown, video
+          <HighrableV2IconNotice
+            label="Attachment limits"
+            message="Images, documents, PDFs, and Markdown must be 10 MB or smaller. Videos must be 25 MB or smaller."
+          />
+        </span>
+      }
+      accept={ACCEPTED_ATTACHMENT_TYPES}
+      multiple
+      disabled={disabled}
+      onFiles={onFiles}
+    />
   );
 }
 
@@ -787,6 +744,7 @@ export function AttachmentUploader({
       {/* Dropzone */}
       <AttachmentDropzone
         disabled={disabled || !walletIdentity.walletAddress}
+        context={context}
         onFiles={handleFiles}
       />
 

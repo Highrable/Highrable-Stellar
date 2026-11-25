@@ -852,6 +852,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
       <SheetTrigger asChild>
         <AppButton
           type="button"
+          data-product-ui="preserve"
           aria-label="Open work chat"
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
@@ -863,6 +864,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
         </AppButton>
       </SheetTrigger>
       <SheetContent
+        data-product-ui="preserve"
         side="right"
         className="w-full gap-0 border-l border-border bg-background p-0 sm:max-w-[480px]"
         aria-describedby="work-chat-description"

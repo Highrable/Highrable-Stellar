@@ -96,6 +96,23 @@ it("retains text after publication failure and retries the same post without dup
   );
   expect(begins).toHaveLength(1);
 });
+it("keeps the audience informational and preserves a draft when closing the dialog", async () => {
+  render(<Composer />);
+  openComposer();
+  fireEvent.change(screen.getByRole("textbox", { name: "Share an update" }), {
+    target: { value: "A draft to keep" },
+  });
+
+  expect(screen.getAllByText("Public · Freelance Network")).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: /Public · Freelance Network/i })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  openComposer();
+  expect(
+    (screen.getByRole("textbox", { name: "Share an update" }) as HTMLTextAreaElement).value,
+  ).toBe("A draft to keep");
+});
 it("requires public milestone confirmation and submits normalized tags", async () => {
   mocks.milestones = [
     { id: "milestone-1", title: "Design system delivery", status: "released", jobId: "job-1" },

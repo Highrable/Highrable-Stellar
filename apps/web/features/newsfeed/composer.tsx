@@ -12,9 +12,10 @@ import {
   ResponsiveDialogTitle as DialogTitle,
 } from "@repo/ui/responsive-dialog";
 import { useConvex, useQuery } from "convex/react";
-import { ArrowRight, ImagePlus, Maximize2, Smile, Tags, Video } from "lucide-react";
+import { ArrowRight, Award, Hash, ImagePlus, Maximize2, Smile, Tags, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { ComposerSectionLabel, MobileDialogClose, SuggestedTagChips } from "./composer-ui";
 import { ImageEditor } from "./image-editor";
 import { uploadMedia } from "./media-client";
 import { useSocialSession } from "./session";
@@ -202,61 +203,65 @@ export function Composer({
   function addEmoji() {
     setBody((current) => `${current}${current && !/\s$/.test(current) ? " " : ""}😊`);
   }
+  const postTags =
+    tagSuggestions
+      ?.flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
+      .slice(0, 5) ?? [];
   const form = (
     <>
-      <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <Avatar className="size-11 border-2 border-orange-200">
-              <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
-              <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {viewer.availability || "Highrable freelance network"}
-              </p>
-            </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b bg-muted/15 px-5 py-4 sm:px-8 sm:py-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar className="size-14 shrink-0 border-2 border-orange-200 sm:size-16">
+            <AvatarImage src={viewer.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="max-w-64 text-sm leading-5 font-bold sm:text-base">{displayName}</p>
+            <p className="mt-0.5 line-clamp-2 text-[0.68rem] font-bold tracking-[0.07em] text-muted-foreground uppercase">
+              {viewer.availability || "Highrable freelance network"}
+            </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            <span aria-hidden="true">◉</span> Public · Freelance Network
-          </span>
         </div>
-        <label className="block font-medium">
-          {originalId ? "Add your perspective" : "Share an update"}
+        <span className="inline-flex min-h-12 items-center gap-2.5 rounded-full border border-border/70 bg-background px-4 py-2 text-xs font-bold text-foreground shadow-sm sm:max-w-60">
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-blue-500" />
+          <span>Public · Freelance Network</span>
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
+        <label className="block space-y-2.5" htmlFor="newsfeed-post-text">
+          <ComposerSectionLabel>
+            {originalId ? "Add your perspective" : "Share an update"}
+          </ComposerSectionLabel>
           <Textarea
             id="newsfeed-post-text"
-            className="mt-2 min-h-28 resize-y rounded-xl border-slate-200 bg-background px-4 py-3 text-base leading-6 dark:border-slate-700"
+            className="min-h-48 resize-y rounded-[1.5rem] border-transparent bg-muted/35 px-5 py-5 text-base leading-7 placeholder:text-muted-foreground/80 focus-visible:border-primary/30 sm:min-h-56 sm:px-6 sm:py-6"
             value={body}
             disabled={busy}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(event) => setBody(event.target.value)}
             placeholder={originalId ? "What do you think about this?" : "What are you working on?"}
           />
         </label>
         {files.length > 0 && (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <ul aria-label="Post uploads" className="grid grid-cols-2 gap-3">
             {files.map((file) => (
-              <li
-                key={file.key}
-                className="min-w-0 rounded-xl border bg-slate-50 p-2 dark:bg-slate-900"
-              >
+              <li key={file.key} className="min-w-0 rounded-2xl border bg-muted/25 p-2.5">
                 {file.file.type.startsWith("image/") ? (
                   <img
                     src={file.preview}
                     alt={file.file.name}
-                    className="h-32 w-full rounded-md object-cover"
+                    className="h-32 w-full rounded-xl object-cover"
                   />
                 ) : (
                   <video
                     src={file.preview}
                     controls
                     preload="metadata"
-                    className="h-32 w-full object-contain"
+                    className="h-32 w-full rounded-xl bg-black object-contain"
                   >
                     <track kind="captions" />
                   </video>
                 )}
-                <p className="mt-2 truncate text-xs" title={file.file.name}>
+                <p className="mt-2 truncate text-xs font-semibold" title={file.file.name}>
                   {file.file.name}
                 </p>
                 {file.file.type.startsWith("image/") && (
@@ -266,7 +271,7 @@ export function Composer({
                     size="sm"
                     disabled={busy || Boolean(file.id)}
                     onClick={() => setEditingImageKey(file.key)}
-                    className="mt-2 h-8 w-full"
+                    className="mt-2 h-9 w-full rounded-full"
                   >
                     Edit image
                   </Button>
@@ -275,7 +280,7 @@ export function Composer({
                   aria-label={`Uploading ${file.file.name}`}
                   max={100}
                   value={file.progress}
-                  className="mt-2 w-full"
+                  className="mt-2 w-full accent-primary"
                 />
                 <Button
                   type="button"
@@ -283,7 +288,7 @@ export function Composer({
                   size="sm"
                   disabled={busy}
                   onClick={() => void remove(file)}
-                  className="mt-1 h-7 px-1 text-xs text-muted-foreground"
+                  className="mt-1 h-8 rounded-full px-2 text-xs text-muted-foreground"
                 >
                   Remove
                 </Button>
@@ -291,46 +296,63 @@ export function Composer({
             ))}
           </ul>
         )}
-        <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-900/50">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">Add to your post</p>
-            <div className="flex gap-2">
+        <div className="flex flex-col gap-3 rounded-[1.5rem] bg-muted/25 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="text-[0.68rem] font-bold tracking-wide text-muted-foreground uppercase">
+            Add to your post
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Add photo"
+              title="Add photo"
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+              className="size-12 rounded-2xl bg-background shadow-sm"
+            >
+              <ImagePlus aria-hidden="true" className="size-5 text-emerald-600" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Add video"
+              title="Add video"
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+              className="size-12 rounded-2xl bg-background shadow-sm"
+            >
+              <Video aria-hidden="true" className="size-5 text-rose-500" />
+            </Button>
+            {!originalId && (
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                onClick={() => fileInput.current?.click()}
-              >
-                <ImagePlus aria-hidden="true" className="mr-1.5 size-4 text-emerald-600" /> Photo
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInput.current?.click()}
-              >
-                <Video aria-hidden="true" className="mr-1.5 size-4 text-rose-600" /> Video
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
+                size="icon"
+                aria-label="Add tags"
+                title="Add tags"
+                disabled={busy}
                 onClick={() => document.getElementById("newsfeed-post-tags")?.focus()}
+                className="size-12 rounded-2xl bg-background shadow-sm"
               >
-                <Tags aria-hidden="true" className="mr-1.5 size-4 text-orange-600" /> Tags
+                <Hash aria-hidden="true" className="size-5 text-orange-600" />
               </Button>
+            )}
+            {!originalId && (
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="icon"
+                aria-label="Attach a milestone"
+                title="Attach a milestone"
+                disabled={busy || milestones === undefined || !milestones.length}
                 onClick={() => document.getElementById("newsfeed-milestone")?.focus()}
+                className="size-12 rounded-2xl bg-background shadow-sm"
               >
-                <span aria-hidden="true" className="mr-1.5 text-orange-600">
-                  ✺
-                </span>{" "}
-                Milestone
+                <Award aria-hidden="true" className="size-5 text-amber-500" />
               </Button>
-            </div>
+            )}
           </div>
           <Input
             ref={fileInput}
@@ -341,59 +363,36 @@ export function Composer({
             multiple
             accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
             disabled={busy}
-            onChange={(e) => addFiles(e.target.files)}
+            onChange={(event) => addFiles(event.target.files)}
           />
         </div>
         {!originalId && (
-          <div className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-2">
-            <label className="block text-sm font-medium" htmlFor="newsfeed-post-tags">
-              Tags
-              <Input
-                id="newsfeed-post-tags"
-                value={tagText}
-                onChange={(event) => setTagText(event.target.value)}
-                disabled={busy}
-                placeholder="Figma, DesignSystems"
-                className="mt-1"
-                aria-describedby="newsfeed-post-tags-help"
-              />
-              <span
-                id="newsfeed-post-tags-help"
-                className="mt-1 block text-xs text-muted-foreground"
-              >
-                Add up to five tags, separated by commas or spaces.
-              </span>
-              {!!tagSuggestions?.length && (
-                <span className="mt-2 flex flex-wrap gap-1.5">
-                  {tagSuggestions
-                    .flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
-                    .slice(0, 5)
-                    .map((tag) => {
-                      const selected = selectedTags.some(
-                        (item) => item.toLowerCase() === tag.toLowerCase(),
-                      );
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          aria-pressed={selected}
-                          disabled={busy}
-                          onClick={() => toggleTag(tag)}
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                            selected
-                              ? "bg-orange-600 text-white"
-                              : "bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 dark:bg-slate-800 dark:text-slate-200"
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      );
-                    })}
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="min-w-0 space-y-2.5">
+              <label className="block space-y-2.5" htmlFor="newsfeed-post-tags">
+                <ComposerSectionLabel>Tags</ComposerSectionLabel>
+                <Input
+                  id="newsfeed-post-tags"
+                  value={tagText}
+                  onChange={(event) => setTagText(event.target.value)}
+                  disabled={busy}
+                  placeholder="Figma, DesignSystems"
+                  className="h-14 rounded-2xl border-transparent bg-muted/35 px-4 text-base font-medium"
+                  aria-describedby="newsfeed-post-tags-help"
+                />
+                <span id="newsfeed-post-tags-help" className="block text-xs text-muted-foreground">
+                  Add up to five tags, separated by commas or spaces.
                 </span>
-              )}
-            </label>
-            <label className="block text-sm font-medium" htmlFor="newsfeed-milestone">
-              Attach a milestone (optional)
+              </label>
+              <SuggestedTagChips
+                tags={postTags}
+                selectedTags={selectedTags}
+                disabled={busy}
+                onToggle={toggleTag}
+              />
+            </div>
+            <label className="block min-w-0 space-y-2.5" htmlFor="newsfeed-milestone">
+              <ComposerSectionLabel>Attach a milestone (optional)</ComposerSectionLabel>
               <select
                 id="newsfeed-milestone"
                 value={milestoneId}
@@ -402,9 +401,11 @@ export function Composer({
                   setMilestoneConfirmed(false);
                 }}
                 disabled={busy || milestones === undefined || !milestones.length}
-                className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="h-14 w-full rounded-2xl border border-transparent bg-muted/35 px-4 text-base font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="">No milestone</option>
+                <option value="">
+                  {milestones?.length === 0 ? "No milestone available" : "No milestone"}
+                </option>
                 {milestones?.map((milestone) => (
                   <option key={milestone.id} value={milestone.id}>
                     {milestone.title} · {milestone.status}
@@ -412,19 +413,19 @@ export function Composer({
                 ))}
               </select>
               {milestones?.length === 0 && (
-                <span className="mt-1 block text-xs text-muted-foreground">
+                <span className="block px-1 text-xs leading-relaxed text-muted-foreground">
                   No participant milestones are available to attach.
                 </span>
               )}
             </label>
             {selectedMilestone && (
-              <label className="flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-950 sm:col-span-2 dark:bg-orange-950/30 dark:text-orange-100">
+              <label className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm leading-relaxed text-foreground md:col-span-2">
                 <input
                   type="checkbox"
                   checked={milestoneConfirmed}
                   onChange={(event) => setMilestoneConfirmed(event.target.checked)}
                   disabled={busy}
-                  className="mt-1 accent-orange-600"
+                  className="mt-1 size-4 shrink-0 accent-primary"
                 />
                 <span>
                   I confirm this public post may show “{selectedMilestone.title}” and its current
@@ -436,7 +437,10 @@ export function Composer({
           </div>
         )}
         {error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
             {error}
           </p>
         )}
@@ -451,18 +455,24 @@ export function Composer({
           }}
         />
       </div>
-      <footer className="flex items-center justify-between gap-3 border-t bg-slate-50 px-6 py-4 dark:bg-slate-900">
-        <p className="text-xs text-muted-foreground">
+      <footer className="flex shrink-0 flex-col gap-3 border-t bg-muted/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
           Failed uploads can be retried. Your draft stays in this window until you publish.
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           {busy && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => abort.current?.abort()}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => abort.current?.abort()}
+              className="shrink-0"
+            >
               Cancel upload
             </Button>
           )}
           <Button
-            className="hr-v2-button-primary px-5 disabled:opacity-50"
+            className="hr-v2-button-primary min-h-14 flex-1 rounded-full px-6 text-base font-semibold shadow-lg shadow-orange-500/10 disabled:opacity-50 sm:w-56 sm:flex-none"
             type="button"
             disabled={
               busy ||
@@ -604,6 +614,7 @@ export function Composer({
               <Button
                 type="submit"
                 size="sm"
+                aria-label={busy ? "Publishing" : error ? "Retry publishing" : "Publish"}
                 disabled={busy || !body.trim() || Boolean(milestoneId && !milestoneConfirmed)}
                 className="hr-v2-button-primary ml-0 h-14 w-[7.625rem] min-w-0 shrink-0 justify-center gap-1 rounded-full px-5 text-base font-semibold sm:ml-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
               >
@@ -633,10 +644,13 @@ export function Composer({
           if (!next && originalId) onDone?.();
         }}
       >
-        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,62rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
-          <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
-            <DialogTitle className="text-xl">{originalId ? "Repost" : "Create Post"}</DialogTitle>
-            <DialogDescription className="text-sm">
+        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,58rem)] max-w-[42rem] flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
+          <MobileDialogClose />
+          <DialogHeader className="shrink-0 border-b px-5 py-5 pr-12 text-left sm:px-8 sm:py-6 sm:pr-14">
+            <DialogTitle className="text-[1.7rem] leading-tight tracking-tight sm:text-[2rem]">
+              {originalId ? "Repost" : "Create Post"}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed sm:text-base">
               Share a milestone, deliverable, or update with your freelance network.
             </DialogDescription>
           </DialogHeader>

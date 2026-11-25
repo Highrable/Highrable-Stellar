@@ -277,3 +277,55 @@ it("uploads an edited story image after applying edits to the draft", async () =
     }
   }
 });
+
+it("accepts dropped showcase media and publishes it through the upload flow", async () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:dropped-story-draft"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  mock.mutate.mockImplementation(async (ref: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(ref).endsWith("beginStory") ? "story-draft" : undefined,
+  );
+  mock.uploadMedia.mockResolvedValue("uploaded-dropped-story");
+
+  try {
+    render(<Stories />);
+    fireEvent.click(screen.getByRole("button", { name: "Create a showcase" }));
+    const dropzone = await screen.findByRole("button", {
+      name: "Add photos or videos to your showcase",
+    });
+    const file = new File(["image bytes"], "dropped-dashboard.png", { type: "image/png" });
+
+    fireEvent.dragOver(dropzone, { dataTransfer: { files: [file] } });
+    expect(dropzone.className).toContain("border-primary bg-primary/10");
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+
+    expect(await screen.findByText("dropped-dashboard.png")).toBeTruthy();
+    expect(dropzone.className).not.toContain("border-primary bg-primary/10");
+    fireEvent.click(screen.getByRole("button", { name: "Share showcase" }));
+    await waitFor(() => expect(mock.uploadMedia).toHaveBeenCalled());
+    expect(mock.uploadMedia.mock.calls[0]?.[1].file).toBe(file);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  } finally {
+    cleanup();
+    if (originalCreate) {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreate,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (originalRevoke) {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevoke,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  }
+});

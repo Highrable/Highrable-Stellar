@@ -15,10 +15,11 @@ import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/reac
 import { ChevronLeft, ChevronRight, Clock3, Globe2, ImagePlus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 import type { FunctionReturnType } from "convex/server";
 
+import { ComposerSectionLabel, MobileDialogClose, SuggestedTagChips } from "./composer-ui";
 import { MediaItem } from "./feed";
 import { ImageEditor } from "./image-editor";
 import { uploadMedia } from "./media-client";
@@ -152,6 +153,7 @@ function StoryComposer({
   const [note, setNote] = useState("");
   const [tagText, setTagText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
   const [editingImageKey, setEditingImageKey] = useState<string | null>(null);
   const selectedTags = tagText
@@ -192,6 +194,34 @@ function StoryComposer({
     } catch (reason) {
       setError(errorText(reason));
     }
+  }
+  function addFiles(list: FileList | null) {
+    const added = Array.from(list ?? []).map((file) => {
+      const preview = URL.createObjectURL(file);
+      previews.current.add(preview);
+      return {
+        key: crypto.randomUUID(),
+        file,
+        preview,
+        poster: createStoryPoster(file),
+        progress: 0,
+      };
+    });
+    setFiles((current) => [...current, ...added]);
+    if (fileInput.current) fileInput.current.value = "";
+  }
+  function handleDragOver(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (!busy) setDragActive(true);
+  }
+  function handleDragLeave(event: DragEvent<HTMLButtonElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setDragActive(false);
+  }
+  function handleDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    if (!busy) addFiles(event.dataTransfer.files);
   }
   function applyImageEdits(key: string, edited: File) {
     setFiles((current) =>
@@ -262,19 +292,22 @@ function StoryComposer({
   if (!viewer) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,50rem)] max-w-[45rem] flex-col gap-0 overflow-hidden rounded-2xl border bg-background p-0">
-        <DialogHeader className="border-b px-4 py-4 text-left sm:px-6 sm:py-5">
-          <div className="flex items-center gap-2">
-            <DialogTitle className="text-xl">Create a showcase</DialogTitle>
-            <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
+      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,52rem)] max-w-[42rem] flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
+        <MobileDialogClose />
+        <DialogHeader className="shrink-0 border-b px-5 py-5 pr-12 text-left sm:px-8 sm:py-6 sm:pr-14">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <DialogTitle className="text-[1.65rem] leading-tight tracking-tight sm:text-[2rem]">
+              Create a showcase
+            </DialogTitle>
+            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
               WIP
             </span>
           </div>
-          <DialogDescription className="text-sm">
+          <DialogDescription className="max-w-[38rem] text-sm leading-relaxed sm:text-base">
             Share raw snapshots, design artifacts, or quick work in progress for 24 hours.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:px-6 dark:bg-slate-900 dark:text-slate-300">
+        <div className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-[0.7rem] font-bold text-muted-foreground sm:mx-8 sm:px-5">
           <span className="inline-flex items-center gap-2">
             <Clock3 aria-hidden="true" className="size-4 text-orange-600" /> Auto-expires in 24
             hours
@@ -284,16 +317,38 @@ function StoryComposer({
             &amp; Clients
           </span>
         </div>
-        <div className="min-h-0 space-y-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
+        <div className="min-h-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
+          <section aria-labelledby="newsfeed-showcase-upload-label" className="space-y-2.5">
+            <h3 id="newsfeed-showcase-upload-label">
+              <ComposerSectionLabel>Upload artifacts</ComposerSectionLabel>
+            </h3>
+            <button
               type="button"
-              variant="outline"
+              aria-label="Add photos or videos to your showcase"
+              aria-describedby="newsfeed-showcase-upload-help"
+              disabled={busy}
               onClick={() => fileInput.current?.click()}
-              className="h-11 rounded-xl bg-slate-50 px-4 font-semibold dark:bg-slate-900"
+              onDragEnter={handleDragOver}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`flex min-h-48 w-full flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed px-5 py-7 text-center transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-52 ${
+                dragActive
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
+              }`}
             >
-              <ImagePlus className="mr-2 size-4 text-orange-600" /> Add photos or videos
-            </Button>
+              <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-background text-orange-600 shadow-sm ring-1 ring-border/70">
+                <ImagePlus aria-hidden="true" className="size-7" />
+              </span>
+              <span className="text-base font-bold text-foreground">Add photos or videos</span>
+              <span
+                id="newsfeed-showcase-upload-help"
+                className="mt-1 text-sm text-muted-foreground"
+              >
+                Drag and drop or click to browse
+              </span>
+            </button>
             <Input
               ref={fileInput}
               className="sr-only"
@@ -302,148 +357,109 @@ function StoryComposer({
               multiple
               accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
               disabled={busy}
-              onChange={(event) => {
-                const added = Array.from(event.target.files ?? []).map((file) => {
-                  const preview = URL.createObjectURL(file);
-                  previews.current.add(preview);
-                  return {
-                    key: crypto.randomUUID(),
-                    file,
-                    preview,
-                    poster: createStoryPoster(file),
-                    progress: 0,
-                  };
-                });
-                setFiles((current) => [...current, ...added]);
-                event.target.value = "";
-              }}
+              onChange={(event) => addFiles(event.target.files)}
             />
-            <span className="text-xs text-muted-foreground">
-              Add photos or videos to your showcase
-            </span>
-          </div>
+          </section>
           {files.length > 0 && (
-            <ul className="space-y-3">
+            <ul aria-label="Showcase uploads" className="grid gap-3 sm:grid-cols-2">
               {files.map((file) => (
                 <li
                   key={file.key}
-                  className="flex flex-col gap-3 rounded-xl border bg-slate-50 p-3 sm:flex-row sm:items-center dark:bg-slate-900"
+                  className="min-w-0 rounded-2xl border border-border/70 bg-muted/20 p-3"
                 >
                   {file.file.type.startsWith("image/") ? (
                     <img
                       src={file.preview}
                       alt={file.file.name}
-                      className="h-28 w-full rounded-lg object-cover sm:w-44"
+                      className="h-36 w-full rounded-xl object-cover"
                     />
                   ) : (
                     <video
                       src={file.preview}
                       controls
                       preload="metadata"
-                      className="h-28 w-full rounded-lg bg-black object-contain sm:w-44"
+                      className="h-36 w-full rounded-xl bg-black object-contain"
                     >
                       <track kind="captions" />
                     </video>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{file.file.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {(file.file.size / (1024 * 1024)).toFixed(1)} MB · {file.file.type || "Media"}
-                    </p>
-                    <progress
-                      aria-label={`Uploading ${file.file.name}`}
-                      max={100}
-                      value={file.progress}
-                      className="mt-3 w-full"
-                    />
-                    <div className="mt-2 flex gap-2">
-                      {file.file.type.startsWith("image/") && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={busy || Boolean(file.id)}
-                          onClick={() => setEditingImageKey(file.key)}
-                        >
-                          Edit image
-                        </Button>
-                      )}
+                  <p className="mt-2 truncate text-sm font-semibold" title={file.file.name}>
+                    {file.file.name}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {(file.file.size / (1024 * 1024)).toFixed(1)} MB · {file.file.type || "Media"}
+                  </p>
+                  <progress
+                    aria-label={`Uploading ${file.file.name}`}
+                    max={100}
+                    value={file.progress}
+                    className="mt-3 w-full accent-primary"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {file.file.type.startsWith("image/") && (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        disabled={busy}
-                        onClick={() => void remove(file)}
+                        disabled={busy || Boolean(file.id)}
+                        onClick={() => setEditingImageKey(file.key)}
+                        className="rounded-full"
                       >
-                        <Trash2 className="mr-1.5 size-3.5" /> Remove
+                        Edit image
                       </Button>
-                    </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => void remove(file)}
+                      className="rounded-full text-muted-foreground"
+                    >
+                      <Trash2 aria-hidden="true" className="mr-1.5 size-3.5" /> Remove
+                    </Button>
                   </div>
                 </li>
               ))}
             </ul>
           )}
-          <label htmlFor="newsfeed-spark-note" className="block text-sm font-medium">
-            Add context or a deliverable note
+          <label htmlFor="newsfeed-spark-note" className="block space-y-2.5">
+            <ComposerSectionLabel>Add context or a deliverable note</ComposerSectionLabel>
             <Textarea
               id="newsfeed-spark-note"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               disabled={busy}
               maxLength={500}
-              className="mt-2 min-h-24 rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-base dark:border-slate-700 dark:bg-slate-900"
+              className="min-h-36 resize-y rounded-[1.5rem] border-transparent bg-muted/35 px-5 py-4 text-base leading-6 placeholder:text-muted-foreground/80 focus-visible:border-primary/30"
               placeholder="What are you tweaking? For example, iterating on a checkout metrics dashboard before client sign-off…"
             />
           </label>
-          <label htmlFor="newsfeed-spark-tags" className="block text-sm font-medium">
-            Suggested craft tags
+          <label htmlFor="newsfeed-spark-tags" className="block space-y-2.5">
+            <ComposerSectionLabel>Suggested craft tags</ComposerSectionLabel>
             <Input
               id="newsfeed-spark-tags"
               value={tagText}
               onChange={(event) => setTagText(event.target.value)}
               disabled={busy}
               placeholder="WIP, Figma, Dashboard"
-              className="mt-2 rounded-xl"
+              className="h-14 rounded-2xl border-transparent bg-muted/35 px-4 text-base font-medium"
+              aria-describedby="newsfeed-spark-tags-help"
             />
-            <span className="mt-1 block text-xs text-muted-foreground">
+            <span id="newsfeed-spark-tags-help" className="block text-xs text-muted-foreground">
               Add up to five tags, separated by commas or spaces.
             </span>
           </label>
-          {!!suggestedTags?.length && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                Popular tags
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {suggestedTags
-                  .flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
-                  .slice(0, 5)
-                  .map((tag) => {
-                    const selected = selectedTags.some(
-                      (item) => item.toLowerCase() === tag.toLowerCase(),
-                    );
-                    return (
-                      <Button
-                        key={tag}
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        aria-pressed={selected}
-                        onClick={() => toggleSuggestedTag(tag)}
-                        className={
-                          selected
-                            ? "rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-200"
-                            : "rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        }
-                      >
-                        #{tag}
-                      </Button>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
+          <SuggestedTagChips
+            tags={
+              suggestedTags
+                ?.flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
+                .slice(0, 5) ?? []
+            }
+            selectedTags={selectedTags}
+            disabled={busy}
+            onToggle={toggleSuggestedTag}
+          />
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -460,11 +476,16 @@ function StoryComposer({
             }}
           />
         </div>
-        <footer className="flex items-center justify-between gap-3 border-t bg-slate-50 px-6 py-4 dark:bg-slate-900">
+        <footer className="flex shrink-0 flex-col gap-3 border-t bg-muted/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p className="text-xs text-muted-foreground">Showcases stay visible for 24 hours.</p>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             {busy && (
-              <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => abort.current?.abort()}
+                className="shrink-0"
+              >
                 Cancel upload
               </Button>
             )}
@@ -472,7 +493,7 @@ function StoryComposer({
               type="button"
               disabled={busy || files.length === 0}
               onClick={() => void publish()}
-              className="hr-v2-button-primary rounded-xl px-5"
+              className="hr-v2-button-primary min-h-14 flex-1 rounded-full px-6 text-base font-semibold shadow-lg shadow-orange-500/10 sm:w-56 sm:flex-none"
             >
               {busy ? "Publishing…" : error ? "Retry publishing" : "Share showcase"}
             </Button>

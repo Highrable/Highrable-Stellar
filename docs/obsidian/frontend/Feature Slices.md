@@ -22,6 +22,7 @@ source_of_truth: repository
 | `landing` / `landing-v2` | Marketing/landing pages. | `landing-page.tsx`, `landing-v2-page.tsx` |
 | `marketplace` | Marketplace, job detail, application, escrow and sync hooks. | `marketplace-page.tsx`, `job-detail-page.tsx`, hooks |
 | `mode` | App-wide Freelancer/Client mode: provider, header switch, banner, `ModeGate`/`ModeOnly`, per-mode navigation. | `mode-provider.tsx`, `mode-config.ts`, `mode-gate.tsx` |
+| `newsfeed` | Verified-session social feed, post/repost composer, expiring showcases, and media editing. | `newsfeed-page.tsx`, `composer.tsx`, `stories.tsx`, `image-editor.tsx` |
 | `onboarding` | Wallet-linked profile setup and avatar upload. | `onboarding-page.tsx` |
 | `post-job` | Job creation UI. | `post-job-page.tsx` |
 | `proof` | Public escrow proof page and status/timeline/reputation display. | `escrow-proof-page.tsx` |
@@ -40,6 +41,7 @@ source_of_truth: repository
 - `/jobs` redirects to `/marketplace` (the single "Jobs and Applications" page). The My Work dashboard shows freelancer lists as tabs (Applied Jobs, Jobs in Progress, Payments Received). The mode switch and the connected-wallet card live only on the user's own profile pages. UI copy uses Title Case headings and plain words (payment hold, currency) instead of escrow/asset jargon, except on admin and dispute transaction-state screens.
 - Disputes (list, detail, composers, timeline, dialog) and admin pages share the same band/card/badge styling.
 - `TermHint` (`features/common/components/term-hint.tsx`) holds plain-language definitions (`PLAIN_TERMS`) for jargon such as escrow and wallet.
+- Newsfeed showcase uploads accept both file selection and drag-and-drop, then use the same preview, image-edit, removal, progress, cancellation, and retry flow. Post audiences remain informational, and attaching a milestone still requires explicit public confirmation.
 
 ## Cross-slice rules
 

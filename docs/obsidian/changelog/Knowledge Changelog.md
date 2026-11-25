@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-11-25
 
+- Refreshed the Newsfeed showcase, post/repost, and image-edit dialogs with responsive, theme-aware layouts. Showcase uploads now support drag-and-drop through the existing media draft flow; preview, edit, removal, progress, cancellation, retries, verified-session gating, and milestone confirmation remain intact. See [[frontend/Feature Slices]].
 - Preserved the verified Newsfeed session during profile navigation through a shared route layout. Identity readers also preserve the selected external wallet when both wallet types are connected. See [[architecture/Authentication Boundaries]] and [[modules/Wallets and Passkeys]].
 - Matched the public Newsfeed profile onboarding exemption to the feed so opening a member's profile preserves the active session while marketplace onboarding is loading or incomplete. See [[architecture/Authentication Boundaries]].
 - Restored the signed-identity persistence barrier for administrator dispute settlement and added an on-chain escrow check before releasing an older hashless attempt for retry. See [[stellar/Transaction Lifecycle]].

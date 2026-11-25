@@ -2,13 +2,15 @@
 
 import { Button } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useEffect, useRef, useState } from "react";
+
+import { MobileDialogClose } from "./composer-ui";
 
 const stickers = ["✨", "🎉", "💡", "❤️", "🙌", "🚀", "😊", "🌿"];
 
@@ -86,16 +88,17 @@ export function ImageEditor({
 
   return (
     <Dialog open={Boolean(file)} onOpenChange={onOpenChange}>
-      <DialogContent className="hr-newsfeed-dialog max-h-[92dvh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit image</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="hr-newsfeed-dialog max-h-[min(92dvh,54rem)] max-w-2xl gap-0 overflow-x-hidden overflow-y-auto rounded-[1.75rem] border bg-background p-5 sm:p-7">
+        <MobileDialogClose />
+        <DialogHeader className="shrink-0 border-b-0 p-0 pr-10 pb-5 text-left">
+          <DialogTitle className="text-2xl tracking-tight">Edit image</DialogTitle>
+          <DialogDescription className="leading-relaxed">
             Crop the image, add a caption or choose an emoji sticker. Changes are applied before
             upload.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl bg-black">
+        <div className="min-h-0 space-y-5">
+          <div className="overflow-hidden rounded-2xl bg-black shadow-sm">
             <canvas
               ref={canvas}
               width={720}
@@ -118,7 +121,7 @@ export function ImageEditor({
               aria-label="Crop zoom"
             />
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 rounded-2xl bg-muted/25 p-4 sm:grid-cols-2">
             <label className="block text-sm font-medium">
               Crop left to right
               <input
@@ -152,7 +155,7 @@ export function ImageEditor({
               value={text}
               onChange={(event) => setText(event.target.value.slice(0, 120))}
               maxLength={120}
-              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="mt-2 block h-12 w-full rounded-xl border border-input bg-background px-4 text-sm"
               placeholder="Add a short caption"
             />
           </label>
@@ -180,11 +183,21 @@ export function ImageEditor({
               {error}
             </p>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <div className="flex flex-col-reverse justify-end gap-2 border-t pt-4 sm:flex-row">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              className="rounded-full px-5"
+            >
               Cancel
             </Button>
-            <Button type="button" disabled={!ready} onClick={() => void save()}>
+            <Button
+              type="button"
+              disabled={!ready}
+              onClick={() => void save()}
+              className="hr-v2-button-primary min-h-11 rounded-full px-6"
+            >
               Apply edits
             </Button>
           </div>

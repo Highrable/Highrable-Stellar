@@ -569,9 +569,7 @@ input::selection {
 [data-product-ui="refresh"]
   :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]):not(
     [data-product-ui="preserve"]
-  ):not(
-    [data-product-ui="preserve"] *
-  ) {
+  ):not([data-product-ui="preserve"] *) {
   border-radius: var(--highrable-product-card-radius);
   box-shadow: var(--highrable-product-card-shadow);
 }

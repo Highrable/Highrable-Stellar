@@ -515,7 +515,7 @@ export function Composer({
                 rows={1}
                 maxLength={1200}
                 placeholder="What's on your mind?"
-                className="min-h-12 flex-1 resize-none rounded-none border-0 bg-transparent px-0 py-2 text-xl leading-7 shadow-none placeholder:text-slate-400 focus-visible:ring-0 dark:bg-transparent sm:rounded-xl sm:border sm:border-slate-200 sm:bg-slate-50 sm:px-4 sm:py-3 sm:text-sm sm:leading-5 dark:sm:border-slate-700 dark:sm:bg-slate-900"
+                className="min-h-12 flex-1 resize-none rounded-none border-0 bg-transparent px-0 py-2 text-xl leading-7 shadow-none placeholder:text-slate-400 focus-visible:ring-0 sm:rounded-xl sm:border sm:border-slate-200 sm:bg-slate-50 sm:px-4 sm:py-3 sm:text-sm sm:leading-5 dark:bg-transparent dark:sm:border-slate-700 dark:sm:bg-slate-900"
               />
               <Button
                 type="button"

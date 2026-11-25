@@ -822,7 +822,10 @@ export function Stories() {
   );
   if (groups === undefined)
     return (
-      <section aria-label="Showcase" className="hr-card-surface hr-newsfeed-showcase rounded-2xl p-0 sm:p-4">
+      <section
+        aria-label="Showcase"
+        className="hr-card-surface hr-newsfeed-showcase rounded-2xl p-0 sm:p-4"
+      >
         <p role="status" className="text-sm text-muted-foreground">
           Loading showcase…
         </p>

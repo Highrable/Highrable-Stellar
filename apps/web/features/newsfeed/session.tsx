@@ -10,9 +10,14 @@ import type { FunctionReturnType } from "convex/server";
 
 type Viewer = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.viewer>>;
 
-const Session = createContext<{ token: string; viewer: Viewer | null | undefined }>({
+const Session = createContext<{
+  token: string;
+  viewer: Viewer | null | undefined;
+  status: React.ReactNode;
+}>({
   token: "",
   viewer: null,
+  status: null,
 });
 export const useSocialSession = () => useContext(Session);
 const encode = (buffer: ArrayBuffer) =>
@@ -156,35 +161,35 @@ export function SocialSession({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, [identity.isConnected, identity.walletAddress, identity.walletType, attempt, token]);
-  return (
-    <Session.Provider value={{ token, viewer }}>
-      {(!identity.isConnected || busy || error || viewer === null) && (
-        <aside className="hr-card-surface space-y-2 p-4 text-sm">
-          {!identity.isConnected ? (
-            <p>Connect your wallet to post, react, and comment.</p>
-          ) : busy ? (
-            <p role="status">Connecting to the newsfeed…</p>
-          ) : error ? (
-            <>
-              <p role="alert">{error}</p>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto px-0"
-                onClick={() => {
-                  setError("");
-                  setAttempt((value) => value + 1);
-                }}
-              >
-                Retry connection
-              </Button>
-            </>
-          ) : viewer === null ? (
-            <p role="status">Setting up your newsfeed profile…</p>
-          ) : null}
-        </aside>
-      )}
-      {children}
-    </Session.Provider>
+  const status = (!identity.isConnected || busy || error || viewer === null) && (
+    <aside className="hr-card-surface space-y-2 p-4 text-sm">
+      {!identity.isConnected ? (
+        <p>Connect your wallet to post, react, and comment.</p>
+      ) : busy ? (
+        <p role="status">Connecting to the newsfeed…</p>
+      ) : error ? (
+        <>
+          <p role="alert">{error}</p>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto px-0"
+            onClick={() => {
+              setError("");
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Retry connection
+          </Button>
+        </>
+      ) : viewer === null ? (
+        <p role="status">Setting up your newsfeed profile…</p>
+      ) : null}
+    </aside>
   );
+  return <Session.Provider value={{ token, viewer, status }}>{children}</Session.Provider>;
+}
+
+export function SocialSessionStatus() {
+  return useSocialSession().status;
 }

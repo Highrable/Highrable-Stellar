@@ -11,6 +11,9 @@ const runtime = vi.hoisted(() => ({
 }));
 
 vi.mock("@/core/config/env", () => ({ env: runtime.env }));
+vi.mock("./smart-account-kit", () => ({ getSmartAccountKit: vi.fn() }));
+vi.mock("./stablecoin-config", () => ({ stablecoinConfig: { decimals: 6 } }));
+vi.mock("./passkeySmartAccountExecutor", () => ({ executeWithPasskeySmartAccount: vi.fn() }));
 
 vi.mock("@stellar/stellar-sdk", () => {
   class FakeContract {
@@ -65,8 +68,14 @@ vi.mock("@stellar/stellar-sdk", () => {
   }
 
   return {
+    Address: class {
+      toScVal() {
+        return {};
+      }
+    },
     BASE_FEE: "100",
     Contract: FakeContract,
+    nativeToScVal: vi.fn(),
     TransactionBuilder: FakeTransactionBuilder,
     scValToNative: vi.fn(() => "return-value"),
     rpc: {
@@ -82,6 +91,7 @@ vi.mock("@stellar/stellar-sdk", () => {
   };
 });
 
+import { resolveDisputeOnChain } from "./escrow-contract";
 import { invokeContract } from "./transaction";
 
 const invokeParams = {
@@ -141,6 +151,40 @@ describe("invokeContract execution phases and recovery identity", () => {
       transactionValidUntil: 123,
     });
     expect(result.transactionValidUntil).toBe(123);
+  });
+
+  it("waits for the admin settlement API to record the signed identity before sending", async () => {
+    const operationId = "resolve_dispute:case:operation";
+    const error = new Error("Settlement identity could not be recorded.");
+    const onSigned = vi.fn().mockRejectedValueOnce(error).mockResolvedValueOnce(undefined);
+    const resolve = () =>
+      resolveDisputeOnChain({
+        rpcUrl: invokeParams.rpcUrl,
+        networkPassphrase: invokeParams.networkPassphrase,
+        sourceAddress: invokeParams.sourceAddress,
+        escrowContractId: invokeParams.contractId,
+        disputeAdmin: invokeParams.sourceAddress,
+        escrowId: "1",
+        freelancerShareBps: 0,
+        resolutionHash: new Uint8Array(32),
+        signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
+        operationId,
+        onSigned,
+      });
+
+    await expect(resolve()).rejects.toMatchObject({ message: error.message, txHash: "010203" });
+    expect(runtime.sendTransaction).not.toHaveBeenCalled();
+    expect(onSigned).toHaveBeenCalledWith({
+      operationId,
+      transactionHash: "010203",
+      transactionValidUntil: 123,
+    });
+
+    await resolve();
+    expect(runtime.sendTransaction).toHaveBeenCalledOnce();
+    expect(onSigned.mock.invocationCallOrder[1]).toBeLessThan(
+      runtime.sendTransaction.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("does not sign or submit when simulation/preparation fails", async () => {

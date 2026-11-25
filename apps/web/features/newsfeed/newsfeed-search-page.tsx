@@ -17,7 +17,7 @@ import { MediaItem, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
 import { FollowButton } from "./follow-button";
 import { NewsfeedSidebar } from "./newsfeed-sidebar";
-import { SocialSession } from "./session";
+import { SocialSessionStatus } from "./session";
 
 type Category = "all" | "people" | "opportunities" | "posts" | "sparks";
 type AllResults = FunctionReturnType<typeof api.newsfeed.queries.searchAll>;
@@ -366,74 +366,73 @@ export function NewsfeedSearchPage() {
   const [tag, setTag] = useState(initialTag);
   return (
     <FeedBoundary>
-      <SocialSession>
-        <div className="mx-auto w-full max-w-7xl space-y-4 px-3 py-3 sm:px-5 sm:py-4">
-          <header className="space-y-3">
-            <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
-              <ol className="flex items-center gap-2">
-                <li>Highrable</li>
-                <li aria-hidden="true">›</li>
-                <li>
-                  <Link href="/newsfeed" className="hover:text-orange-600">
-                    Newsfeed
-                  </Link>
-                </li>
-                <li aria-hidden="true">›</li>
-                <li className="font-medium text-slate-900 dark:text-slate-100">Search Results</li>
-              </ol>
-            </nav>
-            <form
-              className="flex gap-2 rounded-xl border bg-background p-2 shadow-sm"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const query = term.trim();
-                if (query.length < 2) return;
-                const params = new URLSearchParams({ q: query });
-                if (tag) params.set("tag", tag);
-                router.replace(`/newsfeed/search?${params.toString()}`);
-              }}
-            >
-              <Input
-                aria-label="Search Highrable"
-                value={term}
-                onChange={(event) => setTerm(event.target.value)}
-                placeholder="Search people, posts, showcases, opportunities"
-                className="h-10 min-w-0 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
-              />
-              <Button
-                type="submit"
-                className="rounded-md bg-orange-600 text-white hover:bg-orange-700"
-              >
-                <Search aria-hidden="true" className="mr-2 size-4" />
-                Search
-              </Button>
-            </form>
-            {tag && (
-              <div className="flex items-center gap-2 text-sm">
-                Tag filter <TagChip>#{tag}</TagChip>
-                <button
-                  type="button"
-                  className="text-muted-foreground underline"
-                  onClick={() => {
-                    setTag("");
-                    router.replace(`/newsfeed/search?q=${encodeURIComponent(term)}`);
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </header>
-          <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
-            <SearchResults
-              key={`${searchParams.get("q") ?? ""}:${initialTag}`}
-              term={term.trim()}
-              tag={tag}
+      <SocialSessionStatus />
+      <div className="mx-auto w-full max-w-7xl space-y-4 px-3 py-3 sm:px-5 sm:py-4">
+        <header className="space-y-3">
+          <nav aria-label="Breadcrumb" className="text-xs text-slate-500">
+            <ol className="flex items-center gap-2">
+              <li>Highrable</li>
+              <li aria-hidden="true">›</li>
+              <li>
+                <Link href="/newsfeed" className="hover:text-orange-600">
+                  Newsfeed
+                </Link>
+              </li>
+              <li aria-hidden="true">›</li>
+              <li className="font-medium text-slate-900 dark:text-slate-100">Search Results</li>
+            </ol>
+          </nav>
+          <form
+            className="flex gap-2 rounded-xl border bg-background p-2 shadow-sm"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const query = term.trim();
+              if (query.length < 2) return;
+              const params = new URLSearchParams({ q: query });
+              if (tag) params.set("tag", tag);
+              router.replace(`/newsfeed/search?${params.toString()}`);
+            }}
+          >
+            <Input
+              aria-label="Search Highrable"
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder="Search people, posts, showcases, opportunities"
+              className="h-10 min-w-0 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
-            <NewsfeedSidebar />
-          </div>
+            <Button
+              type="submit"
+              className="rounded-md bg-orange-600 text-white hover:bg-orange-700"
+            >
+              <Search aria-hidden="true" className="mr-2 size-4" />
+              Search
+            </Button>
+          </form>
+          {tag && (
+            <div className="flex items-center gap-2 text-sm">
+              Tag filter <TagChip>#{tag}</TagChip>
+              <button
+                type="button"
+                className="text-muted-foreground underline"
+                onClick={() => {
+                  setTag("");
+                  router.replace(`/newsfeed/search?q=${encodeURIComponent(term)}`);
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </header>
+        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(15rem,1fr)]">
+          <SearchResults
+            key={`${searchParams.get("q") ?? ""}:${initialTag}`}
+            term={term.trim()}
+            tag={tag}
+          />
+          <NewsfeedSidebar />
         </div>
-      </SocialSession>
+      </div>
     </FeedBoundary>
   );
 }

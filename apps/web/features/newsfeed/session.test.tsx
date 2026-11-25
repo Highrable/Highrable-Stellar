@@ -1,9 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 // @vitest-environment jsdom
+import SocialLayout from "@/app/(social)/layout";
+import SocialProfileRoute from "@/app/(social)/people/[profileId]/page";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React, { StrictMode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { SocialSession, useSocialSession } from "./session";
+import { SocialSession, SocialSessionStatus, useSocialSession } from "./session";
 
 const mocks = vi.hoisted(() => ({
   identity: { isConnected: true, walletAddress: "G-wallet", walletType: "external_wallet" },
@@ -11,6 +13,17 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   viewer: { _id: "viewer" } as { _id: string } | null | undefined,
   client: { mutation: vi.fn() },
+  profile: {
+    id: "another-member",
+    details: {
+      name: "Another member",
+      skills: [],
+      links: [],
+      workHistory: [],
+      certificates: [],
+      portfolio: [],
+    },
+  },
 }));
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => mocks.identity,
@@ -20,8 +33,17 @@ vi.mock("@/core/wallet/hooks/use-wallet", () => ({
 }));
 vi.mock("convex/react", () => ({
   useConvex: () => mocks.client,
-  useQuery: () => mocks.viewer,
+  useQuery: (_query: unknown, args: { profileId?: string } | "skip") =>
+    args !== "skip" && args.profileId ? mocks.profile : mocks.viewer,
+  useMutation: () => vi.fn(),
 }));
+vi.mock("@/core/wallet/components/wallet-status-card", () => ({
+  WalletStatusCard: () => null,
+}));
+vi.mock("@/features/mode", () => ({ ModeSwitchCard: () => null }));
+vi.mock("./follow-button", () => ({ FollowButton: () => null }));
+vi.mock("./feed", () => ({ Feed: () => <Consumer /> }));
+vi.mock("./image-editor", () => ({ ImageEditor: () => null }));
 function Consumer() {
   return <output data-testid="token">{useSocialSession().token}</output>;
 }
@@ -29,6 +51,7 @@ function App() {
   return (
     <StrictMode>
       <SocialSession>
+        <SocialSessionStatus />
         <Consumer />
       </SocialSession>
     </StrictMode>
@@ -116,4 +139,43 @@ it("retries profile creation without requesting another wallet session", async (
   fireEvent.click(screen.getByRole("button", { name: "Retry connection" }));
   await waitFor(() => expect(mocks.client.mutation).toHaveBeenCalledTimes(2));
   expect(mocks.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the verified passkey session when the newsfeed opens another member's profile", async () => {
+  mocks.identity = {
+    isConnected: true,
+    walletAddress: "C-wallet",
+    walletType: "passkey_smart_account",
+  };
+  const getCredential = vi.fn(async () => ({
+    rawId: new ArrayBuffer(1),
+    response: {
+      clientDataJSON: new ArrayBuffer(1),
+      authenticatorData: new ArrayBuffer(1),
+      signature: new ArrayBuffer(1),
+    },
+  }));
+  vi.stubGlobal("navigator", { credentials: { get: getCredential } });
+  mocks.fetch.mockImplementation(async (_url, options) =>
+    JSON.parse(options.body).action === "challenge"
+      ? { ok: true, json: async () => ({ challenge: "challenge", proof: "proof" }) }
+      : response(),
+  );
+  const view = render(
+    <SocialLayout>
+      <Consumer />
+    </SocialLayout>,
+  );
+  await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("verified"));
+
+  const profile = await SocialProfileRoute({
+    params: Promise.resolve({ profileId: mocks.profile.id }),
+  });
+  view.rerender(<SocialLayout>{profile}</SocialLayout>);
+
+  expect(screen.getByRole("heading", { name: "Another member" })).toBeTruthy();
+  expect(screen.getByTestId("token").textContent).toBe("verified");
+  expect(screen.queryByText("Connecting to the newsfeed…")).toBeNull();
+  expect(getCredential).toHaveBeenCalledOnce();
+  expect(mocks.fetch).toHaveBeenCalledTimes(2);
 });

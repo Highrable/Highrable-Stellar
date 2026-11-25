@@ -760,6 +760,7 @@ export async function resolveDisputeOnChain(
     signTransaction: params.signTransaction,
     walletType: params.walletType,
     operationId: params.operationId,
+    onSigned: params.onSigned,
     onPhase: params.onPhase,
   });
 }

@@ -10,7 +10,7 @@ import { Composer } from "./composer";
 import { Feed, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
 import { NewsfeedSidebar } from "./newsfeed-sidebar";
-import { SocialSession, useSocialSession } from "./session";
+import { SocialSessionStatus, useSocialSession } from "./session";
 import { Stories } from "./stories";
 
 function Permalink({ id }: { id: string }) {
@@ -117,9 +117,8 @@ export function NewsfeedPage({ postId }: { postId?: string }) {
       className={`hr-newsfeed-page mx-auto w-full px-3 py-3 sm:px-5 sm:py-4 ${postId ? "max-w-5xl" : "max-w-7xl max-sm:-mx-4 max-sm:w-[calc(100%+2rem)] max-sm:px-2 max-sm:py-0"}`}
     >
       <FeedBoundary>
-        <SocialSession>
-          <NewsfeedContent postId={postId} />
-        </SocialSession>
+        <SocialSessionStatus />
+        <NewsfeedContent postId={postId} />
       </FeedBoundary>
     </div>
   );

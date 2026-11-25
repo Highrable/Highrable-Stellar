@@ -2,11 +2,16 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-11-25
+
+- Preserved the verified Newsfeed session during profile navigation through a shared route layout. Identity readers also preserve the selected external wallet when both wallet types are connected. See [[architecture/Authentication Boundaries]] and [[modules/Wallets and Passkeys]].
+- Restored the signed-identity persistence barrier for administrator dispute settlement and added an on-chain escrow check before releasing an older hashless attempt for retry. See [[stellar/Transaction Lifecycle]].
 
 ## 2026-11-24
 

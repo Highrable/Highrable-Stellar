@@ -34,7 +34,7 @@ vi.mock("./newsfeed-sidebar", () => ({
   ),
 }));
 vi.mock("./session", () => ({
-  SocialSession: ({ children }: React.PropsWithChildren) => children,
+  SocialSessionStatus: () => null,
   useSocialSession: () => ({ token: "verified" }),
 }));
 vi.mock("./stories", () => ({ Stories: () => <section aria-label="Showcase" /> }));

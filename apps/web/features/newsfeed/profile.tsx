@@ -20,7 +20,7 @@ import { FeedBoundary } from "./feed-boundary";
 import { FollowButton } from "./follow-button";
 import { ImageEditor } from "./image-editor";
 import { uploadProfileImage } from "./media-client";
-import { SocialSession, useSocialSession } from "./session";
+import { SocialSession, SocialSessionStatus, useSocialSession } from "./session";
 
 type ProfileResult = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.profileById>>;
 type Details = ProfileResult["details"];
@@ -796,9 +796,8 @@ function ProfileEditor({ token, details }: { token: string; details: Details }) 
 export function SocialProfessionalProfile({ profileId }: { profileId: string }) {
   return (
     <FeedBoundary>
-      <SocialSession>
-        <ProfileContent profileId={profileId} showHeader />
-      </SocialSession>
+      <SocialSessionStatus />
+      <ProfileContent profileId={profileId} showHeader />
     </FeedBoundary>
   );
 }
@@ -810,6 +809,7 @@ export function ProfessionalActivity({ walletAddress }: { walletAddress: string 
   return (
     <FeedBoundary>
       <SocialSession>
+        <SocialSessionStatus />
         <ProfileContent profileId={profile.author.id} showHeader={false} />
       </SocialSession>
     </FeedBoundary>

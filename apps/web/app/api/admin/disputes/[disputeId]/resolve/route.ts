@@ -102,11 +102,32 @@ export async function POST(
       );
     }
     if (!attempt.transactionHash && attempt.status === "started") {
+      if (body.phase === "succeeded") {
+        return NextResponse.json(
+          { error: "Settlement cannot be confirmed without a saved transaction hash." },
+          { status: 409 },
+        );
+      }
+      const escrow = await readDisputedEscrowStatus({
+        sourceAddress: adminContext.adminWallet,
+        escrowId: attempt.onChainEscrowId,
+        network: attempt.network,
+        contractId: attempt.contractId,
+      });
+      if (escrow.status !== "Disputed") {
+        return NextResponse.json(
+          {
+            error:
+              "Escrow is no longer disputed. Verify the original settlement on Stellar before retrying.",
+          },
+          { status: 409 },
+        );
+      }
       const result = await client.mutation(api.admin.recordDisputeResolutionFailed, {
         adminWallet: adminContext.adminWallet,
         adminApiSecret: adminContext.adminApiSecret,
         operationId: attempt.operationId,
-        errorMessage: "No signed transaction was persisted, so no settlement was submitted.",
+        errorMessage: "No signed transaction was persisted and the escrow is still disputed.",
       });
       return NextResponse.json({ status: "failed", result }, { status: 200 });
     }

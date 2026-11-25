@@ -6,7 +6,7 @@ import { useMutation, usePaginatedQuery } from "convex/react";
 import { useState } from "react";
 
 import { FeedBoundary } from "./feed-boundary";
-import { SocialSession, useSocialSession } from "./session";
+import { SocialSessionStatus, useSocialSession } from "./session";
 function Queue() {
   const { token } = useSocialSession();
   const [error, setError] = useState("");
@@ -74,9 +74,8 @@ export function ModerationPage() {
         meta="Administrator tools"
       />
       <FeedBoundary>
-        <SocialSession>
-          <Queue />
-        </SocialSession>
+        <SocialSessionStatus />
+        <Queue />
       </FeedBoundary>
     </div>
   );

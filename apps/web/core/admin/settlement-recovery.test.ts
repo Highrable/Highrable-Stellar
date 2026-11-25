@@ -99,11 +99,11 @@ function escrow(status: unknown = ["Released"]) {
   return { escrow_id: 42n, client, freelancer, status };
 }
 
-async function recover() {
+async function recover(phase: "reconcile" | "succeeded" = "reconcile") {
   return POST(
     new NextRequest("http://localhost/api/admin/disputes/dispute-1/resolve", {
       method: "POST",
-      body: JSON.stringify({ phase: "reconcile", operationId: "operation-1" }),
+      body: JSON.stringify({ phase, operationId: "operation-1" }),
     }),
     { params: Promise.resolve({ disputeId: "dispute-1" }) },
   );
@@ -238,6 +238,46 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
+  it("keeps an older hashless attempt blocked when the escrow has already settled", async () => {
+    query.mockResolvedValueOnce({
+      disputeId: "dispute-1",
+      operationId: "operation-1",
+      onChainEscrowId: "42",
+      network: "testnet",
+      contractId: contract,
+      status: "started",
+    });
+
+    expect((await recover()).status).toBe(409);
+    expect(rpc.Server.prototype.simulateTransaction).toHaveBeenCalledOnce();
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit reconciliation of an attempt without a signed hash", async () => {
+    const attempt = {
+      disputeId: "dispute-1",
+      operationId: "operation-1",
+      onChainEscrowId: "42",
+      network: "testnet",
+      contractId: contract,
+      status: "started",
+    };
+    query.mockResolvedValue(attempt);
+    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValue(
+      reply(escrow(["Disputed"])),
+    );
+
+    expect((await recover("succeeded")).status).toBe(409);
+    expect(mutation).not.toHaveBeenCalled();
+    expect((await recover()).status).toBe(200);
+    expect(mutation).toHaveBeenCalledWith(
+      "failed",
+      expect.objectContaining({ operationId: "operation-1" }),
+    );
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it("passes through the complete verified settlement result", async () => {
     const result = {
       status: "split_resolution",

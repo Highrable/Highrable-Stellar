@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -64,6 +64,8 @@ The shared wrapper forwards phase callbacks through standalone escrow creation/f
 ## Administrator settlement submission boundary
 
 The administrator settlement coordinator validates the requested outcome terms immediately before execution: `resolved_client` is `0` bps, `resolved_freelancer` is `10000` bps, and `split_resolution` is an integer from `1` through `9999` bps. This protects the API and Stellar path even when a form draft or callback supplies stale or malformed numeric data.
+
+`resolveDisputeOnChain` forwards the signed-identity callback. The transaction executor awaits persistence of the hash and validity bound before submitting the signed transaction. If finalization receives an attempt without a saved hash, it rejects the request. Explicit reconciliation of a hashless started attempt reads the saved escrow scope and only records failure while the on-chain escrow remains `Disputed`. An escrow that has moved out of `Disputed` requires verification of the original transaction for manual recovery.
 
 The protected start acknowledgment must echo the requested operation ID and basis points. The signed acknowledgment must echo the operation ID and the normalized transaction hash. Missing, malformed, or mismatched acknowledgments stop the lifecycle before the next side effect. The coordinator rechecks its generation identity after preparation awaits, before signing, and at the signed-identity barrier before submission; case, wallet, connection, network, wallet-mode, signing-capability, and unmount changes invalidate obsolete callbacks. Persisted signed identities still reconcile through the existing server-verified recovery path, and known hashes are never submitted a second time.
 

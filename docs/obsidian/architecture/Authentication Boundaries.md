@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-11-24
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -41,6 +41,8 @@ Membership grants become active only after the saved contract transaction succee
 The admin sidebar shares the wallet- and session-expiry-scoped query in `features/admin/lib/admin-session-query.ts` with the protected page gate. It shows Overview and Admins only when the session verifies the connected external wallet as owner. The server route and Convex functions enforce access independently.
 
 ## Newsfeed passkey session
+
+The `(social)` App Router layout holds one in-memory Newsfeed session for `/newsfeed`, its child routes, and `/people/[profileId]`. Client-side navigation within that layout reuses the verified session for the active wallet. Disconnect, wallet change, expiry, or a fresh mount still require the existing session checks. Marketplace trust profiles mount their professional activity session independently.
 
 The passkey branch of `POST /api/newsfeed/session` checks the account's on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading its default context rule. It accepts a policy-free rule with one external signer, checks the ledger expiry and configured WebAuthn verifier, and verifies the assertion before consuming the challenge nonce. Accounts with a different executable or additional policies cannot use this sign-in path.
 

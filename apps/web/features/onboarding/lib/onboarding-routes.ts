@@ -11,7 +11,8 @@ export function isOnboardingExemptRoute(pathname: string | null): boolean {
     pathname === ONBOARDING_ROUTE ||
     LANDING_PAGE_V2_ROUTES.has(pathname) ||
     pathname === "/newsfeed" ||
-    pathname.startsWith("/newsfeed/")
+    pathname.startsWith("/newsfeed/") ||
+    /^\/people\/[^/]+\/?$/.test(pathname)
   );
 }
 

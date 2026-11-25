@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import SocialLayout from "@/app/(social)/layout";
 import SocialProfileRoute from "@/app/(social)/people/[profileId]/page";
+import { OnboardingRouteGuard } from "@/features/onboarding/components/onboarding-route-guard";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React, { StrictMode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -12,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
   fetch: vi.fn(),
   viewer: { _id: "viewer" } as { _id: string } | null | undefined,
+  onboarding: { isComplete: true } as { isComplete: boolean } | undefined,
+  pathname: "/newsfeed",
+  router: { replace: vi.fn() },
   client: { mutation: vi.fn() },
   profile: {
     id: "another-member",
@@ -33,9 +37,16 @@ vi.mock("@/core/wallet/hooks/use-wallet", () => ({
 }));
 vi.mock("convex/react", () => ({
   useConvex: () => mocks.client,
-  useQuery: (_query: unknown, args: { profileId?: string } | "skip") =>
-    args !== "skip" && args.profileId ? mocks.profile : mocks.viewer,
+  useQuery: (_query: unknown, args: { profileId?: string; walletAddress?: string } | "skip") => {
+    if (args !== "skip" && args.profileId) return mocks.profile;
+    if (args !== "skip" && args.walletAddress) return mocks.onboarding;
+    return mocks.viewer;
+  },
   useMutation: () => vi.fn(),
+}));
+vi.mock("next/navigation", () => ({
+  usePathname: () => mocks.pathname,
+  useRouter: () => mocks.router,
 }));
 vi.mock("@/core/wallet/components/wallet-status-card", () => ({
   WalletStatusCard: () => null,
@@ -68,6 +79,9 @@ beforeEach(() => {
   mocks.fetch.mockReset().mockResolvedValue(response());
   mocks.authenticate.mockReset().mockResolvedValue(undefined);
   mocks.viewer = { _id: "viewer" };
+  mocks.onboarding = { isComplete: true };
+  mocks.pathname = "/newsfeed";
+  mocks.router.replace.mockReset();
   mocks.client.mutation.mockReset().mockResolvedValue("viewer");
 });
 afterEach(() => {
@@ -141,41 +155,66 @@ it("retries profile creation without requesting another wallet session", async (
   expect(mocks.fetch).toHaveBeenCalledTimes(1);
 });
 
-it("keeps the verified passkey session when the newsfeed opens another member's profile", async () => {
-  mocks.identity = {
-    isConnected: true,
-    walletAddress: "C-wallet",
-    walletType: "passkey_smart_account",
-  };
-  const getCredential = vi.fn(async () => ({
-    rawId: new ArrayBuffer(1),
-    response: {
-      clientDataJSON: new ArrayBuffer(1),
-      authenticatorData: new ArrayBuffer(1),
-      signature: new ArrayBuffer(1),
-    },
-  }));
-  vi.stubGlobal("navigator", { credentials: { get: getCredential } });
-  mocks.fetch.mockImplementation(async (_url, options) =>
-    JSON.parse(options.body).action === "challenge"
-      ? { ok: true, json: async () => ({ challenge: "challenge", proof: "proof" }) }
-      : response(),
-  );
-  const view = render(
-    <SocialLayout>
-      <Consumer />
-    </SocialLayout>,
-  );
-  await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("verified"));
+it.each([undefined, { isComplete: false }])(
+  "keeps the verified passkey session during profile navigation with onboarding state %j",
+  async (onboarding) => {
+    mocks.onboarding = onboarding;
+    mocks.identity = {
+      isConnected: true,
+      walletAddress: "C-wallet",
+      walletType: "passkey_smart_account",
+    };
+    const getCredential = vi.fn(async () => ({
+      rawId: new ArrayBuffer(1),
+      response: {
+        clientDataJSON: new ArrayBuffer(1),
+        authenticatorData: new ArrayBuffer(1),
+        signature: new ArrayBuffer(1),
+      },
+    }));
+    vi.stubGlobal("navigator", { credentials: { get: getCredential } });
+    mocks.fetch.mockImplementation(async (_url, options) =>
+      JSON.parse(options.body).action === "challenge"
+        ? { ok: true, json: async () => ({ challenge: "challenge", proof: "proof" }) }
+        : response(),
+    );
+    const view = render(
+      <OnboardingRouteGuard>
+        <SocialLayout>
+          <Consumer />
+        </SocialLayout>
+      </OnboardingRouteGuard>,
+    );
+    await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("verified"));
 
-  const profile = await SocialProfileRoute({
-    params: Promise.resolve({ profileId: mocks.profile.id }),
-  });
-  view.rerender(<SocialLayout>{profile}</SocialLayout>);
+    const profile = await SocialProfileRoute({
+      params: Promise.resolve({ profileId: mocks.profile.id }),
+    });
+    mocks.pathname = `/people/${mocks.profile.id}`;
+    view.rerender(
+      <OnboardingRouteGuard>
+        <SocialLayout>{profile}</SocialLayout>
+      </OnboardingRouteGuard>,
+    );
 
-  expect(screen.getByRole("heading", { name: "Another member" })).toBeTruthy();
-  expect(screen.getByTestId("token").textContent).toBe("verified");
-  expect(screen.queryByText("Connecting to the newsfeed…")).toBeNull();
-  expect(getCredential).toHaveBeenCalledOnce();
-  expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.router.replace).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Another member" })).toBeTruthy();
+    expect(screen.getByTestId("token").textContent).toBe("verified");
+    expect(screen.queryByText("Connecting to the newsfeed…")).toBeNull();
+    expect(getCredential).toHaveBeenCalledOnce();
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  },
+);
+
+it("still redirects a connected wallet with incomplete onboarding away from protected routes", () => {
+  mocks.onboarding = { isComplete: false };
+  mocks.pathname = "/dashboard";
+  render(
+    <OnboardingRouteGuard>
+      <p>Dashboard content</p>
+    </OnboardingRouteGuard>,
+  );
+
+  expect(mocks.router.replace).toHaveBeenCalledWith("/onboarding?next=%2Fdashboard");
+  expect(screen.queryByText("Dashboard content")).toBeNull();
 });

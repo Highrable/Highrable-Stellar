@@ -44,6 +44,8 @@ The admin sidebar shares the wallet- and session-expiry-scoped query in `feature
 
 The `(social)` App Router layout holds one in-memory Newsfeed session for `/newsfeed`, its child routes, and `/people/[profileId]`. Client-side navigation within that layout reuses the verified session for the active wallet. Disconnect, wallet change, expiry, or a fresh mount still require the existing session checks. Marketplace trust profiles mount their professional activity session independently.
 
+Public Newsfeed profile routes share the feed's onboarding exemption. A connected wallet can browse both while marketplace onboarding is loading or incomplete. Social writes still require the verified social session.
+
 The passkey branch of `POST /api/newsfeed/session` checks the account's on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading its default context rule. It accepts a policy-free rule with one external signer, checks the ledger expiry and configured WebAuthn verifier, and verifies the assertion before consuming the challenge nonce. Accounts with a different executable or additional policies cannot use this sign-in path.
 
 ## Public Convex limitation

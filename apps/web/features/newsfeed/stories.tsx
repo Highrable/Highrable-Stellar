@@ -130,7 +130,7 @@ function StoryAvatar({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 rounded-full bg-gradient-to-tr from-yellow-300 via-orange-500 to-amber-400 p-[3px] ${className}`}
+      className={`inline-flex shrink-0 rounded-full bg-linear-to-tr from-yellow-300 via-orange-500 to-amber-400 p-0.75 ${className}`}
     >
       <Avatar className="size-full border-2 border-background">
         <AvatarImage src={src ?? undefined} alt="" />
@@ -293,7 +293,7 @@ function StoryComposer({
   if (!viewer) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,52rem)] max-w-[42rem] flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
+      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,52rem)] max-w-168 flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
         <MobileDialogClose />
         <DialogHeader className="shrink-0 border-b px-5 py-5 pr-12 text-left sm:px-8 sm:py-6 sm:pr-14">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -868,11 +868,11 @@ export function Stories() {
           {viewer && (
             <button
               type="button"
-              className="hr-newsfeed-story-card group flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
+              className="hr-newsfeed-story-card group flex w-22 shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
               onClick={() => setCreating(true)}
               aria-label="Create a showcase"
             >
-              <span className="flex size-[4.5rem] items-center justify-center rounded-full border-2 border-dashed border-orange-500 bg-background transition-colors group-hover:bg-orange-50 sm:size-16 dark:group-hover:bg-orange-950/30">
+              <span className="flex size-18 items-center justify-center rounded-full border-2 border-dashed border-orange-500 bg-background transition-colors group-hover:bg-orange-50 sm:size-16 dark:group-hover:bg-orange-950/30">
                 <span className="flex size-8 items-center justify-center text-orange-600 dark:text-orange-300">
                   <Plus className="size-6" />
                 </span>
@@ -887,14 +887,14 @@ export function Stories() {
             <button
               key={group.author.id}
               type="button"
-              className="hr-newsfeed-story-card group flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
+              className="hr-newsfeed-story-card group flex w-22 shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl border border-slate-100 bg-card p-2 text-center sm:w-20 sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-1 dark:border-slate-800"
               onClick={() => setSelection({ group: groupIndex, story: 0 })}
               aria-label={`View ${group.author.name}'s showcase`}
             >
               <StoryAvatar
                 src={group.author.avatarUrl}
                 name={group.author.name}
-                className="size-[4.5rem] transition-transform group-hover:scale-[1.03] sm:size-16"
+                className="size-18 transition-transform group-hover:scale-[1.03] sm:size-16"
               />
               <span className="w-full truncate text-xs font-medium text-foreground">
                 {group.author.name}

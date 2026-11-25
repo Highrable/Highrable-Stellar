@@ -2,7 +2,7 @@
 type: contract
 area: deployment
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -47,9 +47,9 @@ Recorded contract IDs, configured environment, readiness checks, and a successfu
 
 ## Dispute-admin contract version
 
-The canonical deployments/testnet.json and deployments/mainnet.json files still contain the earlier deployments. The separate testnet-multi-admin.json records a Testnet contract ID and a deployedAt timestamp of 2026-09-29T01:41:27Z (09:41 +08). That timestamp precedes commit c6cc7e1 at 10:03 +08, which adds dispute-admin membership to source. The file has no WASM hash, deployment transaction link, or verification output, so it does not establish that the membership-enabled build was deployed.
+The canonical `deployments/testnet.json` and `deployments/mainnet.json` record earlier deployments. On 2026-11-25, a read-only Stellar Testnet RPC check at ledger 5915483 found the live escrow instance from `deployments/testnet-multi-admin.json`. The deployed WASM exports `add_dispute_admin`, `remove_dispute_admin`, `is_dispute_admin`, and `resolve_dispute`. Simulations returned the recorded owner from `get_platform_admin` and `true` from `is_dispute_admin` for that wallet.
 
-Soroban dispute events were added on September 30, after the separate artifact timestamp. The artifact therefore does not establish that the event-enabled source is deployed. Verify the deployed contract identity and behavior before activating the matching Convex network/contract scope; use an isolated deployment/database for the event-enabled version. The C20 evidence note reports no deployment during that regression/build run. Existing deployment records still do not verify the membership/event-enabled source.
+The artifact predates the checked-in membership and event changes and has no deployment transaction link or WASM hash. The RPC observations establish the live interface and owner membership. The exact source build, delegated settlement behavior, participant-conflict enforcement, and C16 event emission remain unverified. Keep Convex deployments isolated across contract scopes with overlapping escrow IDs.
 
 ## Related Notes
 

@@ -539,7 +539,7 @@ export function Composer({
                 <Maximize2 aria-hidden="true" className="size-4" />
               </Button>
             </div>
-            <div className="hr-newsfeed-quick-post-toolbar mt-4 ml-[4.875rem] flex flex-nowrap items-center justify-between gap-2 border-t border-slate-100 pt-4 sm:mt-3 sm:ml-0 sm:flex-wrap sm:gap-2 sm:pt-3 dark:border-slate-800">
+            <div className="hr-newsfeed-quick-post-toolbar mt-4 ml-19.5 flex flex-nowrap items-center justify-between gap-2 border-t border-slate-100 pt-4 sm:mt-3 sm:ml-0 sm:flex-wrap sm:gap-2 sm:pt-3 dark:border-slate-800">
               <Button
                 type="button"
                 variant="ghost"
@@ -616,7 +616,7 @@ export function Composer({
                 size="sm"
                 aria-label={busy ? "Publishing" : error ? "Retry publishing" : "Publish"}
                 disabled={busy || !body.trim() || Boolean(milestoneId && !milestoneConfirmed)}
-                className="hr-v2-button-primary ml-0 h-14 w-[7.625rem] min-w-0 shrink-0 justify-center gap-1 rounded-full px-5 text-base font-semibold sm:ml-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
+                className="hr-v2-button-primary ml-0 h-14 w-30.5 min-w-0 shrink-0 justify-center gap-1 rounded-full px-5 text-base font-semibold sm:ml-0 sm:h-9 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <span className="truncate sm:hidden">{busy ? "…" : error ? "Retry" : "Post"}</span>
                 <span className="hidden truncate sm:inline">
@@ -644,7 +644,7 @@ export function Composer({
           if (!next && originalId) onDone?.();
         }}
       >
-        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,58rem)] max-w-[42rem] flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
+        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,58rem)] max-w-168 flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
           <MobileDialogClose />
           <DialogHeader className="shrink-0 border-b px-5 py-5 pr-12 text-left sm:px-8 sm:py-6 sm:pr-14">
             <DialogTitle className="text-[1.7rem] leading-tight tracking-tight sm:text-[2rem]">

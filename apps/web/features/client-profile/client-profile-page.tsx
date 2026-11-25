@@ -6,6 +6,7 @@ import { ClientTrustActivitySection } from "@/features/client-profile/components
 import { ClientTrustProfileHeader } from "@/features/client-profile/components/client-trust-profile-header";
 import { EditClientProfileForm } from "@/features/client-profile/components/edit-client-profile-form";
 import { getClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
@@ -46,13 +47,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
   }
 
   if (profileData === undefined) {
-    return (
-      <RouteEmptyState
-        title="Loading client profile"
-        description="Reading verified trust and payment history…"
-        aria-busy="true"
-      />
-    );
+    return <PageLoadingState label="client profile" />;
   }
 
   if (profileData === null) {

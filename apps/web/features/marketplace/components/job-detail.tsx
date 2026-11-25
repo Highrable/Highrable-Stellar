@@ -6,6 +6,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { AttachmentList } from "@/features/attachments/components";
 import { ConversationThread } from "@/features/chat";
 import { RouteCallout } from "@/features/common";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
@@ -77,7 +78,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
   }
 
   if (job === undefined) {
-    return <p className="text-sm text-muted-foreground">Loading job...</p>;
+    return <PageLoadingState label="job" />;
   }
 
   if (job === null) {

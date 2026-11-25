@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-10-19
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -53,6 +53,8 @@ Product routes (everything inside `AppShell`) use a soft neutral canvas, rounded
 - **Callouts and empty states.** `RouteCallout` and inline notices use a left rule with a light tint; `RouteEmptyState` is a compact dashed row. Hide panels that would only say "nothing here" when that adds no information (for example, deadline reminders).
 - **Mode identity.** Client = yellow, Freelancer = orange, applied through the theme `--primary` (primary buttons), the active nav bar, and active tab underlines. Admin keeps an orange-to-coral-to-yellow `--mode-gradient` on the active nav bar and the `AdminMark` (`features/admin/components/admin-mark.tsx`) above admin page titles.
 - **Screen references.** The Find Work layout is implemented at `/marketplace`; it retains search across title/description/asset/wallet, safety-aware sort and funding filter, applications, and client job creation. The landing Find Work actions target `/marketplace` directly. The Messages visual treatment is applied to work conversations and the existing messages route while preserving replies, attachments, read tracking, participant access, and locked/archived composer rules.
+
+Page-level loading uses the shared `PageLoadingState` (`features/common/components/layout/page-loading-state.tsx`), with the embedded handshake artwork, a 2.8-second fill/bounce animation, and a static half-filled reduced-motion state on white. `app/loading.tsx` provides the root route fallback; admin dispute queue/detail routes have local fallbacks. Initial query states that replace an entire page use the same labeled `role="status"`; section, inline, and incremental-loading indicators keep their local treatment.
 
 ## Common change locations
 

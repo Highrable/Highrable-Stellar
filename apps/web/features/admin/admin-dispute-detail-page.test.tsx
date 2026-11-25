@@ -426,7 +426,7 @@ describe("AdminDisputeDetailPage", () => {
     runtime.stellar.resolveDisputeOnChain.mockReset();
   });
 
-  it("renders the detail loading state before the HTTP read resolves", () => {
+  it("renders the detail loading state until the HTTP read resolves", async () => {
     let resolveResponse!: (value: Response) => void;
     vi.stubGlobal(
       "fetch",
@@ -439,8 +439,13 @@ describe("AdminDisputeDetailPage", () => {
 
     renderDetail();
 
-    expect(screen.getByRole("alert").textContent).toContain("Loading dispute detail");
-    resolveResponse(response(resolvedDetail));
+    expect(screen.getByRole("status").textContent).toContain("Loading dispute detail");
+    await act(async () => {
+      resolveResponse(response(resolvedDetail));
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("Loading dispute detail...")).toBeNull();
+    });
   });
 
   it.each([

@@ -2,6 +2,7 @@
 
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { ModeSwitchCard } from "@/features/mode";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
@@ -34,7 +35,13 @@ function ProfileContent({ profileId, showHeader }: { profileId: string; showHead
   });
   const { token, viewer } = useSocialSession();
   const wallet = useHighrableWalletIdentity();
-  if (profile === undefined) return <p role="status">Loading professional profile…</p>;
+  if (profile === undefined) {
+    return showHeader ? (
+      <PageLoadingState label="professional profile" />
+    ) : (
+      <p role="status">Loading professional profile…</p>
+    );
+  }
   if (!profile) return <p>This professional profile is unavailable.</p>;
   const details = profile.details;
   const owner = Boolean(viewer && viewer._id === profile.id);

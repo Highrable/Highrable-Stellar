@@ -1,4 +1,5 @@
 "use client";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
@@ -818,7 +819,7 @@ export function SparkPermalink({ sparkId }: { sparkId: string }) {
     storyId: sparkId as TConvexId<"socialStories">,
     ...(token ? { token } : {}),
   });
-  if (groups === undefined) return <p role="status">Loading showcase…</p>;
+  if (groups === undefined) return <PageLoadingState label="showcase" />;
   if (!groups?.length) return <p>This showcase is unavailable or has expired.</p>;
   return (
     <StoryViewer

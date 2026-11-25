@@ -2,6 +2,7 @@
 
 import { ESCROW_CONTRACT_ID, STELLAR_NETWORK_PASSPHRASE } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
@@ -155,14 +156,7 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
   }
 
   if (proof === undefined) {
-    return (
-      <RouteEmptyState
-        title="Loading payment proof"
-        description="Reading the escrow receipt and chain status…"
-        role="status"
-        aria-busy="true"
-      />
-    );
+    return <PageLoadingState label="payment proof" />;
   }
 
   if (proof === null) {

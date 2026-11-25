@@ -3,6 +3,7 @@
 import { parseWalletAddressParam } from "@/core/seo";
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
@@ -49,13 +50,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }
 
   if (profileData === undefined) {
-    return (
-      <RouteEmptyState
-        title="Loading freelancer profile"
-        description="Reading verified identity and work history…"
-        aria-busy="true"
-      />
-    );
+    return <PageLoadingState label="freelancer profile" />;
   }
 
   if (profileData === null) {

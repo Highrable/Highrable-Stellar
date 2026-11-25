@@ -1,0 +1,124 @@
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: #fff;
+}
+
+.tile {
+  position: relative;
+  width: min(88vw, 400px);
+  aspect-ratio: 447 / 453;
+}
+
+.figures,
+.artworkLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.figures {
+  animation: pump 2.8s infinite;
+}
+
+.figure {
+  position: absolute;
+  top: 15%;
+  height: 69.1%;
+}
+
+.figure img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.left {
+  left: 17%;
+  width: 38.7%;
+}
+
+.right {
+  left: 50.6%;
+  width: 31.5%;
+}
+
+.ghost {
+  opacity: 0.16;
+}
+
+.fill {
+  animation: fill 2.8s infinite;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes fill {
+  0% {
+    clip-path: inset(100% 0 0 0);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.45, 0.05, 0.4, 1);
+  }
+
+  72% {
+    clip-path: inset(0 0 0 0);
+  }
+
+  93% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+}
+
+@keyframes pump {
+  0%,
+  73% {
+    transform: none;
+  }
+
+  77% {
+    transform: translateY(-2.5%);
+  }
+
+  82% {
+    transform: none;
+  }
+
+  86% {
+    transform: translateY(-1.2%);
+  }
+
+  90%,
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .figures,
+  .fill {
+    animation: none;
+  }
+
+  .fill {
+    clip-path: inset(50% 0 0 0);
+  }
+}

@@ -10,6 +10,7 @@ import {
   showWarningToast,
   TermHint,
 } from "@/features/common";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { useRegistryRegistration } from "@/features/onboarding/hooks/use-registry-registration";
 import { TOnboardingFormSchema, type TOnboardingFormValues } from "@/features/onboarding/types";
@@ -264,7 +265,7 @@ export function OnboardingPage() {
   }
 
   if (isLoading || isComplete) {
-    return <p className="text-sm text-[#5f5f5f]">Loading onboarding...</p>;
+    return <PageLoadingState label="onboarding" />;
   }
 
   return (

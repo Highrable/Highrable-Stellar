@@ -11,7 +11,6 @@ import {
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminEvidenceList } from "@/features/admin/admin-evidence-list";
-import { AdminRouteLoadingState } from "@/features/admin/admin-route-fallbacks";
 import {
   AdminSessionGate,
   ADMIN_QUERY_KEY,
@@ -56,6 +55,7 @@ import {
   sanitizeMultilineInput,
   showWarningToast,
 } from "@/features/common";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import {
   formatDisputeDate,
@@ -1399,7 +1399,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   ]);
 
   if (detailQuery.isPending) {
-    return <AdminRouteLoadingState label="dispute detail" />;
+    return <PageLoadingState label="dispute detail" />;
   }
 
   if (detailQuery.isError || detailRefreshFailed) {

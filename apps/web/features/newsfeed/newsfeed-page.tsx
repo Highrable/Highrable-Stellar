@@ -1,4 +1,5 @@
 "use client";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
@@ -20,7 +21,7 @@ function Permalink({ id }: { id: string }) {
     ...(token ? { token } : {}),
   });
   return post === undefined ? (
-    <p role="status">Loading post…</p>
+    <PageLoadingState label="post" />
   ) : post ? (
     <PostCard post={post} variant="detail" />
   ) : (

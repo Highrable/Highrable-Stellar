@@ -1,4 +1,5 @@
 export { AppShell } from "./components/layout/app-shell";
+export { PageLoadingState } from "./components/layout/page-loading-state";
 export { ProductPageHero } from "./components/layout/product-page-hero";
 export { ProfileAvatar } from "./components/profile/profile-avatar";
 export {

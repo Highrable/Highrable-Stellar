@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-26
 source_of_truth: repository
 ---
 
@@ -15,6 +15,7 @@ The authoritative schema entry point is `packages/backend/convex/schema.ts`, whi
 | Table | Source | Role |
 | --- | --- | --- |
 | `users` | `users/schema.ts` | Wallet-linked identity, role, profile, onboarding, wallet type. |
+| `privateEmails` | `users/private_email_schema.ts` | Per-wallet email, accessible only through verified-session owner query/mutation; excluded from returned user documents. |
 | `jobs` | `jobs/schema.ts` | Job/micro-gig or milestone-project parent, budget, asset, lifecycle, deadlines, revisions. |
 | `milestones` | `milestones/schema.ts` | Ordered project phases, assignment, escrow, deadline, continuation, and revision state. |
 | `applications` | `applications/schema.ts` | Freelancer proposals for jobs/milestones. |

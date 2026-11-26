@@ -314,74 +314,42 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       ensurePasskeyReady();
       setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
-      let result;
-      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit, resetSmartAccountKit } =
-        await loadSmartAccountRuntime();
-      try {
+      const {
+        connectPasskeySmartAccount,
+        discoverPasskeyContracts,
+        getSmartAccountKit,
+        resetSmartAccountKit,
+      } = await loadSmartAccountRuntime();
+
+      const attemptReconnect = async () => {
         const kit = getSmartAccountKit();
-        const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
+        const { credentialId } = await kit.authenticatePasskey();
+        const { contracts, indexerUnavailable } = await discoverPasskeyContracts(kit, credentialId);
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
-          setPendingCredentialId(authentication.credentialId);
+          setPendingCredentialId(credentialId);
           setIsContractPickerOpen(true);
-          setState((currentValue) => ({
-            ...currentValue,
-            isReconnecting: false,
-            error: null,
-          }));
           return null;
         }
 
-        result = await kit.connectWallet({
-          credentialId: authentication.credentialId,
+        return await connectPasskeySmartAccount(kit, {
+          credentialId,
           contractId: contracts?.[0]?.contract_id,
-          fresh: true,
+          indexerUnavailable,
         });
+      };
 
-        if (result) {
-          await ensureConnectedPasskeyWalletShape({
-            kit,
-            contractId: result.contractId,
-            credentialId: result.credentialId,
-          });
-        }
+      let result;
+      try {
+        result = await attemptReconnect();
       } catch (error) {
         if (!isIndexedDbClosingError(error)) {
           throw error;
         }
 
         await resetSmartAccountKit();
-        const kit = getSmartAccountKit();
-        const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
-
-        if (contracts && contracts.length > 1) {
-          setDiscoveredContracts(contracts);
-          setPendingCredentialId(authentication.credentialId);
-          setIsContractPickerOpen(true);
-          setState((currentValue) => ({
-            ...currentValue,
-            isReconnecting: false,
-            error: null,
-          }));
-          return null;
-        }
-
-        result = await kit.connectWallet({
-          credentialId: authentication.credentialId,
-          contractId: contracts?.[0]?.contract_id,
-          fresh: true,
-        });
-
-        if (result) {
-          await ensureConnectedPasskeyWalletShape({
-            kit,
-            contractId: result.contractId,
-            credentialId: result.credentialId,
-          });
-        }
+        result = await attemptReconnect();
       }
 
       if (!result) {

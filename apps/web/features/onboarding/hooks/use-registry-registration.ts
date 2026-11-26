@@ -28,7 +28,9 @@ export type TRegistryRegistrationStep =
   | "verifying"
   | "complete";
 
-type TProfileDraft = ReturnType<typeof buildProfileIdentityMutationArgs>;
+type TProfileDraft = ReturnType<typeof buildProfileIdentityMutationArgs> & {
+  readonly role?: "client" | "freelancer";
+};
 
 type TVerifiedRegistryRegistration = {
   readonly _id: string;

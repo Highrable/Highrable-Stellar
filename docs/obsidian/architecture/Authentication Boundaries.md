@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 source_of_truth: repository
 ---
 
@@ -53,6 +53,9 @@ The passkey branch of `POST /api/newsfeed/session` checks the account's on-chain
 The session cookie is not automatically attached as Convex identity for all public mutations. Several public mutations accept a `walletAddress`/`clientWallet`/`freelancerWallet` argument and compare it to stored participants. Source comments mark these as TODOs for signed-session replacement. This is a known authorization limitation.
 
 `saveProfileDraft` and `completeOnboarding` retain the repository's caller-supplied-wallet boundary. Completion additionally requires a registry mirror row created by the internal mutation called from `syncUserRegistration`; that public action validates configured scope and reads the public chain record through Stellar RPC. The sync action is permissionless and records only public chain facts. It does not authenticate its caller or accept profile edits. The registry contract itself requires `user.require_auth()` for both first-time and duplicate registration calls; anyone may invoke it directly, and registration is not Highrable identity approval.
+
+Onboarding email is isolated in `privateEmails`, outside public user documents. `savePrivateEmail` and `getPrivateEmail` require the existing signed session token validated by `newsfeed/auth.verifyToken`; the token subject supplies the wallet address, and an optional claimed wallet is checked only for mismatch. The session route verifies external-wallet sessions through the server cookie and passkey sessions through the existing WebAuthn/account checks. New onboarding completion requires a private email record, but the completion mutation preserves its early return for accounts completed before email collection.
+
 ## C10 current-work and protected-read boundary
 
 Dispute participant reads and evidence/response writes still accept caller-supplied wallet values; C10 does not prove possession. Those values are now checked against the saved dispute participants and the current resolved parent graph, including populated legacy links and explicit escrow aliases. Terminal cases remain readable only while those relationships still match; reassignment does not grant the former or replacement participant access to the old case.

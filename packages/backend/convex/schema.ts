@@ -26,6 +26,7 @@ import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
+import privateEmails from "./users/private_email_schema";
 import users from "./users/schema";
 import waitlistEntries from "./waitlist/schema";
 import workAgreements, {
@@ -45,6 +46,7 @@ export default defineSchema({
   conversationReads,
   conversationParticipants,
   users,
+  privateEmails,
   jobs,
   milestones,
   applications,

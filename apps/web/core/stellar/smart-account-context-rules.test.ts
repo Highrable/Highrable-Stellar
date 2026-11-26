@@ -72,6 +72,7 @@ it("reads a policy-free default passkey rule from the configured smart-account W
   mockRule([]);
 
   await expect(readDefaultContextRule(params)).resolves.toEqual({
+    latestLedger: 123,
     valid_until: null,
     signer: { verifier, keyData },
   });

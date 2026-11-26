@@ -15,6 +15,7 @@ import { bytesToHex } from "./hashes";
 const DEFAULT_CONTEXT_RULE_ID = 0;
 
 type TDefaultPasskeyRule = {
+  readonly latestLedger: number;
   readonly valid_until: number | null;
   readonly signer: { readonly verifier: string; readonly keyData: Buffer };
 };
@@ -31,8 +32,14 @@ export async function readDefaultContextRule(params: {
     timeout: 30_000,
   });
   const account = new Contract(params.contractId);
-  const { entries } = await server.getLedgerEntries(account.getFootprint());
-  const executable = entries[0]?.val.contractData().val().instance().executable();
+  const footprint = account.getFootprint();
+  const { entries } = await server.getLedgerEntries(footprint);
+  const [entry] = entries;
+  if (!entry || entry.key.toXDR("base64") !== footprint.toXDR("base64")) {
+    return null;
+  }
+  const instance = entry.val.contractData().val();
+  const executable = instance.instance().executable();
   if (
     executable?.switch().name !== "contractExecutableWasm" ||
     bytesToHex(executable.wasmHash()) !== params.expectedWasmHash.toLowerCase()
@@ -50,7 +57,12 @@ export async function readDefaultContextRule(params: {
     .setTimeout(30)
     .build();
   const simulation = await server.simulateTransaction(transaction);
-  if (rpc.Api.isSimulationError(simulation) || !simulation.result?.retval) {
+  if (
+    rpc.Api.isSimulationError(simulation) ||
+    !simulation.result?.retval ||
+    !Number.isSafeInteger(simulation.latestLedger) ||
+    simulation.latestLedger < 0
+  ) {
     return null;
   }
 
@@ -92,6 +104,7 @@ export async function readDefaultContextRule(params: {
   }
 
   return {
+    latestLedger: simulation.latestLedger,
     valid_until: rule.valid_until,
     signer: { verifier: signer[1], keyData: Buffer.from(signer[2]) },
   };

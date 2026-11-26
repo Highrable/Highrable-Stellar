@@ -2,7 +2,7 @@
 type: module
 area: identity
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-26
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Represent wallet-linked users/profiles and expose completed-work reputation and 
 
 ## Current Status
 
-Implemented for public freelancer/client profile routes, Convex reputation mirrors, and Soroban completion data. New onboarding saves a validated profile draft and completes only after a wallet-authorized registry entry is read from the configured chain and mirrored in Convex. Existing completed users retain access and can register voluntarily from the dashboard. The registry contract is prepared but has not been deployed. Directory-wide talent search is not implemented.
+Implemented for public freelancer/client profile routes, Convex reputation mirrors, and Soroban completion data. New onboarding uses consecutive role-choice and profile dialogs after wallet/passkey connection. The selected Client/Freelancer role is saved as the initial role and initializes app mode; people can switch modes later. The profile dialog requires first name, last name, username, and a private, format-validated email; email-address verification is not part of signup. Avatar is optional. Skills and social handles remain optional during signup, while profile editing retains its existing skill validation. New accounts complete only after a valid private email and a wallet-authorized registry entry read from the configured chain and mirrored in Convex. Existing completed accounts keep working without a retroactive email requirement. The registry contract is prepared but has not been deployed. Directory-wide talent search is not implemented.
 
 ## Primary Locations
 
@@ -29,18 +29,18 @@ Implemented for public freelancer/client profile routes, Convex reputation mirro
 
 ## Responsibilities
 
-- Store normalized wallet address, role, wallet type, names, handles, skills, links, and onboarding state.
+- Store normalized wallet address, initial role, wallet type, names, handles, optional skills/links, and onboarding state in `users`; store email separately in owner-only `privateEmails`.
 - Build freelancer public profiles with completion/reputation data.
 - Build client trust profiles with job, escrow, report, and payment-derived data.
 - Mirror release-backed reputation into `reputationRecords` and query it by freelancer/job/milestone/escrow.
 
 ## Main Entry Points
 
-Users: `upsertUser`, `recordWalletIdentity`, `saveProfileDraft`, `completeOnboarding`, and user queries. Registry: `syncUserRegistration`, `getVerifiedRegistration`, and internal `applyVerifiedRegistration`. Profiles: `updateFreelancerProfile`, `updateClientProfile`, `getFreelancerProfile`, `getClientTrustProfile`. Reputation: `createReputationRecord` and reputation queries.
+Users: `upsertUser`, `recordWalletIdentity`, `saveProfileDraft`, `savePrivateEmail`, `getPrivateEmail`, `completeOnboarding`, and user queries. Registry: `syncUserRegistration`, `getVerifiedRegistration`, and internal `applyVerifiedRegistration`. Profiles: `updateFreelancerProfile`, `updateClientProfile`, `getFreelancerProfile`, `getClientTrustProfile`. Reputation: `createReputationRecord` and reputation queries.
 
 ## Data Model
 
-`users` is wallet-keyed and supports `client`, `freelancer`, `admin` plus `external_wallet`/`passkey_smart_account`. `saveProfileDraft` reuses profile sanitization, handle uniqueness, and avatar checks without setting onboarding completion. `completeOnboarding` preserves existing completion timestamps and, for new users, requires a saved valid profile plus a verified `registryRegistrations` row in the configured network/contract scope. That row mirrors only wallet address, registration timestamp, and verification time. `reputationRecords` links an escrow/job/milestone to client/freelancer, amount, rating, optional review text/hash, tx hash, and timestamp.
+`users` is wallet-keyed and supports `client`, `freelancer`, `admin` plus `external_wallet`/`passkey_smart_account`; it does not contain email. `privateEmails` stores one email per normalized wallet address. Email writes and owner reads require the signed wallet/passkey session token, derive the wallet from that token, and reject a supplied wallet claim that does not match. `saveProfileDraft` applies onboarding validation, handle uniqueness, and avatar checks without setting completion; empty skills are allowed only on this path. `completeOnboarding` preserves existing completion timestamps and, for new users, requires a valid saved profile, a private email, and a verified `registryRegistrations` row in configured network/contract scope. That row mirrors only wallet address, registration timestamp, and verification time. `reputationRecords` links an escrow/job/milestone to client/freelancer, amount, rating, optional review text/hash, tx hash, and timestamp.
 
 ## External Dependencies
 
@@ -53,7 +53,7 @@ Jobs, escrows, applications, transactions, reports, and wallet identity.
 ## Important Flows
 
 ```text
-wallet/passkey identity → saved profile draft → signed registry registration → RPC verification/mirror → onboarding complete
+wallet/passkey identity → role choice → profile + private email draft → signed registry registration → RPC verification/mirror → onboarding complete
 released escrow → contract record_completion → optional sync → Convex reputationRecords
 profile route → public stats and verified work/review queries
 ```

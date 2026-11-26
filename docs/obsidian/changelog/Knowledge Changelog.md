@@ -2,11 +2,16 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-11-26
+
+- Added read-only Stellar RPC verification for passkey reconnect and restore during Testnet indexer outages. See [[stellar/Smart Accounts and Passkeys]].
+- Documented the two-dialog onboarding flow, initial app mode, private `privateEmails` storage and verified-session ownership, optional signup skills/social handles, and the role-based post-completion destinations in the profile, frontend, authentication, and Convex schema notes.
 
 ## 2026-11-25
 

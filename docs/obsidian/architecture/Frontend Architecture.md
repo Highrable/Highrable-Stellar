@@ -2,7 +2,7 @@
 type: architecture
 area: frontend
 status: current
-last_updated: 2026-11-25
+last_updated: 2026-11-26
 source_of_truth: repository
 ---
 
@@ -18,6 +18,8 @@ source_of_truth: repository
 4. Onboarding route guard and the optional Highrable debugger.
 
 `AppShell` sets `data-mode` for role theming and `data-product-ui="refresh"` for shared product surfaces and portal dialogs. `/newsfeed` and `/messages` omit the product refresh marker so their shared primitive consumers keep the route-specific presentation.
+
+`/onboarding` keeps wallet/passkey connection first, then presents two accessible dialogs: initial role choice and profile completion. The profile step preserves restored draft fields when returning to role choice, uses the shared verified wallet/passkey session for private email, and retains registry registration progress and recovery controls. Initial role selection is applied through `AppModeProvider`; completed freelancers route to `/marketplace?mode=freelancer` and clients to `/dashboard?mode=client`. Already completed accounts bypass both dialogs.
 
 The root page and `/home` render the landing-v2 surface. Route files are thin: they select metadata, parse route parameters, and render a feature page.
 

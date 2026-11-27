@@ -2,14 +2,26 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AppModeProvider, ModeBanner, useAppMode } from "@/features/mode";
+import { SidebarInset, SidebarProvider } from "@repo/ui/components/ui/sidebar";
+import { MessageCircle } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { Footer } from "./footer";
+import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 
 function isAdminPath(pathname: string) {
   return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
+function shouldUseProductRefresh(pathname: string) {
+  return !(
+    pathname === "/messages" ||
+    pathname.startsWith("/messages/") ||
+    pathname === "/newsfeed" ||
+    pathname.startsWith("/newsfeed/")
+  );
 }
 
 /**
@@ -44,9 +56,8 @@ function useScrollToTopOnNavigate(pathname: string) {
 }
 
 /** Sends the user to the home page whenever their wallet goes from connected to disconnected. */
-function useRedirectHomeOnDisconnect() {
+function useRedirectHomeOnDisconnect(isConnected: boolean) {
   const router = useRouter();
-  const { isConnected } = useHighrableWalletIdentity();
   const wasConnected = useRef(isConnected);
 
   useEffect(() => {
@@ -59,28 +70,58 @@ function useRedirectHomeOnDisconnect() {
 
 function ShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  useRedirectHomeOnDisconnect();
+  const { isConnected } = useHighrableWalletIdentity();
+  useRedirectHomeOnDisconnect(isConnected);
   const { mode } = useAppMode();
   const isAdminRoute = isAdminPath(pathname);
+  const isGuestPreview =
+    !isConnected &&
+    (pathname === "/marketplace" ||
+      pathname.startsWith("/marketplace/") ||
+      pathname === "/post-job");
   const activeMode = isAdminRoute ? "admin" : mode;
+  const useProductRefresh = shouldUseProductRefresh(pathname);
 
-  // Dialogs and toasts render in portals outside this frame, so mirror the mode on <html>.
+  // Portals render outside this frame, so mirror the route theme on <html> too.
   useEffect(() => {
     document.documentElement.dataset.mode = activeMode;
+    if (useProductRefresh) {
+      document.documentElement.dataset.productUi = "refresh";
+    } else {
+      delete document.documentElement.dataset.productUi;
+    }
     return () => {
       delete document.documentElement.dataset.mode;
+      delete document.documentElement.dataset.productUi;
     };
-  }, [activeMode]);
+  }, [activeMode, useProductRefresh]);
 
   return (
     <div
       data-mode={activeMode}
-      className="flex min-h-screen flex-col bg-[var(--mode-page)] text-foreground"
+      data-product-ui={useProductRefresh ? "refresh" : undefined}
+      className="min-h-screen bg-[var(--mode-page)] text-foreground"
     >
-      <Header />
-      {isAdminRoute ? null : <ModeBanner />}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
-      <Footer />
+      <SidebarProvider enableKeyboardShortcut={!isGuestPreview}>
+        {isGuestPreview ? null : <AppSidebar />}
+        <SidebarInset className="min-w-0 bg-muted/60">
+          <Header showSidebarToggle={!isGuestPreview} />
+          {isAdminRoute ? null : <ModeBanner />}
+          <div className="hr-app-main mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+            {children}
+          </div>
+        </SidebarInset>
+        {!isGuestPreview && !isAdminRoute && pathname !== "/messages" ? (
+          <Link
+            href="/messages"
+            aria-label="Open messages"
+            className="hr-v2-button-primary fixed right-4 bottom-4 z-40 inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold shadow-md transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highrable-orange-3 sm:right-6 sm:bottom-6"
+          >
+            <MessageCircle className="size-4" aria-hidden="true" />
+            Messages
+          </Link>
+        ) : null}
+      </SidebarProvider>
     </div>
   );
 }

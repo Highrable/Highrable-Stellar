@@ -34,7 +34,7 @@ export function buildPrimaryButton(label: string, url: string): string {
     <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="margin: 28px 0 22px 0;">
       <tr>
         <td align="left">
-          <a href="${escapedUrl}" style="display: inline-block; background-color: ${EMAIL_COLORS.brand.orange2}; color: #ffffff; font-family: ${EMAIL_FONTS.mono}; font-size: 12px; font-weight: 800; text-decoration: none; padding: 14px 22px; border-radius: ${EMAIL_RADIUS.md}; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.14);"> ${escapedLabel} </a>
+          <a href="${escapedUrl}" style="display: inline-block; background-color: #fe6002; background-image: ${EMAIL_COLORS.brand.buttonGradient}; color: #ffffff; font-family: ${EMAIL_FONTS.mono}; font-size: 12px; font-weight: 800; text-decoration: none; padding: 14px 22px; border-radius: ${EMAIL_RADIUS.md}; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.14);"> ${escapedLabel} </a>
         </td>
       </tr>
     </table>

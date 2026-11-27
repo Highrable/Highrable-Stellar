@@ -67,20 +67,27 @@ describe("participant attachment keyboard and label coverage", () => {
     }
   });
 
-  it("opens the file picker by keyboard only while enabled", () => {
+  it("uses a keyboard-accessible file picker and ignores disabled uploads", () => {
     const onFiles = vi.fn();
     const view = render(createElement(AttachmentDropzone, { disabled: false, onFiles }));
     const dropzone = screen.getByRole("button", { name: "Upload attachments" });
     const picker = view.container.querySelector('input[type="file"]') as HTMLInputElement;
     const click = vi.spyOn(picker, "click").mockImplementation(() => {});
-    fireEvent.keyDown(dropzone, { key: "Enter" });
-    fireEvent.keyDown(dropzone, { key: " " });
-    expect(click).toHaveBeenCalledTimes(2);
-    view.rerender(createElement(AttachmentDropzone, { disabled: true, onFiles }));
-    expect(dropzone.getAttribute("tabindex")).toBe("-1");
-    expect(dropzone.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.keyDown(dropzone, { key: "Enter" });
+    expect(dropzone.tagName).toBe("BUTTON");
+    expect(dropzone.tabIndex).toBe(0);
     fireEvent.click(dropzone);
-    expect(click).toHaveBeenCalledTimes(2);
+    expect(click).toHaveBeenCalledTimes(1);
+
+    const attachment = new File(["content"], "brief.pdf", { type: "application/pdf" });
+    fireEvent.change(picker, { target: { files: [attachment] } });
+    expect(onFiles).toHaveBeenCalledWith([attachment]);
+
+    view.rerender(createElement(AttachmentDropzone, { disabled: true, onFiles }));
+    const disabledDropzone = screen.getByRole("button", { name: "Upload attachments" });
+    expect(disabledDropzone.tabIndex).toBe(-1);
+    expect(disabledDropzone.getAttribute("aria-disabled")).toBe("true");
+    expect(disabledDropzone).toHaveProperty("disabled", true);
+    fireEvent.click(disabledDropzone);
+    expect(click).toHaveBeenCalledTimes(1);
   });
 });

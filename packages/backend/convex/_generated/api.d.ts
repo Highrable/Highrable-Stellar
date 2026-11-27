@@ -49,6 +49,7 @@ import type * as escrows_helpers from "../escrows/helpers.js";
 import type * as escrows_mutations from "../escrows/mutations.js";
 import type * as escrows_queries from "../escrows/queries.js";
 import type * as escrows_types from "../escrows/types.js";
+import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as jobs_helpers from "../jobs/helpers.js";
 import type * as jobs_mutations from "../jobs/mutations.js";
@@ -62,6 +63,12 @@ import type * as milestones_helpers from "../milestones/helpers.js";
 import type * as milestones_mutations from "../milestones/mutations.js";
 import type * as milestones_queries from "../milestones/queries.js";
 import type * as milestones_types from "../milestones/types.js";
+import type * as newsfeed_auth from "../newsfeed/auth.js";
+import type * as newsfeed_helpers from "../newsfeed/helpers.js";
+import type * as newsfeed_media from "../newsfeed/media.js";
+import type * as newsfeed_mutations from "../newsfeed/mutations.js";
+import type * as newsfeed_queries from "../newsfeed/queries.js";
+import type * as newsfeed_upload from "../newsfeed/upload.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
 import type * as registry_helpers from "../registry/helpers.js";
@@ -88,6 +95,7 @@ import type * as transactions_types from "../transactions/types.js";
 import type * as users from "../users.js";
 import type * as users_helpers from "../users/helpers.js";
 import type * as users_mutations from "../users/mutations.js";
+import type * as users_private_email_schema from "../users/private_email_schema.js";
 import type * as users_queries from "../users/queries.js";
 import type * as users_types from "../users/types.js";
 import type * as waitlist from "../waitlist.js";
@@ -101,12 +109,7 @@ import type * as work_submissions from "../work_submissions.js";
 import type * as work_submissions_helpers from "../work_submissions/helpers.js";
 import type * as work_submissions_mutations from "../work_submissions/mutations.js";
 import type * as work_submissions_queries from "../work_submissions/queries.js";
-
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
+import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   "_shared/adminAuth": typeof _shared_adminAuth;
@@ -150,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "escrows/mutations": typeof escrows_mutations;
   "escrows/queries": typeof escrows_queries;
   "escrows/types": typeof escrows_types;
+  http: typeof http;
   jobs: typeof jobs;
   "jobs/helpers": typeof jobs_helpers;
   "jobs/mutations": typeof jobs_mutations;
@@ -163,6 +167,12 @@ declare const fullApi: ApiFromModules<{
   "milestones/mutations": typeof milestones_mutations;
   "milestones/queries": typeof milestones_queries;
   "milestones/types": typeof milestones_types;
+  "newsfeed/auth": typeof newsfeed_auth;
+  "newsfeed/helpers": typeof newsfeed_helpers;
+  "newsfeed/media": typeof newsfeed_media;
+  "newsfeed/mutations": typeof newsfeed_mutations;
+  "newsfeed/queries": typeof newsfeed_queries;
+  "newsfeed/upload": typeof newsfeed_upload;
   profiles: typeof profiles;
   proofs: typeof proofs;
   "registry/helpers": typeof registry_helpers;
@@ -189,6 +199,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   "users/helpers": typeof users_helpers;
   "users/mutations": typeof users_mutations;
+  "users/private_email_schema": typeof users_private_email_schema;
   "users/queries": typeof users_queries;
   "users/types": typeof users_types;
   waitlist: typeof waitlist;
@@ -212,10 +223,7 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "public">
->;
+export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -225,10 +233,7 @@ export declare const api: FilterApi<
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, "internal">
->;
+export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
 
 export declare const components: {
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;

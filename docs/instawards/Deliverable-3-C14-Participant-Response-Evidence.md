@@ -38,15 +38,15 @@ Schema and public-contract additions are covered by [`schema.contract.test.ts`](
 
 All commands were run locally on 2026-10-14 in the repository checkout:
 
-| Check | Result |
-| --- | --- |
-| `pnpm --filter @repo/backend exec vitest run tests/disputes/c14.response.test.ts` | 74 passed |
-| `pnpm --filter @repo/backend test` | 456 passed across 15 files |
-| `pnpm --filter @repo/backend exec tsc --project convex/tsconfig.json --noEmit` | passed |
-| `pnpm --filter @repo/backend exec tsc --project tests/tsconfig.json --noEmit` | passed |
-| scoped `oxlint` on changed backend source/tests | passed |
-| scoped `oxfmt --check` on changed backend source/tests | passed |
-| `git diff --check` | passed |
+| Check                                                                             | Result                     |
+| --------------------------------------------------------------------------------- | -------------------------- |
+| `pnpm --filter @repo/backend exec vitest run tests/disputes/c14.response.test.ts` | 74 passed                  |
+| `pnpm --filter @repo/backend test`                                                | 456 passed across 15 files |
+| `pnpm --filter @repo/backend exec tsc --project convex/tsconfig.json --noEmit`    | passed                     |
+| `pnpm --filter @repo/backend exec tsc --project tests/tsconfig.json --noEmit`     | passed                     |
+| scoped `oxlint` on changed backend source/tests                                   | passed                     |
+| scoped `oxfmt --check` on changed backend source/tests                            | passed                     |
+| `git diff --check`                                                                | passed                     |
 
 The test runner emitted existing Vite CommonJS/native-loader and Node localStorage experimental warnings; they did not fail a test or check.
 

@@ -8,7 +8,6 @@ import { V2Hero } from "./components/v2-hero";
 import { V2HowItWorksSection } from "./components/v2-how-it-works-section";
 import { V2Navbar } from "./components/v2-navbar";
 import { V2ProblemsSection } from "./components/v2-problems-section";
-import { V2SnapGuard } from "./components/v2-snap-guard";
 import { V2TargetMarketSection } from "./components/v2-target-market-section";
 import { V2UniqueSection } from "./components/v2-unique-section";
 
@@ -16,7 +15,6 @@ import { V2UniqueSection } from "./components/v2-unique-section";
 export function LandingPageV2() {
   return (
     <div className="landing-v2-page min-h-screen bg-background font-sans text-foreground antialiased">
-      <V2SnapGuard />
       <V2Navbar />
       <main>
         <V2Hero />

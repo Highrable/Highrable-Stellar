@@ -9,11 +9,11 @@ import { useMemo } from "react";
 import type { AdminApiError } from "@/features/admin/lib/admin-api";
 import type { IAdminSessionResponse } from "@/features/admin/types";
 
-// Kept free of `@/features/common` imports so the shared header can use it without a cycle.
+// Kept free of `@/features/common` imports so the sidebar can use it without a cycle.
 export const ADMIN_QUERY_KEY = ["admin"] as const;
 
-function normalizeWalletAddress(walletAddress: string): string {
-  return walletAddress.trim().toUpperCase();
+export function isMatchingWallet(verifiedWallet: string, connectedWallet: string): boolean {
+  return verifiedWallet.trim().toUpperCase() === connectedWallet.trim().toUpperCase();
 }
 
 /** The verified admin session for the connected external wallet, shared through the query cache. */
@@ -47,13 +47,16 @@ export function useAdminSessionQuery({ enabled = true }: { readonly enabled?: bo
  * Navigation uses this to hide owner pages; the pages themselves still enforce access.
  */
 export function useIsVerifiedAdminOwner({ enabled = true }: { readonly enabled?: boolean } = {}) {
-  const { sessionQuery, externalWalletAddress } = useAdminSessionQuery({ enabled });
+  const { sessionQuery, externalWalletAddress, shouldCheckSession } = useAdminSessionQuery({
+    enabled,
+  });
 
   return (
+    enabled &&
+    shouldCheckSession &&
     sessionQuery.isSuccess &&
     externalWalletAddress !== null &&
-    normalizeWalletAddress(sessionQuery.data.adminWallet) ===
-      normalizeWalletAddress(externalWalletAddress) &&
+    isMatchingWallet(sessionQuery.data.adminWallet, externalWalletAddress) &&
     sessionQuery.data.isOwner
   );
 }

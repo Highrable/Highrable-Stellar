@@ -28,16 +28,16 @@ This document describes code and evidence present in the reviewed range. Test to
 
 ## Review scope and accounting
 
-| Item | Reviewed value |
-| --- | --- |
-| Baseline | b55741894d2d127d81aea484f1f4b55fb049cba5, 2026-10-13 09:36 +08 |
-| Reviewed HEAD | bd169f860a69b97f72e47b995a14df73821ac9d8, 2026-10-16 10:37 +08 |
-| Descendant commits | 65 |
-| Non-merge commits | 24 |
-| Merge and synchronization commits | 41 |
-| Files changed | 77 |
-| Aggregate diff | 12,067 insertions, 472 deletions |
-| Review sources | Git history and source diff, Deliverable 3 sprint plan, SOW, vault notes, and checked-in evidence reports |
+| Item                              | Reviewed value                                                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Baseline                          | b55741894d2d127d81aea484f1f4b55fb049cba5, 2026-10-13 09:36 +08                                            |
+| Reviewed HEAD                     | bd169f860a69b97f72e47b995a14df73821ac9d8, 2026-10-16 10:37 +08                                            |
+| Descendant commits                | 65                                                                                                        |
+| Non-merge commits                 | 24                                                                                                        |
+| Merge and synchronization commits | 41                                                                                                        |
+| Files changed                     | 77                                                                                                        |
+| Aggregate diff                    | 12,067 insertions, 472 deletions                                                                          |
+| Review sources                    | Git history and source diff, Deliverable 3 sprint plan, SOW, vault notes, and checked-in evidence reports |
 
 The range is ancestry-based and excludes the baseline commit itself. I reviewed the final source diff and the 24 substantive non-merge commits individually. I also checked all 41 merge commits as branch integration history; their abbreviated IDs and pull-request or synchronization labels are listed in the final section. The checked-in test evidence is cited as reported evidence, not as an independent rerun.
 
@@ -45,13 +45,13 @@ The range is ancestry-based and excludes the baseline commit itself. I reviewed 
 
 At b5574189, Highrable already had a working dispute product slice across the participant UI, Convex, Soroban, and the protected administrator interface. The Deliverable 3 sprint plan explicitly records that participant case creation, list/detail, evidence, responses, timeline, marking feedback, route guards, and local tests existed before the sprint. The SOW's prior impact snapshots also describe participant and administrator workflows as established foundations.
 
-| Layer | State at the baseline |
-| --- | --- |
-| Participant interface | Dispute routes and feature components already supported opening a case, participant-scoped list/detail, evidence, responses, timeline, status feedback, and access/error states. The sprint plan called for hardening and integration against real gaps, not rebuilding these surfaces. |
+| Layer                   | State at the baseline                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Participant interface   | Dispute routes and feature components already supported opening a case, participant-scoped list/detail, evidence, responses, timeline, status feedback, and access/error states. The sprint plan called for hardening and integration against real gaps, not rebuilding these surfaces.                                                                                       |
 | Convex dispute workflow | Dispute records, participant/admin queries and mutations, parent and evidence validation, statuses, events, notifications, and transaction bookkeeping already existed. The range still found gaps in rechecking the live parent/participant graph on reads and writes, exact evidence attachment association, response replay protection, and complete acceptance snapshots. |
-| Soroban | The escrow contract already exposed participant dispute marking and the larger dispute/settlement state machine. Marking behavior and events were implemented in contract source before the range; there was a need to freeze the consumer handoff and expand authorization, event, address-kind, and no-side-effect tests. |
-| Administrator interface | Protected queue/detail, session checks, review controls, settlement coordination, and basic evidence display were already present. The range strengthened record consistency, linked-record context, evidence availability states, cross-interface acceptance, and settlement-result validation. |
-| Deployment and proof | Source and local tests were not equivalent to a verified live deployment. The repository did not yet have evidence for five complete Testnet dispute lifecycles, a complete transaction-link set, or a reviewer-ready package. |
+| Soroban                 | The escrow contract already exposed participant dispute marking and the larger dispute/settlement state machine. Marking behavior and events were implemented in contract source before the range; there was a need to freeze the consumer handoff and expand authorization, event, address-kind, and no-side-effect tests.                                                   |
+| Administrator interface | Protected queue/detail, session checks, review controls, settlement coordination, and basic evidence display were already present. The range strengthened record consistency, linked-record context, evidence availability states, cross-interface acceptance, and settlement-result validation.                                                                              |
+| Deployment and proof    | Source and local tests were not equivalent to a verified live deployment. The repository did not yet have evidence for five complete Testnet dispute lifecycles, a complete transaction-link set, or a reviewer-ready package.                                                                                                                                                |
 
 The baseline is therefore not an empty or nonfunctional dispute module. Deliverable 3 primarily tightens the trust boundaries and the connections among participant activity, Convex records, contract outcomes, and administrator review.
 
@@ -94,6 +94,7 @@ The browser-facing participant work in this range is modest because the core wor
 ## End-to-end relationship
 
 The intended trust and data flow can be read as:
+
 ```mermaid
 flowchart LR
   P[Participant UI] -->|case, evidence, response| B[Convex dispute boundary]
@@ -116,29 +117,29 @@ The participant-to-admin and admin-to-participant integration evidence uses mock
 
 ## Before and after comparison
 
-| Capability | Before b5574189 | At bd169f8 |
-| --- | --- | --- |
-| Participant case flow | Existing creation, list/detail, evidence, responses, timeline, route guards, and transaction feedback. | Existing UI is retained; route/recovery behavior and transaction messaging have adjacent regression fixes, and backend assumptions are more explicitly tested. |
-| Current parent and participant checks | Base authorization and creation validation existed, but protected read/write coverage did not consistently re-resolve every saved dispute against the current parent graph. | Protected dispute reads and participant evidence/response actions resolve current parent and participant state and fail closed on deleted, reassigned, or contradictory records. |
-| Evidence | Evidence support and ownership checks existed. | Evidence and historical attachments are checked against the exact case, active state, current participant uploader, and current authorization. Admin sees explicit availability states. |
-| Response retry | Responses created events and notifications; safe application-level request-key replay was absent. | Optional request IDs make matching retries write-free and conflicting key reuse atomic. Omitted IDs remain compatible with legacy behavior. |
-| On-chain marking | Contract and callback state machine existed. | Known hashes block blind new attempts; tests cover recovery/replay boundaries and Soroban authorization/event/side-effect invariants. |
-| Administrator case data | Protected admin queue/detail and review flow existed. | Case identity and linked work are checked before cache/render; evidence and linked-record presentation is more explicit; review propagation is covered end to end with mocked interfaces. |
-| Settlement result | Admin settlement coordination and recovery existed. | Successful result validation is tied to the saved outcome, share, and transaction hash; malformed or mismatched results do not produce false success. |
-| Verification | Local suites covered existing paths, with gaps in cross-layer and rejection snapshots. | Dated reports document expanded acceptance matrices across backend, web, Soroban, and verifier CLI; live Testnet/reviewer proof remains open. |
+| Capability                            | Before b5574189                                                                                                                                                             | At bd169f8                                                                                                                                                                                |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Participant case flow                 | Existing creation, list/detail, evidence, responses, timeline, route guards, and transaction feedback.                                                                      | Existing UI is retained; route/recovery behavior and transaction messaging have adjacent regression fixes, and backend assumptions are more explicitly tested.                            |
+| Current parent and participant checks | Base authorization and creation validation existed, but protected read/write coverage did not consistently re-resolve every saved dispute against the current parent graph. | Protected dispute reads and participant evidence/response actions resolve current parent and participant state and fail closed on deleted, reassigned, or contradictory records.          |
+| Evidence                              | Evidence support and ownership checks existed.                                                                                                                              | Evidence and historical attachments are checked against the exact case, active state, current participant uploader, and current authorization. Admin sees explicit availability states.   |
+| Response retry                        | Responses created events and notifications; safe application-level request-key replay was absent.                                                                           | Optional request IDs make matching retries write-free and conflicting key reuse atomic. Omitted IDs remain compatible with legacy behavior.                                               |
+| On-chain marking                      | Contract and callback state machine existed.                                                                                                                                | Known hashes block blind new attempts; tests cover recovery/replay boundaries and Soroban authorization/event/side-effect invariants.                                                     |
+| Administrator case data               | Protected admin queue/detail and review flow existed.                                                                                                                       | Case identity and linked work are checked before cache/render; evidence and linked-record presentation is more explicit; review propagation is covered end to end with mocked interfaces. |
+| Settlement result                     | Admin settlement coordination and recovery existed.                                                                                                                         | Successful result validation is tied to the saved outcome, share, and transaction hash; malformed or mismatched results do not produce false success.                                     |
+| Verification                          | Local suites covered existing paths, with gaps in cross-layer and rejection snapshots.                                                                                      | Dated reports document expanded acceptance matrices across backend, web, Soroban, and verifier CLI; live Testnet/reviewer proof remains open.                                             |
 
 ## Effect on the whole Instawards sprint
 
 Deliverable 3 is the participant-facing integration point for the broader dispute sprint. Its effect reaches the other SOW workstreams as follows:
 
-| SOW workstream | Deliverable 3 contribution in this range | Sprint effect and remaining boundary |
-| --- | --- | --- |
-| Deliverable 1 — Soroban contract | Freezes the existing participant marking contract and adds tests for address kinds, role/state authorization, event shape, and rejected-call atomicity. | Reduces uncertainty for participant and backend callers. No contract production source or deployment changed in this range, so these tests do not establish deployed Testnet behavior. |
-| Deliverable 2 — Convex backend | Adds current-parent access checks, exact evidence association, keyed response replay, a known-hash reconciliation guard, and connected participant acceptance coverage. Six D2 follow-up commits also improve wallet-change routes, historical evidence validation, admin navigation state, marking recovery, verifier code-lifetime checks, and saved-case reopening. | Makes the backend a safer source for participant and admin workflows. Caller-supplied wallet addresses remain identifiers and are not cryptographic proof of wallet possession. |
-| Deliverable 3 — Participant interface | Keeps the existing participant feature slice aligned to backend and contract state, and adds or strengthens transaction-state feedback and acceptance links where gaps were identified. | Completes a stronger local participant-to-review path without duplicating baseline functionality. The formal participant branch, merged participant PR, reviewer deployment, screenshots, and recording required by the SOW are not established by this commit range. |
-| Deliverable 4 — Administrator interface | Adds case-reference consistency checks, clearer evidence and linked-record presentation, review-state integration coverage, cross-interface acceptance, and successful settlement-result validation against the saved attempt. | Improves the reviewer-side handoff from participant cases. This is still local/mocked evidence and does not establish a live administrator deployment or settlement. |
-| Deliverable 5 — Automated testing and Testnet validation | Adds broad local Convex, web, Soroban, and deployment-verifier suites, including negative authorization and rejected-write snapshots. | Checked-in snapshots exceed the SOW's raw 20-test count in individual packages, but the range does not include a consolidated current category-by-category report or evidence of five complete live Testnet lifecycles and all settlement outcomes. |
-| Deliverable 6 — Reviewer evidence package | Adds contract/API handoffs and evidence notes for the C01–C23 items addressed in this range, alongside earlier baseline and D2 evidence. | Makes implementation easier to audit. The full reviewer package still needs the SOW-required branch/PR evidence, verified deployment identity, transaction links, reviewer deployment, screenshots, and concise demo recording. |
+| SOW workstream                                           | Deliverable 3 contribution in this range                                                                                                                                                                                                                                                                                                                               | Sprint effect and remaining boundary                                                                                                                                                                                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deliverable 1 — Soroban contract                         | Freezes the existing participant marking contract and adds tests for address kinds, role/state authorization, event shape, and rejected-call atomicity.                                                                                                                                                                                                                | Reduces uncertainty for participant and backend callers. No contract production source or deployment changed in this range, so these tests do not establish deployed Testnet behavior.                                                                                |
+| Deliverable 2 — Convex backend                           | Adds current-parent access checks, exact evidence association, keyed response replay, a known-hash reconciliation guard, and connected participant acceptance coverage. Six D2 follow-up commits also improve wallet-change routes, historical evidence validation, admin navigation state, marking recovery, verifier code-lifetime checks, and saved-case reopening. | Makes the backend a safer source for participant and admin workflows. Caller-supplied wallet addresses remain identifiers and are not cryptographic proof of wallet possession.                                                                                       |
+| Deliverable 3 — Participant interface                    | Keeps the existing participant feature slice aligned to backend and contract state, and adds or strengthens transaction-state feedback and acceptance links where gaps were identified.                                                                                                                                                                                | Completes a stronger local participant-to-review path without duplicating baseline functionality. The formal participant branch, merged participant PR, reviewer deployment, screenshots, and recording required by the SOW are not established by this commit range. |
+| Deliverable 4 — Administrator interface                  | Adds case-reference consistency checks, clearer evidence and linked-record presentation, review-state integration coverage, cross-interface acceptance, and successful settlement-result validation against the saved attempt.                                                                                                                                         | Improves the reviewer-side handoff from participant cases. This is still local/mocked evidence and does not establish a live administrator deployment or settlement.                                                                                                  |
+| Deliverable 5 — Automated testing and Testnet validation | Adds broad local Convex, web, Soroban, and deployment-verifier suites, including negative authorization and rejected-write snapshots.                                                                                                                                                                                                                                  | Checked-in snapshots exceed the SOW's raw 20-test count in individual packages, but the range does not include a consolidated current category-by-category report or evidence of five complete live Testnet lifecycles and all settlement outcomes.                   |
+| Deliverable 6 — Reviewer evidence package                | Adds contract/API handoffs and evidence notes for the C01–C23 items addressed in this range, alongside earlier baseline and D2 evidence.                                                                                                                                                                                                                               | Makes implementation easier to audit. The full reviewer package still needs the SOW-required branch/PR evidence, verified deployment identity, transaction links, reviewer deployment, screenshots, and concise demo recording.                                       |
 
 Overall, Deliverable 3 reduces integration risk across the sprint: participants, administrators, Convex, and Soroban now share more explicit and testable expectations for case identity, evidence, status, and transaction recovery. It advances the end-to-end product slice, but does not complete every SOW deliverable or its live acceptance criteria.
 
@@ -146,16 +147,16 @@ Overall, Deliverable 3 reduces integration risk across the sprint: participants,
 
 These are dated results from the evidence documents, not a unified run performed for this review. Different reports represent different snapshots and must not be summed.
 
-| Area | Recorded result | Source and boundary |
-| --- | --- | --- |
-| Backend contract and API | C02 reports 62 focused API/schema/index tests and 364 backend tests across 13 files. C22 later reports 18 focused acceptance tests and 497 backend tests across 17 files. | [C02 API contract evidence](./Deliverable-3-C02-Participant-API-Contract-Evidence.md), [C22 participant acceptance evidence](./Deliverable-3-C22-Participant-Acceptance-Evidence.md). Local Convex tests do not prove wallet possession or deployed Convex behavior. |
-| Protected backend reads/evidence | C10 reports 13 focused tests and 381 backend tests across 14 files. | [C10 evidence](./Deliverable-3-C10-Evidence.md). Storage and live service behavior remain unverified. |
-| Participant responses | C14 reports 74 focused tests and 456 backend tests across 15 files. | [C14 response evidence](./Deliverable-3-C14-Participant-Response-Evidence.md). Calls without request IDs intentionally retain legacy non-idempotent behavior. |
-| Marking recovery | C18 reports 23 focused tests and 479 backend tests across 16 files. | [C18 reconciliation evidence](./Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md). RPC is mocked; there is no new live reconciliation service. |
-| Soroban | C17 reports 83 escrow tests and 9 reputation tests, with contract build and formatting checks recorded as passing. | [C17 address authorization evidence](./Deliverable-3-C17-Participant-Address-Authorization-Evidence.md). This is local host authorization and build evidence, not wallet signature or deployment proof. |
-| Administrator UI | C23 reports 252 focused tests and 486 web tests across 29 files, plus TypeScript, lint/format, and Next.js production build checks. | [C23 resolution result evidence](../obsidian/evidence/C23-Administrator%20Resolution%20Result%20Evidence.md). Browser, API, and subscriptions are mocked. |
-| Cross-interface flow | C19 reports 7/7 focused tests and a later full web run of 450/450 across 29 files. C23 records the later 486/486 full web run. | [C19 cross-interface evidence](../obsidian/evidence/C19-Participant-to-Administrator%20Acceptance%20Evidence.md). This does not prove live Convex publication, uploads, wallet signatures, or chain settlement. |
-| Deployment identity CLI | C21 reports 57 tests for the read-only verifier using synthetic WASM and a loopback RPC fixture. | [C21 verifier evidence](./Deliverable-3-C21-Deployment-Identity-CLI-Evidence.md). Production WASM provenance and live Testnet identity remain unverified. |
+| Area                             | Recorded result                                                                                                                                                           | Source and boundary                                                                                                                                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend contract and API         | C02 reports 62 focused API/schema/index tests and 364 backend tests across 13 files. C22 later reports 18 focused acceptance tests and 497 backend tests across 17 files. | [C02 API contract evidence](./Deliverable-3-C02-Participant-API-Contract-Evidence.md), [C22 participant acceptance evidence](./Deliverable-3-C22-Participant-Acceptance-Evidence.md). Local Convex tests do not prove wallet possession or deployed Convex behavior. |
+| Protected backend reads/evidence | C10 reports 13 focused tests and 381 backend tests across 14 files.                                                                                                       | [C10 evidence](./Deliverable-3-C10-Evidence.md). Storage and live service behavior remain unverified.                                                                                                                                                                |
+| Participant responses            | C14 reports 74 focused tests and 456 backend tests across 15 files.                                                                                                       | [C14 response evidence](./Deliverable-3-C14-Participant-Response-Evidence.md). Calls without request IDs intentionally retain legacy non-idempotent behavior.                                                                                                        |
+| Marking recovery                 | C18 reports 23 focused tests and 479 backend tests across 16 files.                                                                                                       | [C18 reconciliation evidence](./Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md). RPC is mocked; there is no new live reconciliation service.                                                                                                       |
+| Soroban                          | C17 reports 83 escrow tests and 9 reputation tests, with contract build and formatting checks recorded as passing.                                                        | [C17 address authorization evidence](./Deliverable-3-C17-Participant-Address-Authorization-Evidence.md). This is local host authorization and build evidence, not wallet signature or deployment proof.                                                              |
+| Administrator UI                 | C23 reports 252 focused tests and 486 web tests across 29 files, plus TypeScript, lint/format, and Next.js production build checks.                                       | [C23 resolution result evidence](../obsidian/evidence/C23-Administrator%20Resolution%20Result%20Evidence.md). Browser, API, and subscriptions are mocked.                                                                                                            |
+| Cross-interface flow             | C19 reports 7/7 focused tests and a later full web run of 450/450 across 29 files. C23 records the later 486/486 full web run.                                            | [C19 cross-interface evidence](../obsidian/evidence/C19-Participant-to-Administrator%20Acceptance%20Evidence.md). This does not prove live Convex publication, uploads, wallet signatures, or chain settlement.                                                      |
+| Deployment identity CLI          | C21 reports 57 tests for the read-only verifier using synthetic WASM and a loopback RPC fixture.                                                                          | [C21 verifier evidence](./Deliverable-3-C21-Deployment-Identity-CLI-Evidence.md). Production WASM provenance and live Testnet identity remain unverified.                                                                                                            |
 
 Some intermediate web snapshots recorded two stale participant text assertions failing: C07 reported 421/423, C11 427/429, and C15 438/440. The later C19 report records those assertions passing in a 450/450 full run, and C23 records 486/486. These are chronological suite snapshots, not contradictory claims about one run.
 
@@ -173,43 +174,43 @@ Some intermediate web snapshots recorded two stale participant text assertions f
 
 All 24 non-merge commits in the ancestry range are itemized below. Six are Deliverable 2 follow-up work that shares the range; the remaining 18 directly support Deliverable 3 scope or its cross-interface acceptance.
 
-| Commit | Date | Review note |
-| --- | --- | --- |
-| 09aac4e | 2026-10-13 | C03: adds generated-type-backed administrator consumer contract tests and handoff. |
-| 00cf822 | 2026-10-13 | C02: expands participant API contract/type/validator checks and full rejected-write snapshots. |
-| ccc86d7 | 2026-10-13 | C07: adds admin case/parent consistency validation and richer protected detail context. |
-| 444db9b | 2026-10-13 | C06: strengthens complete-state snapshots for rejected creation, authorization, and related-record paths. |
-| 1a18aef | 2026-10-13 | C01: documents the existing participant marking contract and adds contract-spec regressions. |
-| 9befa75 | 2026-10-13 | C05: expands Soroban participant marking role and state guard tests. |
-| a5e1be2 | 2026-10-14 | D2 C04: recovers participant dispute routes on wallet changes. |
-| a857dbd | 2026-10-14 | D2 C08: validates participants on historical evidence paths. |
-| 12d3e0f | 2026-10-14 | C10: re-resolves current dispute work/access and hardens evidence association and protected reads. |
-| b416295 | 2026-10-14 | C14: adds request-ID idempotency for participant dispute responses and an optional event field/index. |
-| 47ee699 | 2026-10-14 | C11: improves administrator evidence and linked-record presentation. |
-| bc88ccb | 2026-10-14 | C15: adds administrator-to-participant review-state propagation integration coverage. |
-| 562b337 | 2026-10-14 | C09: asserts the complete marking event shape and exactly one emitted event. |
-| a637ddd | 2026-10-14 | C13: adds complete no-side-effect snapshots for rejected Soroban marking calls. |
-| e1fa1ae | 2026-10-14 | D2 C12: isolates administrator case-action state during navigation. |
-| ad18514 | 2026-10-14 | D2 C16: prioritizes authoritative confirmation and guards retries with known hashes. |
-| 5031345 | 2026-10-15 | D2 C20: checks verifier code lifetime at the final ledger. |
-| 772b1ac | 2026-10-15 | D2 C24: adds saved-case reopening acceptance coverage. |
-| 9efda72 | 2026-10-15 | C17: tests account/contract address combinations and invocation authorization invariants. |
-| 20d7408 | 2026-10-15 | C19: adds participant-to-protected-administrator acceptance coverage. |
-| e042017 | 2026-10-15 | C21: extends deployment identity verifier acceptance across CLI, path, output, and error boundaries. |
-| fc0ed18 | 2026-10-15 | C18: prevents known-hash re-submission and covers callback/sync reconciliation cases. |
-| b97bd65 | 2026-10-15 | C22: adds participant backend acceptance matrix and closes stale attachment-access-log visibility. |
+| Commit  | Date       | Review note                                                                                                                      |
+| ------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 09aac4e | 2026-10-13 | C03: adds generated-type-backed administrator consumer contract tests and handoff.                                               |
+| 00cf822 | 2026-10-13 | C02: expands participant API contract/type/validator checks and full rejected-write snapshots.                                   |
+| ccc86d7 | 2026-10-13 | C07: adds admin case/parent consistency validation and richer protected detail context.                                          |
+| 444db9b | 2026-10-13 | C06: strengthens complete-state snapshots for rejected creation, authorization, and related-record paths.                        |
+| 1a18aef | 2026-10-13 | C01: documents the existing participant marking contract and adds contract-spec regressions.                                     |
+| 9befa75 | 2026-10-13 | C05: expands Soroban participant marking role and state guard tests.                                                             |
+| a5e1be2 | 2026-10-14 | D2 C04: recovers participant dispute routes on wallet changes.                                                                   |
+| a857dbd | 2026-10-14 | D2 C08: validates participants on historical evidence paths.                                                                     |
+| 12d3e0f | 2026-10-14 | C10: re-resolves current dispute work/access and hardens evidence association and protected reads.                               |
+| b416295 | 2026-10-14 | C14: adds request-ID idempotency for participant dispute responses and an optional event field/index.                            |
+| 47ee699 | 2026-10-14 | C11: improves administrator evidence and linked-record presentation.                                                             |
+| bc88ccb | 2026-10-14 | C15: adds administrator-to-participant review-state propagation integration coverage.                                            |
+| 562b337 | 2026-10-14 | C09: asserts the complete marking event shape and exactly one emitted event.                                                     |
+| a637ddd | 2026-10-14 | C13: adds complete no-side-effect snapshots for rejected Soroban marking calls.                                                  |
+| e1fa1ae | 2026-10-14 | D2 C12: isolates administrator case-action state during navigation.                                                              |
+| ad18514 | 2026-10-14 | D2 C16: prioritizes authoritative confirmation and guards retries with known hashes.                                             |
+| 5031345 | 2026-10-15 | D2 C20: checks verifier code lifetime at the final ledger.                                                                       |
+| 772b1ac | 2026-10-15 | D2 C24: adds saved-case reopening acceptance coverage.                                                                           |
+| 9efda72 | 2026-10-15 | C17: tests account/contract address combinations and invocation authorization invariants.                                        |
+| 20d7408 | 2026-10-15 | C19: adds participant-to-protected-administrator acceptance coverage.                                                            |
+| e042017 | 2026-10-15 | C21: extends deployment identity verifier acceptance across CLI, path, output, and error boundaries.                             |
+| fc0ed18 | 2026-10-15 | C18: prevents known-hash re-submission and covers callback/sync reconciliation cases.                                            |
+| b97bd65 | 2026-10-15 | C22: adds participant backend acceptance matrix and closes stale attachment-access-log visibility.                               |
 | e07fcfd | 2026-10-15 | C23: validates administrator settlement results against the saved outcome and transaction identity; expands acceptance coverage. |
 
 ## Reviewed merge and synchronization commits
 
 The 41 merge commits were also reviewed as part of the range. PR numbers below refer to repository merge subjects; “sync” marks a branch synchronization merge.
 
-| Date | Merge commits |
-| --- | --- |
-| 2026-10-13 | b36ffd2 PR #115; 697ec09 PR #116; f8c77c0 PR #117; cf37693 PR #121; 550d5d1 PR #122; 5c19430 PR #123; 84a4416 PR #124. |
+| Date       | Merge commits                                                                                                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-13 | b36ffd2 PR #115; 697ec09 PR #116; f8c77c0 PR #117; cf37693 PR #121; 550d5d1 PR #122; 5c19430 PR #123; 84a4416 PR #124.                                                                                           |
 | 2026-10-14 | 7d33902 sync; e1fda3c PR #125; be90c0c PR #126; 12a0ec4 sync; 662a28d PR #127; 43943f5 sync; 565119f PR #128; bf35e7b sync; 4fe1e7f PR #129; 36dccaf PR #130; b0e38cb PR #131; 9a6ff0a PR #132; c88a512 PR #133. |
-| 2026-10-15 | 273e79c PR #134; a3306a7 sync; d1f1e37 PR #136; debddea sync; 5d9abc7 PR #135; 0532f25 PR #137; 7e03c8b sync; b0d9e49 PR #138; 18fe987 PR #139; 61faa34 PR #140; 6b7fa97 PR #141; 96ff81c PR #142. |
-| 2026-10-16 | c3ed928 PR #144; aefcefd PR #145; 137cc07 sync; 129c0e0 PR #146; 0f7ef85 sync; 93ce960 PR #147; 1a330bd sync; 9d063f8 PR #148; bd169f8 PR #149. |
+| 2026-10-15 | 273e79c PR #134; a3306a7 sync; d1f1e37 PR #136; debddea sync; 5d9abc7 PR #135; 0532f25 PR #137; 7e03c8b sync; b0d9e49 PR #138; 18fe987 PR #139; 61faa34 PR #140; 6b7fa97 PR #141; 96ff81c PR #142.               |
+| 2026-10-16 | c3ed928 PR #144; aefcefd PR #145; 137cc07 sync; 129c0e0 PR #146; 0f7ef85 sync; 93ce960 PR #147; 1a330bd sync; 9d063f8 PR #148; bd169f8 PR #149.                                                                  |
 
 ## Source and evidence map
 

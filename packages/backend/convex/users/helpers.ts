@@ -42,6 +42,13 @@ export async function findUserByWallet(ctx: QueryCtx, walletAddress: string) {
     .unique();
 }
 
+export async function findPrivateEmail(ctx: QueryCtx, walletAddress: string) {
+  return await ctx.db
+    .query("privateEmails")
+    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", walletAddress))
+    .unique();
+}
+
 export async function findUserByHandle(ctx: QueryCtx, normalizedPublicHandle: string) {
   return await ctx.db
     .query("users")
@@ -106,7 +113,7 @@ export function sanitizePublicHandle(publicHandle: string): {
   };
 }
 
-function sanitizeCoreSkills(coreSkills: string[]): string[] {
+function sanitizeCoreSkills(coreSkills: string[], required = true): string[] {
   const dedupedSkills = new Map<string, string>();
 
   for (const skill of coreSkills) {
@@ -123,7 +130,7 @@ function sanitizeCoreSkills(coreSkills: string[]): string[] {
   }
 
   const skills = Array.from(dedupedSkills.values());
-  if (skills.length === 0) {
+  if (required && skills.length === 0) {
     throw new BadRequestError("Add at least one core skill.");
   }
 
@@ -165,6 +172,7 @@ export async function sanitizeOnboardingProfile(
     githubUsername?: string;
     avatarStorageId?: Id<"_storage">;
   },
+  options: { requireSkills?: boolean } = {},
 ): Promise<TSanitizedOnboardingProfile> {
   const firstName = sanitizeRequiredText(args.firstName, "firstName", 60);
   const middleName = sanitizeOptionalText(args.middleName, "middleName", 60);
@@ -181,7 +189,7 @@ export async function sanitizeOnboardingProfile(
     lastName,
     name: [firstName, middleName, lastName].filter(Boolean).join(" "),
     ...handle,
-    coreSkills: sanitizeCoreSkills(args.coreSkills),
+    coreSkills: sanitizeCoreSkills(args.coreSkills, options.requireSkills !== false),
     ...(discordHandle !== undefined ? { discordHandle } : {}),
     ...(xHandle !== undefined ? { xHandle } : {}),
     ...(githubUsername !== undefined ? { githubUsername } : {}),

@@ -23,7 +23,7 @@ export function FreelancerProfileHeader({
   readonly canEdit: boolean;
   readonly onEdit: () => void;
 }) {
-  const displayName = profile.name || "Unnamed Freelancer";
+  const displayName = profile.name?.trim() || "Highrable participant";
   const walletTypeLabel =
     profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
   const portfolioUrl = getSafeExternalProfileUrl(profile.portfolioUrl);

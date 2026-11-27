@@ -1,11 +1,12 @@
 "use client";
 
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Progress } from "@repo/ui/components/ui/progress";
 import { cn } from "@repo/ui/lib/utils";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { useId } from "react";
+import React, { useId, useRef } from "react";
 
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 export interface IFormStep {
   readonly id: string;
@@ -39,17 +40,38 @@ export function FormStepTabs({
   const generatedId = useId();
   const prefix = idPrefix ?? generatedId;
   const active = steps[activeIndex];
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const progress = steps.length > 0 ? ((activeIndex + 1) / steps.length) * 100 : 0;
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const tabList = tabListRef.current;
+    const currentIndex = Number(event.currentTarget.dataset.stepIndex);
+    if (!tabList || !Number.isInteger(currentIndex) || steps.length === 0) return;
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % steps.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + steps.length) % steps.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = steps.length - 1;
+    }
+
+    if (nextIndex === null) return;
+    event.preventDefault();
+    tabList.querySelector<HTMLButtonElement>(`[data-step-index="${nextIndex}"]`)?.focus();
+    onSelect(nextIndex);
+  }
 
   return (
     <div className={cn("space-y-3", className)}>
-      <p className="text-xs text-muted-foreground">
-        Step {activeIndex + 1} of {steps.length}
-      </p>
-
       <div
+        ref={tabListRef}
         role="tablist"
         aria-label="Form steps"
-        className="grid gap-2"
+        className="grid gap-0"
         style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
       >
         {steps.map((step, index) => {
@@ -57,42 +79,60 @@ export function FormStepTabs({
           const isDone = index < activeIndex && !step.hasError;
 
           return (
-            <button
-              key={step.id}
-              type="button"
-              role="tab"
-              id={`${prefix}-tab-${step.id}`}
-              aria-selected={isActive}
-              aria-controls={`${prefix}-panel-${step.id}`}
-              onClick={() => onSelect(index)}
-              className={cn(
-                "flex min-w-0 items-center gap-2 rounded-md border px-2 py-2 text-left transition-colors sm:px-3",
-                isActive
-                  ? "border-(--mode-solid) text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground",
-                step.hasError ? "border-red-300 bg-red-50 text-red-700" : "",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium",
-                  step.hasError
-                    ? "bg-red-600 text-white"
-                    : isActive || isDone
-                      ? "bg-(--mode-solid) text-(--mode-on)"
-                      : "bg-muted text-muted-foreground",
-                )}
+            <div key={step.id} className="relative flex min-w-0 justify-center">
+              {index < steps.length - 1 ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute top-4 right-[-50%] left-1/2 z-0 h-px",
+                    isDone ? "bg-(--mode-solid)" : "bg-border",
+                  )}
+                />
+              ) : null}
+              <button
+                type="button"
+                role="tab"
+                data-step-index={index}
+                id={`${prefix}-tab-${step.id}`}
+                aria-selected={isActive}
+                aria-controls={`${prefix}-panel-${step.id}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => onSelect(index)}
+                onKeyDown={handleTabKeyDown}
+                className="group relative z-10 flex min-w-0 flex-col items-center gap-2 rounded-lg px-1 pb-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                {isDone ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
-              </span>
-              <span className="hidden min-w-0 truncate font-sans text-sm font-medium sm:block">
-                {step.title}
-              </span>
-              <span className="sr-only sm:hidden">{step.title}</span>
-            </button>
+                <span
+                  className={cn(
+                    "flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
+                    step.hasError
+                      ? "border-red-600 bg-red-600 text-white"
+                      : isActive || isDone
+                        ? "border-(--mode-solid) bg-(--mode-solid) text-(--mode-on)"
+                        : "border-border bg-muted text-muted-foreground",
+                  )}
+                >
+                  {isDone ? <Check className="size-4" aria-hidden="true" /> : index + 1}
+                </span>
+                <span
+                  className={cn(
+                    "max-w-full truncate font-sans text-[11px] leading-tight font-semibold sm:text-xs",
+                    isActive ? "text-foreground" : "text-muted-foreground",
+                    step.hasError ? "text-red-700 dark:text-red-300" : "",
+                  )}
+                >
+                  {step.title}
+                </span>
+              </button>
+            </div>
           );
         })}
       </div>
+
+      <Progress value={progress} aria-label="Form progress" className="h-1.5 bg-muted" />
+
+      <p className="text-xs text-muted-foreground">
+        Step {activeIndex + 1} of {steps.length}
+      </p>
 
       {showStepSummary && active ? (
         <div>

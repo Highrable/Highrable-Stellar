@@ -1,4 +1,12 @@
-import { Briefcase, UserRound } from "lucide-react";
+import {
+  Briefcase,
+  FilePlus2,
+  Gavel,
+  LayoutDashboard,
+  Search,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 
 import type { TDashboardMode } from "@/features/dashboard/types";
 import type { LucideIcon } from "lucide-react";
@@ -51,19 +59,55 @@ export interface IModeNavItem {
   readonly name: string;
   readonly href: string;
   readonly description: string;
+  readonly icon: LucideIcon;
 }
 
 /** Navigation shown for each mode. Pages that belong to the other mode are never listed. */
 export const MODE_NAVIGATION: Record<TAppMode, readonly IModeNavItem[]> = {
   freelancer: [
-    { name: "Find Work", href: "/marketplace", description: "Browse open jobs and apply" },
-    { name: "My Work", href: "/dashboard", description: "Your earnings and active jobs" },
-    { name: "Disputes", href: "/disputes", description: "Problems you have raised or received" },
+    {
+      name: "Find Work",
+      href: "/marketplace",
+      description: "Browse open jobs and apply",
+      icon: Search,
+    },
+    {
+      name: "My Work",
+      href: "/dashboard",
+      description: "Your earnings and active jobs",
+      icon: LayoutDashboard,
+    },
+    {
+      name: "Disputes",
+      href: "/disputes",
+      description: "Problems you have raised or received",
+      icon: Gavel,
+    },
   ],
   client: [
-    { name: "Post a Job", href: "/post-job", description: "Describe the work you need done" },
-    { name: "My Jobs", href: "/dashboard", description: "Jobs you posted and their progress" },
-    { name: "Find Freelancers", href: "/talent", description: "Look for people to hire" },
-    { name: "Disputes", href: "/disputes", description: "Problems you have raised or received" },
+    {
+      name: "Post a Job",
+      href: "/post-job",
+      description: "Describe the work you need done",
+      icon: FilePlus2,
+    },
+    {
+      name: "My Jobs",
+      href: "/dashboard",
+      description: "Jobs you posted and their progress",
+      icon: LayoutDashboard,
+    },
+    {
+      name: "Find Freelancers",
+      href: "/talent",
+      description: "Look for people to hire",
+      icon: UsersRound,
+    },
+    {
+      name: "Disputes",
+      href: "/disputes",
+      description: "Problems you have raised or received",
+      icon: Gavel,
+    },
   ],
 };

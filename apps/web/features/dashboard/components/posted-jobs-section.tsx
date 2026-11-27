@@ -25,7 +25,7 @@ export function PostedJobsSection() {
     useClientPostedJobs();
 
   return (
-    <section className="space-y-3">
+    <section className="hr-card-surface min-w-0 space-y-5 rounded-3xl p-5 sm:p-6">
       <SectionHeading title="Posted jobs" />
 
       {isInitialLoading ? (

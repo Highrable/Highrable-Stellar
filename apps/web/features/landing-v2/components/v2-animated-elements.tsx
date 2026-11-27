@@ -165,7 +165,7 @@ export function V2AnnouncementMarquee() {
     <div
       role="img"
       aria-label={MARQUEE_ITEMS[0]}
-      className="overflow-hidden bg-linear-to-r from-[#FF8703] to-[#FE6002] py-3 sm:py-3.5"
+      className="overflow-hidden bg-linear-to-r from-highrable-orange-1 to-highrable-orange-2 py-3 sm:py-3.5"
     >
       <motion.div
         aria-hidden="true"
@@ -178,7 +178,7 @@ export function V2AnnouncementMarquee() {
         {[0, 1].map((group) => (
           <div
             key={group}
-            className="flex shrink-0 items-center gap-9 pr-9 font-sans text-base font-semibold text-white sm:text-lg"
+            className="flex shrink-0 items-center gap-9 pr-9 font-sans text-base font-semibold text-[#35180b] sm:text-lg"
           >
             {MARQUEE_ITEMS.map((item, index) => (
               <span key={`${group}-${index}`} className="flex shrink-0 items-center gap-9">

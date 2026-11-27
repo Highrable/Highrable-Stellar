@@ -49,12 +49,12 @@ The default product surface is light mode: white page background, near-black pri
 
 ### 2.2 Route content widths — implemented
 
-| Surface | Container | Padding | Primary use |
-| --- | --- | --- | --- |
-| Participant disputes list/detail | `max-w-5xl` | `px-4 py-10` | `/disputes`, `/disputes/[disputeId]` |
-| Admin dashboard/queue/detail | `max-w-6xl` | `px-4 py-10` | `/admin`, `/admin/disputes`, `/admin/disputes/[disputeId]` |
-| Shared product hero | `max-w-4xl`, inner copy `max-w-3xl` | inherited | Product route titles and descriptions |
-| Shared v2 container | `max-w-7xl px-6` | inherited | Header and marketing components |
+| Surface                          | Container                           | Padding      | Primary use                                                |
+| -------------------------------- | ----------------------------------- | ------------ | ---------------------------------------------------------- |
+| Participant disputes list/detail | `max-w-5xl`                         | `px-4 py-10` | `/disputes`, `/disputes/[disputeId]`                       |
+| Admin dashboard/queue/detail     | `max-w-6xl`                         | `px-4 py-10` | `/admin`, `/admin/disputes`, `/admin/disputes/[disputeId]` |
+| Shared product hero              | `max-w-4xl`, inner copy `max-w-3xl` | inherited    | Product route titles and descriptions                      |
+| Shared v2 container              | `max-w-7xl px-6`                    | inherited    | Header and marketing components                            |
 
 Use one route container per page. Avoid adding another full-width max-width wrapper inside a section unless the section intentionally needs a narrower reading measure.
 
@@ -83,34 +83,34 @@ Never require horizontal scrolling for a primary action or essential status. Wid
 
 ### 3.1 Color tokens — implemented
 
-| Token/use | Light value | Dark value where defined | Use |
-| --- | --- | --- | --- |
-| Page background | `#ffffff` | `#171717` | Body and main route background |
-| Primary text | `#0a0a0a` | `#fafafa` | Headings, primary values, important content |
-| Body secondary text | `#5f5f5f` | `#d4d4d4` | Descriptions, metadata, helper copy |
-| Muted text | `#7f7f7f` | `#a3a3a3` | Timestamps, unavailable references, labels |
-| Strong body copy | `#3f3f3f` | — | Long-form descriptions and timeline messages |
-| Card/surface | `#ffffff` | `#1f1f1f` | Panels and cards |
-| Muted surface | `#f5f5f5` | `#262626` | Empty states, secondary blocks, table headers |
-| Soft surface | `#fafafa` | — | Evidence items, queue rows, neutral state blocks |
-| Border | `#e8e8e8` | `#3a3a3a` | Standard borders and dividers |
-| Soft border | `#d8d8d8` | — | Inputs, timeline rules, dashed empty-state borders |
-| Accent surface | `#fff7ed` | `rgb(255 112 3 / 18%)` | Orange-tinted notices, secondary actions |
-| Orange 1 | `#ff8801` | — | Focus ring and bright gradient stop |
-| Orange 2 | `#ff7003` | — | Primary brand/action orange |
-| Orange 3 | `#e85d00` | — | Strong action border/hover |
-| Orange 4 | `#b94a00` | — | Accessible accent text and dark-orange links |
-| Focus ring | `#ff7003` | `#ff8801` | Visible keyboard focus |
-| Destructive | `#dc2626` | `#7f1d1d` | Destructive controls and errors |
+| Token/use           | Light value | Dark value where defined | Use                                                |
+| ------------------- | ----------- | ------------------------ | -------------------------------------------------- |
+| Page background     | `#ffffff`   | `#171717`                | Body and main route background                     |
+| Primary text        | `#0a0a0a`   | `#fafafa`                | Headings, primary values, important content        |
+| Body secondary text | `#5f5f5f`   | `#d4d4d4`                | Descriptions, metadata, helper copy                |
+| Muted text          | `#7f7f7f`   | `#a3a3a3`                | Timestamps, unavailable references, labels         |
+| Strong body copy    | `#3f3f3f`   | —                        | Long-form descriptions and timeline messages       |
+| Card/surface        | `#ffffff`   | `#1f1f1f`                | Panels and cards                                   |
+| Muted surface       | `#f5f5f5`   | `#262626`                | Empty states, secondary blocks, table headers      |
+| Soft surface        | `#fafafa`   | —                        | Evidence items, queue rows, neutral state blocks   |
+| Border              | `#e8e8e8`   | `#3a3a3a`                | Standard borders and dividers                      |
+| Soft border         | `#d8d8d8`   | —                        | Inputs, timeline rules, dashed empty-state borders |
+| Accent surface      | `#fff7ed`   | `rgb(255 112 3 / 18%)`   | Orange-tinted notices, secondary actions           |
+| Orange 1            | `#ff8801`   | —                        | Focus ring and bright gradient stop                |
+| Orange 2            | `#ff7003`   | —                        | Primary brand/action orange                        |
+| Orange 3            | `#e85d00`   | —                        | Strong action border/hover                         |
+| Orange 4            | `#b94a00`   | —                        | Accessible accent text and dark-orange links       |
+| Focus ring          | `#ff7003`   | `#ff8801`                | Visible keyboard focus                             |
+| Destructive         | `#dc2626`   | `#7f1d1d`                | Destructive controls and errors                    |
 
 State colors use the existing Tailwind families:
 
-| State | Border | Background | Text |
-| --- | --- | --- | --- |
-| Success | `emerald-200` | `emerald-50` | `emerald-700` or `emerald-800` |
-| Warning/reconciliation | `amber-200` | `amber-50` | `amber-800` or `amber-900` |
-| Danger/error | `red-200` | `red-50` | `red-700` |
-| Neutral/pending | `#d8d8d8` or `border-border` | `#fafafa` or `muted/40` | `#3f3f3f` or secondary text |
+| State                  | Border                       | Background              | Text                           |
+| ---------------------- | ---------------------------- | ----------------------- | ------------------------------ |
+| Success                | `emerald-200`                | `emerald-50`            | `emerald-700` or `emerald-800` |
+| Warning/reconciliation | `amber-200`                  | `amber-50`              | `amber-800` or `amber-900`     |
+| Danger/error           | `red-200`                    | `red-50`                | `red-700`                      |
+| Neutral/pending        | `#d8d8d8` or `border-border` | `#fafafa` or `muted/40` | `#3f3f3f` or secondary text    |
 
 Use text and icon labels in addition to color. A transaction marked “Outcome Pending” must not be conveyed only by gray or amber.
 
@@ -123,17 +123,17 @@ Font variables are named `--font-geist-sans` and `--font-geist-mono`, but their 
 
 The repository does not fetch Google Fonts during builds. If Space Grotesk or JetBrains Mono is unavailable on the device, the declared fallbacks are used.
 
-| Text role | Font | Size/weight | Treatment |
-| --- | --- | --- | --- |
-| Product route H1 | Sans | `30px` (`text-3xl`), `36px` from `sm`; bold/semibold | Tight leading, primary text; orange gradient may emphasize one phrase |
-| Participant detail title | Sans | `24px`, semibold | `leading-tight` |
-| Section title | Sans | `18–20px`, semibold | Use for card and panel titles |
-| Body | Sans | `14px` default; `16px` where comfortable | `leading-relaxed` for descriptions |
-| Eyebrow/section label | Mono | `11–12px`, medium | Uppercase, tracking `0.04–0.08em` |
-| Button/navigation label | Mono | `12–14px`, medium | Uppercase, often tracking `0.06em` or wider |
-| Wallet/hash/operation ID | Mono | `12–14px` | `break-all` where necessary; never truncate without an accessible full value |
-| Metric value | Sans | `24px`, semibold | `leading-none` |
-| Badge/status | Mono | `10–12px` | Uppercase; compact padding |
+| Text role                | Font | Size/weight                                          | Treatment                                                                    |
+| ------------------------ | ---- | ---------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Product route H1         | Sans | `30px` (`text-3xl`), `36px` from `sm`; bold/semibold | Tight leading, primary text; orange gradient may emphasize one phrase        |
+| Participant detail title | Sans | `24px`, semibold                                     | `leading-tight`                                                              |
+| Section title            | Sans | `18–20px`, semibold                                  | Use for card and panel titles                                                |
+| Body                     | Sans | `14px` default; `16px` where comfortable             | `leading-relaxed` for descriptions                                           |
+| Eyebrow/section label    | Mono | `11–12px`, medium                                    | Uppercase, tracking `0.04–0.08em`                                            |
+| Button/navigation label  | Mono | `12–14px`, medium                                    | Uppercase, often tracking `0.06em` or wider                                  |
+| Wallet/hash/operation ID | Mono | `12–14px`                                            | `break-all` where necessary; never truncate without an accessible full value |
+| Metric value             | Sans | `24px`, semibold                                     | `leading-none`                                                               |
+| Badge/status             | Mono | `10–12px`                                            | Uppercase; compact padding                                                   |
 
 Use sans for prose and human-readable titles. Use mono for IDs, statuses, dates, labels, wallet addresses, transaction hashes, and action labels.
 
@@ -505,4 +505,3 @@ The open-dispute flow uses `ResponsiveDialog`:
 - [ ] Form labels, focus states, `role="status"`, `role="alert"`, and keyboard access are present.
 - [ ] Protected evidence is never rendered from an unvalidated or unauthorized URL.
 - [ ] New UI reuses semantic token classes and shared primitives where possible.
-

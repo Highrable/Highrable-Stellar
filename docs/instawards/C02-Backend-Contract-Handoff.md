@@ -23,16 +23,16 @@ This is distinct from Deliverable 1 C02. Deliverable 1 C02 established the initi
 
 ## Schema vocabulary
 
-| Contract | Accepted values covered by C02 |
-| --- | --- |
-| `disputes.parentType` | `micro_gig`, `milestone`, `escrow`, `job` |
-| `disputes.reasonCategory` | `work_not_delivered`, `work_quality_issue`, `client_unresponsive`, `freelancer_unresponsive`, `missed_deadline`, `revision_disagreement`, `payment_release_disagreement`, `scope_disagreement`, `other` |
-| `disputes.status` | `open`, `under_review`, `awaiting_client_response`, `awaiting_freelancer_response`, `resolved_client`, `resolved_freelancer`, `split_resolution`, `cancelled` |
-| `disputes.onChainStatus` | `not_marked`, `marking`, `marked`, `mark_failed` |
-| Wallet fields | `external_wallet`, `passkey_smart_account`; event actor wallet type also accepts `system` |
-| `disputeEvents.actorRole` | `client`, `freelancer`, `moderator`, `system` |
-| `disputeEvents.type` | `dispute_opened`, `evidence_added`, `on_chain_mark_started`, `on_chain_mark_succeeded`, `on_chain_mark_failed`, `status_changed`, `client_response_added`, `freelancer_response_added`, `moderator_note_added`, `resolution_proposed`, `resolved_client`, `resolved_freelancer`, `split_resolution`, `cancelled` |
-| Event status fields | `oldStatus` and `newStatus` are independently optional; each uses the dispute status vocabulary |
+| Contract                  | Accepted values covered by C02                                                                                                                                                                                                                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `disputes.parentType`     | `micro_gig`, `milestone`, `escrow`, `job`                                                                                                                                                                                                                                                                        |
+| `disputes.reasonCategory` | `work_not_delivered`, `work_quality_issue`, `client_unresponsive`, `freelancer_unresponsive`, `missed_deadline`, `revision_disagreement`, `payment_release_disagreement`, `scope_disagreement`, `other`                                                                                                          |
+| `disputes.status`         | `open`, `under_review`, `awaiting_client_response`, `awaiting_freelancer_response`, `resolved_client`, `resolved_freelancer`, `split_resolution`, `cancelled`                                                                                                                                                    |
+| `disputes.onChainStatus`  | `not_marked`, `marking`, `marked`, `mark_failed`                                                                                                                                                                                                                                                                 |
+| Wallet fields             | `external_wallet`, `passkey_smart_account`; event actor wallet type also accepts `system`                                                                                                                                                                                                                        |
+| `disputeEvents.actorRole` | `client`, `freelancer`, `moderator`, `system`                                                                                                                                                                                                                                                                    |
+| `disputeEvents.type`      | `dispute_opened`, `evidence_added`, `on_chain_mark_started`, `on_chain_mark_succeeded`, `on_chain_mark_failed`, `status_changed`, `client_response_added`, `freelancer_response_added`, `moderator_note_added`, `resolution_proposed`, `resolved_client`, `resolved_freelancer`, `split_resolution`, `cancelled` |
+| Event status fields       | `oldStatus` and `newStatus` are independently optional; each uses the dispute status vocabulary                                                                                                                                                                                                                  |
 
 C02 also rejects unknown enum members, incorrect scalar/array types, and IDs encoded for another Convex table. These are schema/API boundary checks; domain relationship matrices remain in the existing C05 and C09 suites.
 
@@ -40,20 +40,20 @@ C02 also rejects unknown enum members, incorrect scalar/array types, and IDs enc
 
 The dispute indexes and field order are:
 
-| Table | Index | Fields |
-| --- | --- | --- |
-| `disputes` | `by_disputeNumber` | `disputeNumber` |
-| `disputes` | `by_parent_status` | `parentType`, `parentId`, `status` |
-| `disputes` | `by_escrow_status` | `escrowId`, `status` |
-| `disputes` | `by_onChainEscrow_status` | `onChainEscrowId`, `status` |
-| `disputes` | `by_milestone_status` | `milestoneId`, `status` |
-| `disputes` | `by_client` | `clientWallet`, `updatedAt` |
-| `disputes` | `by_freelancer` | `freelancerWallet`, `updatedAt` |
-| `disputes` | `by_assignedAdmin_updatedAt` | `assignedAdminWallet`, `updatedAt` |
-| `disputes` | `by_status` | `status`, `updatedAt` |
-| `disputeEvents` | `by_dispute` | `disputeId`, `createdAt` |
+| Table           | Index                        | Fields                                  |
+| --------------- | ---------------------------- | --------------------------------------- |
+| `disputes`      | `by_disputeNumber`           | `disputeNumber`                         |
+| `disputes`      | `by_parent_status`           | `parentType`, `parentId`, `status`      |
+| `disputes`      | `by_escrow_status`           | `escrowId`, `status`                    |
+| `disputes`      | `by_onChainEscrow_status`    | `onChainEscrowId`, `status`             |
+| `disputes`      | `by_milestone_status`        | `milestoneId`, `status`                 |
+| `disputes`      | `by_client`                  | `clientWallet`, `updatedAt`             |
+| `disputes`      | `by_freelancer`              | `freelancerWallet`, `updatedAt`         |
+| `disputes`      | `by_assignedAdmin_updatedAt` | `assignedAdminWallet`, `updatedAt`      |
+| `disputes`      | `by_status`                  | `status`, `updatedAt`                   |
+| `disputeEvents` | `by_dispute`                 | `disputeId`, `createdAt`                |
 | `disputeEvents` | `by_dispute_actor_requestId` | `disputeId`, `actorWallet`, `requestId` |
-| `disputeEvents` | `by_type` | `type`, `createdAt` |
+| `disputeEvents` | `by_type`                    | `type`, `createdAt`                     |
 
 The assigned-admin test seeds three timestamps for one administrator and a separate administrator, then proves compound-index descending order and administrator isolation.
 
@@ -63,33 +63,33 @@ The generated `api.disputes.*` references are the compatibility surface. C02 ref
 
 ### Participant reads and permission results
 
-| Function | Arguments | Result contract |
-| --- | --- | --- |
-| `getDispute` | `{ disputeId, viewerWallet? }` | Dispute plus `attachments[]`, or `null` when missing; unauthorized participant access rejects |
-| `getDisputeByParent` | `{ parentType, parentId, viewerWallet? }` | Visible active dispute plus `attachments[]`, or `null` |
-| `getActiveDisputeForEscrow` | `{ escrowId, viewerWallet? }` | Visible active dispute plus `attachments[]`, or `null` |
-| `getDisputesForWallet` | `{ walletAddress }` | Array of dispute documents; unrelated wallet is `[]` |
-| `getDisputeTimeline` | `{ disputeId, viewerWallet? }` | Ordered event array; each event has `attachments[]`; missing is `[]`, unauthorized access rejects |
-| `getDisputeEvidence` | `{ disputeId, viewerWallet? }` | Serialized attachment array; missing is `[]`, unauthorized access rejects |
-| `getDisputeContextByParent` | `{ parentType, parentId, viewerWallet? }` | Parent context with `submissions[]`, `revisions[]`, and `deadlineEvents[]`; an outside participant gets `null` |
-| `canOpenDispute` | `{ parentType, parentId, openedByWallet }` | `{ allowed, reason, openedByRole, escrowId, onChainEscrowId }`; denied fields are `null` |
-| `canViewDispute` | `{ disputeId, viewerWallet }` | Allowed participant: `{ allowed: true, reason: null, role }`; denied: `role: null`; missing dispute omits `role` |
-| `canRespondToDispute` | `{ disputeId, walletAddress }` | `{ allowed, reason, role }`; denied and missing cases use `role: null` |
+| Function                    | Arguments                                  | Result contract                                                                                                  |
+| --------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `getDispute`                | `{ disputeId, viewerWallet? }`             | Dispute plus `attachments[]`, or `null` when missing; unauthorized participant access rejects                    |
+| `getDisputeByParent`        | `{ parentType, parentId, viewerWallet? }`  | Visible active dispute plus `attachments[]`, or `null`                                                           |
+| `getActiveDisputeForEscrow` | `{ escrowId, viewerWallet? }`              | Visible active dispute plus `attachments[]`, or `null`                                                           |
+| `getDisputesForWallet`      | `{ walletAddress }`                        | Array of dispute documents; unrelated wallet is `[]`                                                             |
+| `getDisputeTimeline`        | `{ disputeId, viewerWallet? }`             | Ordered event array; each event has `attachments[]`; missing is `[]`, unauthorized access rejects                |
+| `getDisputeEvidence`        | `{ disputeId, viewerWallet? }`             | Serialized attachment array; missing is `[]`, unauthorized access rejects                                        |
+| `getDisputeContextByParent` | `{ parentType, parentId, viewerWallet? }`  | Parent context with `submissions[]`, `revisions[]`, and `deadlineEvents[]`; an outside participant gets `null`   |
+| `canOpenDispute`            | `{ parentType, parentId, openedByWallet }` | `{ allowed, reason, openedByRole, escrowId, onChainEscrowId }`; denied fields are `null`                         |
+| `canViewDispute`            | `{ disputeId, viewerWallet }`              | Allowed participant: `{ allowed: true, reason: null, role }`; denied: `role: null`; missing dispute omits `role` |
+| `canRespondToDispute`       | `{ disputeId, walletAddress }`             | `{ allowed, reason, role }`; denied and missing cases use `role: null`                                           |
 
 The omitted-versus-null `canViewDispute.role` distinction is intentional and is locked by `api.contract.test.ts`. The named frontend aliases and nullability in [`C06-Frontend-Handoff.md`](C06-Frontend-Handoff.md) remain aligned with these results.
 
 ### Participant mutations
 
-| Function | Public arguments | Result boundary |
-| --- | --- | --- |
-| `createDispute` | `{ parentType, parentId, openedByWallet, openedByWalletType, reasonCategory, title, description, evidenceAttachmentIds?, relatedWorkSubmissionIds?, relatedRevisionRequestIds?, relatedMessageIds?, relatedDeadlineEventIds?, proofHash?, escrowContractId?, metadata? }` | Runtime return validator: `v.id("disputes")` |
-| `markDisputeOnChainStarted` | `{ disputeId, actorWallet, actorWalletType }` | Runtime return validator: `v.boolean()` |
-| `markDisputeOnChainSucceeded` | `{ disputeId, actorWallet, actorWalletType, transactionHash, stellarExpertUrl? }` | Runtime return validator: `v.boolean()` |
-| `markDisputeOnChainFailed` | `{ disputeId, actorWallet, actorWalletType, errorMessage, transactionHash? }` | Runtime return validator: `v.boolean()` |
-| `addDisputeEvidence` | `{ disputeId, actorWallet, actorWalletType, attachmentIds, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
-| `addDisputeResponse` | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds?, requestId? }` | Result is TypeScript-inferred; current successful handler result is `true` |
-| `changeDisputeStatus` | `{ disputeId, actorWallet, actorWalletType, status, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
-| `cancelDispute` | `{ disputeId, actorWallet, actorWalletType, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
+| Function                      | Public arguments                                                                                                                                                                                                                                                          | Result boundary                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `createDispute`               | `{ parentType, parentId, openedByWallet, openedByWalletType, reasonCategory, title, description, evidenceAttachmentIds?, relatedWorkSubmissionIds?, relatedRevisionRequestIds?, relatedMessageIds?, relatedDeadlineEventIds?, proofHash?, escrowContractId?, metadata? }` | Runtime return validator: `v.id("disputes")`                               |
+| `markDisputeOnChainStarted`   | `{ disputeId, actorWallet, actorWalletType }`                                                                                                                                                                                                                             | Runtime return validator: `v.boolean()`                                    |
+| `markDisputeOnChainSucceeded` | `{ disputeId, actorWallet, actorWalletType, transactionHash, stellarExpertUrl? }`                                                                                                                                                                                         | Runtime return validator: `v.boolean()`                                    |
+| `markDisputeOnChainFailed`    | `{ disputeId, actorWallet, actorWalletType, errorMessage, transactionHash? }`                                                                                                                                                                                             | Runtime return validator: `v.boolean()`                                    |
+| `addDisputeEvidence`          | `{ disputeId, actorWallet, actorWalletType, attachmentIds, message? }`                                                                                                                                                                                                    | Result is TypeScript-inferred; current successful handler result is `true` |
+| `addDisputeResponse`          | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds?, requestId? }`                                                                                                                                                                                | Result is TypeScript-inferred; current successful handler result is `true` |
+| `changeDisputeStatus`         | `{ disputeId, actorWallet, actorWalletType, status, message? }`                                                                                                                                                                                                           | Result is TypeScript-inferred; current successful handler result is `true` |
+| `cancelDispute`               | `{ disputeId, actorWallet, actorWalletType, message? }`                                                                                                                                                                                                                   | Result is TypeScript-inferred; current successful handler result is `true` |
 
 `addModeratorNote` and `recordDisputeResolution` remain public compatibility placeholders under `api.disputes`. Their argument names are preserved, but their handlers reject with the documented future-phase errors and have no successful result contract. They are not aliases for the working administrator functions.
 

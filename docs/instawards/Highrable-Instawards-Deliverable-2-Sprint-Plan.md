@@ -40,23 +40,23 @@ The SOW's backend minimum is at least eight passing Convex tests. Existing repos
 
 The target is **24 substantive code/test commits**.
 
-| Rule | Application |
-| --- | --- |
-| One row equals one planned commit | `C01`–`C24` each describe a coherent source or test change. |
-| Documentation is excluded | API/state notes, this plan, PR descriptions, test reports, and evidence indexes do not count toward 24. |
-| No duplicate work | Existing behavior is inspected first. A completed row becomes a missing edge-case, regression, authorization, or integration test in the same scope only when that test adds distinct evidence. |
-| No artificial churn | Commits remain independently reviewable and meaningful. If the baseline already satisfies the full row and no real gap exists, record that fact instead of splitting or manufacturing changes. The 20–30 target is not permission to add meaningless commits. |
-| Preserve attribution | Each developer commits to their assigned role branch; retain the C-ID mapping in the four branch/PR evidence records. |
-| Keep changes in scope | Generated Convex files are outputs. Do not hand-edit them or include unrelated workspace changes. |
+| Rule                              | Application                                                                                                                                                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One row equals one planned commit | `C01`–`C24` each describe a coherent source or test change.                                                                                                                                                                                                   |
+| Documentation is excluded         | API/state notes, this plan, PR descriptions, test reports, and evidence indexes do not count toward 24.                                                                                                                                                       |
+| No duplicate work                 | Existing behavior is inspected first. A completed row becomes a missing edge-case, regression, authorization, or integration test in the same scope only when that test adds distinct evidence.                                                               |
+| No artificial churn               | Commits remain independently reviewable and meaningful. If the baseline already satisfies the full row and no real gap exists, record that fact instead of splitting or manufacturing changes. The 20–30 target is not permission to add meaningless commits. |
+| Preserve attribution              | Each developer commits to their assigned role branch; retain the C-ID mapping in the four branch/PR evidence records.                                                                                                                                         |
+| Keep changes in scope             | Generated Convex files are outputs. Do not hand-edit them or include unrelated workspace changes.                                                                                                                                                             |
 
 ## 4. Ownership and dependency boundaries
 
-| Developer | Branch | Primary ownership in this sprint |
-| --- | --- | --- |
-| Convex Backend Developer | `instawards/dispute-backend` | `packages/backend/convex/disputes/`, `packages/backend/convex/admin/`, related schema/helpers, `packages/backend/tests/`, and backend API/state documentation |
-| Soroban Smart Contract Developer | `instawards/dispute-contract` | `contracts/escrow/`, contract tests, agreed method/event semantics, and Testnet deployment identity |
-| Frontend Developer 1 — Administrator UI | `instawards/dispute-admin-ui` | `apps/web/app/admin/disputes/`, `apps/web/features/admin/`, and administrator integration/tests |
-| Frontend Developer 2 — Participant UI | `instawards/dispute-participant-ui` | `apps/web/app/disputes/`, `apps/web/features/disputes/`, and participant integration/tests |
+| Developer                               | Branch                              | Primary ownership in this sprint                                                                                                                              |
+| --------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Convex Backend Developer                | `instawards/dispute-backend`        | `packages/backend/convex/disputes/`, `packages/backend/convex/admin/`, related schema/helpers, `packages/backend/tests/`, and backend API/state documentation |
+| Soroban Smart Contract Developer        | `instawards/dispute-contract`       | `contracts/escrow/`, contract tests, agreed method/event semantics, and Testnet deployment identity                                                           |
+| Frontend Developer 1 — Administrator UI | `instawards/dispute-admin-ui`       | `apps/web/app/admin/disputes/`, `apps/web/features/admin/`, and administrator integration/tests                                                               |
+| Frontend Developer 2 — Participant UI   | `instawards/dispute-participant-ui` | `apps/web/app/disputes/`, `apps/web/features/disputes/`, and participant integration/tests                                                                    |
 
 ### Backend integration contract
 
@@ -86,14 +86,14 @@ All four developers own six commits across the four daily slices. The backend fu
 
 **Goal:** freeze the cross-layer API/state contract and establish contract, backend, and route foundations against it.
 
-| Commit | Developer | Scope | Done when |
-| --- | --- | --- | --- |
-| **C01** | Soroban Smart Contract Developer | Lock the dispute-marking and resolution method/event contract with typed Rust fixtures and assertions. | Contract arguments, status/error names, and event fields agree with the backend integration contract before the other roles wire their call sites. |
-| **C02** | Convex Backend Developer | Add or update backend contract tests for dispute/event schema values, validators, indexes, exported function names, and status vocabulary. | The tested API/state contract matches current source and the UI handoff; generated Convex files are not hand-edited. |
-| **C03** | Frontend Developer 1 — Administrator UI | Build or harden the protected admin dispute queue/detail route shell against the agreed admin API contract. | Loading, forbidden, empty, error, and not-found states render without exposing protected content before the admin gate succeeds. |
-| **C04** | Frontend Developer 2 — Participant UI | Build or harden participant dispute list/detail route shells against the agreed Convex query/status contract. | Wallet-scoped loading, empty, error, and not-found states render without introducing a frontend-only dispute status model. |
-| **C05** | Convex Backend Developer | Extend the participant authorization and dispute-creation matrix across roles, parent aliases, eligible escrow states, and conflicting records. | Allowed and rejected cases are explicit; invalid creation leaves no partial dispute, evidence, audit, or notification writes. |
-| **C06** | Soroban Smart Contract Developer | Add contract tests for dispute status guards, administrator authorization, and valid/invalid resolution basis points. | Tests cover authorized/unauthorized actors, wrong escrow status, client/freelancer/split values, and values outside the valid range. |
+| Commit  | Developer                               | Scope                                                                                                                                           | Done when                                                                                                                                          |
+| ------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C01** | Soroban Smart Contract Developer        | Lock the dispute-marking and resolution method/event contract with typed Rust fixtures and assertions.                                          | Contract arguments, status/error names, and event fields agree with the backend integration contract before the other roles wire their call sites. |
+| **C02** | Convex Backend Developer                | Add or update backend contract tests for dispute/event schema values, validators, indexes, exported function names, and status vocabulary.      | The tested API/state contract matches current source and the UI handoff; generated Convex files are not hand-edited.                               |
+| **C03** | Frontend Developer 1 — Administrator UI | Build or harden the protected admin dispute queue/detail route shell against the agreed admin API contract.                                     | Loading, forbidden, empty, error, and not-found states render without exposing protected content before the admin gate succeeds.                   |
+| **C04** | Frontend Developer 2 — Participant UI   | Build or harden participant dispute list/detail route shells against the agreed Convex query/status contract.                                   | Wallet-scoped loading, empty, error, and not-found states render without introducing a frontend-only dispute status model.                         |
+| **C05** | Convex Backend Developer                | Extend the participant authorization and dispute-creation matrix across roles, parent aliases, eligible escrow states, and conflicting records. | Allowed and rejected cases are explicit; invalid creation leaves no partial dispute, evidence, audit, or notification writes.                      |
+| **C06** | Soroban Smart Contract Developer        | Add contract tests for dispute status guards, administrator authorization, and valid/invalid resolution basis points.                           | Tests cover authorized/unauthorized actors, wrong escrow status, client/freelancer/split values, and values outside the valid range.               |
 
 **Day 1 exit gate:** the contract/API/status matrix is frozen; both frontend route shells use the agreed contracts; backend participant/admin authorization paths have positive and negative coverage; no behavior is claimed to have signed-session identity proof unless the trusted server boundary verifies it.
 
@@ -101,14 +101,14 @@ All four developers own six commits across the four daily slices. The backend fu
 
 **Goal:** prove that evidence and participant activity remain correctly associated, protected, and auditable throughout case review.
 
-| Commit | Developer | Scope | Done when |
-| --- | --- | --- | --- |
-| **C07** | Soroban Smart Contract Developer | Align the `mark_disputed` contract event/state behavior and add Rust regression assertions for the agreed backend callback fields. | Contract tests prove emitted values map to the frozen backend event/phase contract; no event ingestion/indexer is assumed. |
-| **C08** | Convex Backend Developer | Strengthen evidence association for attachments, submissions, revisions, messages, and deadlines, including duplicate IDs and raw-count limits. | Each accepted reference belongs to the same work and participants and is validated before mutation. |
-| **C09** | Frontend Developer 2 — Participant UI | Integrate participant evidence submission and response forms with the backend permission/mutation contract. | Only allowed participants can submit; validation, pending, rejected-write, and recoverable-error states retain useful form context. |
-| **C10** | Frontend Developer 2 — Participant UI | Wire participant list/detail and event timeline to the agreed backend queries and event shape. | Participant scope and status labels match Convex; timeline handles empty, loading, and failed reads. |
-| **C11** | Frontend Developer 1 — Administrator UI | Integrate the admin queue/detail and evidence review surface with the protected backend admin queries. | Assigned admins see the expected evidence/status data; forbidden, empty, and stale-record states are handled. |
-| **C12** | Frontend Developer 1 — Administrator UI | Connect assignment and review-status controls to the admin API contract. | Only owner/assigned-admin actions are exposed as permitted, and backend errors are shown without masking authorization failures. |
+| Commit  | Developer                               | Scope                                                                                                                                           | Done when                                                                                                                           |
+| ------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **C07** | Soroban Smart Contract Developer        | Align the `mark_disputed` contract event/state behavior and add Rust regression assertions for the agreed backend callback fields.              | Contract tests prove emitted values map to the frozen backend event/phase contract; no event ingestion/indexer is assumed.          |
+| **C08** | Convex Backend Developer                | Strengthen evidence association for attachments, submissions, revisions, messages, and deadlines, including duplicate IDs and raw-count limits. | Each accepted reference belongs to the same work and participants and is validated before mutation.                                 |
+| **C09** | Frontend Developer 2 — Participant UI   | Integrate participant evidence submission and response forms with the backend permission/mutation contract.                                     | Only allowed participants can submit; validation, pending, rejected-write, and recoverable-error states retain useful form context. |
+| **C10** | Frontend Developer 2 — Participant UI   | Wire participant list/detail and event timeline to the agreed backend queries and event shape.                                                  | Participant scope and status labels match Convex; timeline handles empty, loading, and failed reads.                                |
+| **C11** | Frontend Developer 1 — Administrator UI | Integrate the admin queue/detail and evidence review surface with the protected backend admin queries.                                          | Assigned admins see the expected evidence/status data; forbidden, empty, and stale-record states are handled.                       |
+| **C12** | Frontend Developer 1 — Administrator UI | Connect assignment and review-status controls to the admin API contract.                                                                        | Only owner/assigned-admin actions are exposed as permitted, and backend errors are shown without masking authorization failures.    |
 
 **Day 2 exit gate:** evidence access, participant actions, admin review, audit rows, and notifications agree on the same case and participant identities; both frontend branches consume the frozen backend contract.
 
@@ -116,14 +116,14 @@ All four developers own six commits across the four daily slices. The backend fu
 
 **Goal:** validate the complete Convex boundary around on-chain marking and administrator settlement, including uncertainty and late callback cases.
 
-| Commit | Developer | Scope | Done when |
-| --- | --- | --- | --- |
-| **C13** | Soroban Smart Contract Developer | Harden or extend Rust tests for marking/resolution state guards and emitted terminal outcome. | Valid dispute transitions succeed once; unauthorized and terminal-state transitions fail without changing escrow state or transfers. |
-| **C14** | Convex Backend Developer | Complete the `mark_disputed` started/succeeded/failed callback and hashless retry matrix. | Legal transitions update once; known-hash retries wait for reconciliation; stale failures cannot overwrite success. |
-| **C15** | Frontend Developer 1 — Administrator UI | Connect resolution choices and basis-point validation to the approved admin settlement API and transaction flow. | Client, freelancer, and split choices map to the backend terms; invalid values and unauthorized actions cannot submit. |
-| **C16** | Frontend Developer 2 — Participant UI | Integrate participant transaction/timeline states for marking, uncertainty, failure, retry, and confirmation. | The participant sees accurate pending/failed/confirmed states and cannot retry a known or uncertain chain operation blindly. |
-| **C17** | Convex Backend Developer | Cover settlement-attempt creation, unique operation IDs, single-active-attempt-per-escrow, and callback phases. | Matching replays are harmless; competing starts, invalid states, and conflicting signed identities are rejected before finalization. |
-| **C18** | Soroban Smart Contract Developer | Add Rust settlement invariant tests for client refund, freelancer payout, and split outcomes. | Transfers conserve the escrow balance, use the agreed basis points, and end in the expected contract status. |
+| Commit  | Developer                               | Scope                                                                                                            | Done when                                                                                                                            |
+| ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **C13** | Soroban Smart Contract Developer        | Harden or extend Rust tests for marking/resolution state guards and emitted terminal outcome.                    | Valid dispute transitions succeed once; unauthorized and terminal-state transitions fail without changing escrow state or transfers. |
+| **C14** | Convex Backend Developer                | Complete the `mark_disputed` started/succeeded/failed callback and hashless retry matrix.                        | Legal transitions update once; known-hash retries wait for reconciliation; stale failures cannot overwrite success.                  |
+| **C15** | Frontend Developer 1 — Administrator UI | Connect resolution choices and basis-point validation to the approved admin settlement API and transaction flow. | Client, freelancer, and split choices map to the backend terms; invalid values and unauthorized actions cannot submit.               |
+| **C16** | Frontend Developer 2 — Participant UI   | Integrate participant transaction/timeline states for marking, uncertainty, failure, retry, and confirmation.    | The participant sees accurate pending/failed/confirmed states and cannot retry a known or uncertain chain operation blindly.         |
+| **C17** | Convex Backend Developer                | Cover settlement-attempt creation, unique operation IDs, single-active-attempt-per-escrow, and callback phases.  | Matching replays are harmless; competing starts, invalid states, and conflicting signed identities are rejected before finalization. |
+| **C18** | Soroban Smart Contract Developer        | Add Rust settlement invariant tests for client refund, freelancer payout, and split outcomes.                    | Transfers conserve the escrow balance, use the agreed basis points, and end in the expected contract status.                         |
 
 **Day 3 exit gate:** contract, Convex, and UI phases agree for marking and settlement; failure, uncertain submission, replay, and recovery behavior are distinguishable; no browser-provided success value finalizes a record.
 
@@ -131,26 +131,26 @@ All four developers own six commits across the four daily slices. The backend fu
 
 **Goal:** finish backend reconciliation coverage, close contract/UI integration gaps, and prepare reviewable evidence for each role branch.
 
-| Commit | Developer | Scope | Done when |
-| --- | --- | --- | --- |
-| **C19** | Convex Backend Developer | Harden RPC result normalization and reconciliation for missing/malformed chain data and failed/unknown settlement recovery. | Unreadable or mismatched chain data remains recoverable; recovery verifies the saved transaction and never resubmits it. |
-| **C20** | Soroban Smart Contract Developer | Add or update a repeatable deployment verification script/test for the contract used by the backend. | The check matches network, contract ID, and deployed code identity to the tested source before live-sync evidence is claimed. |
-| **C21** | Frontend Developer 1 — Administrator UI | Add admin resolution integration tests for authorization, basis-point validation, pending, failure, retry/recovery, and confirmation states. | UI tests prove the admin interface follows backend authorization and does not report success before verified settlement. |
-| **C22** | Frontend Developer 2 — Participant UI | Add participant integration/accessibility tests for case access, evidence/response forms, timeline, and transaction states. | The participant flows retain accessible labels/errors and show correct backend status across success and recoverable failure. |
-| **C23** | Frontend Developer 1 — Administrator UI | Complete an administrator acceptance path against the final backend contract, including an unauthorized action and a recoverable failure. | The protected review surface handles the cross-layer states without creating a competing status machine. |
-| **C24** | Frontend Developer 2 — Participant UI | Complete a participant acceptance path against the final backend contract, including an unauthorized case and a saved/uncertain marking state. | Participant case, evidence, and transaction views remain consistent with Convex and the Soroban result contract. |
+| Commit  | Developer                               | Scope                                                                                                                                          | Done when                                                                                                                     |
+| ------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **C19** | Convex Backend Developer                | Harden RPC result normalization and reconciliation for missing/malformed chain data and failed/unknown settlement recovery.                    | Unreadable or mismatched chain data remains recoverable; recovery verifies the saved transaction and never resubmits it.      |
+| **C20** | Soroban Smart Contract Developer        | Add or update a repeatable deployment verification script/test for the contract used by the backend.                                           | The check matches network, contract ID, and deployed code identity to the tested source before live-sync evidence is claimed. |
+| **C21** | Frontend Developer 1 — Administrator UI | Add admin resolution integration tests for authorization, basis-point validation, pending, failure, retry/recovery, and confirmation states.   | UI tests prove the admin interface follows backend authorization and does not report success before verified settlement.      |
+| **C22** | Frontend Developer 2 — Participant UI   | Add participant integration/accessibility tests for case access, evidence/response forms, timeline, and transaction states.                    | The participant flows retain accessible labels/errors and show correct backend status across success and recoverable failure. |
+| **C23** | Frontend Developer 1 — Administrator UI | Complete an administrator acceptance path against the final backend contract, including an unauthorized action and a recoverable failure.      | The protected review surface handles the cross-layer states without creating a competing status machine.                      |
+| **C24** | Frontend Developer 2 — Participant UI   | Complete a participant acceptance path against the final backend contract, including an unauthorized case and a saved/uncertain marking state. | Participant case, evidence, and transaction views remain consistent with Convex and the Soroban result contract.              |
 
 **Day 4 exit gate:** focused contract, backend, and frontend reports and API/state-transition handoff are ready; a matching Testnet deployment has been verified before any live comparison; each role branch/PR maps its work to the SOW without claiming project-wide completion.
 
 ## 10. Commit distribution
 
-| Developer | Role branch | Commits | IDs | Planned contribution |
-| --- | --- | ---: | --- | --- |
-| Soroban Smart Contract Developer | `instawards/dispute-contract` | 6 | `C01`, `C06`, `C07`, `C13`, `C18`, `C20` | Contract interface/events, authorization and status tests, settlement invariants, Testnet deployment identity |
-| Convex Backend Developer | `instawards/dispute-backend` | 6 | `C02`, `C05`, `C08`, `C14`, `C17`, `C19` | Schema/API contract, authorization and creation, evidence integrity, callback/retry, settlement and reconciliation |
-| Frontend Developer 1 — Administrator UI | `instawards/dispute-admin-ui` | 6 | `C03`, `C11`, `C12`, `C15`, `C21`, `C23` | Protected queue/detail, evidence review, assignment/status, resolution controls, admin integration tests |
-| Frontend Developer 2 — Participant UI | `instawards/dispute-participant-ui` | 6 | `C04`, `C09`, `C10`, `C16`, `C22`, `C24` | Participant routes, evidence/responses, list/timeline, transaction states, participant integration tests |
-| **Total** | **4 role branches** | **24** | `C01`–`C24` | **20–30 requested code/test commits satisfied** |
+| Developer                               | Role branch                         | Commits | IDs                                      | Planned contribution                                                                                               |
+| --------------------------------------- | ----------------------------------- | ------: | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Soroban Smart Contract Developer        | `instawards/dispute-contract`       |       6 | `C01`, `C06`, `C07`, `C13`, `C18`, `C20` | Contract interface/events, authorization and status tests, settlement invariants, Testnet deployment identity      |
+| Convex Backend Developer                | `instawards/dispute-backend`        |       6 | `C02`, `C05`, `C08`, `C14`, `C17`, `C19` | Schema/API contract, authorization and creation, evidence integrity, callback/retry, settlement and reconciliation |
+| Frontend Developer 1 — Administrator UI | `instawards/dispute-admin-ui`       |       6 | `C03`, `C11`, `C12`, `C15`, `C21`, `C23` | Protected queue/detail, evidence review, assignment/status, resolution controls, admin integration tests           |
+| Frontend Developer 2 — Participant UI   | `instawards/dispute-participant-ui` |       6 | `C04`, `C09`, `C10`, `C16`, `C22`, `C24` | Participant routes, evidence/responses, list/timeline, transaction states, participant integration tests           |
+| **Total**                               | **4 role branches**                 |  **24** | `C01`–`C24`                              | **20–30 requested code/test commits satisfied**                                                                    |
 
 The daily tables assign at least one code/test commit to each role on every day. Documentation and cross-role review remain shared handoff work and do not count toward the commit target.
 

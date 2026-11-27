@@ -31,9 +31,9 @@ export function SectionCard({
   return (
     <section
       id={id}
-      className={cn("overflow-hidden rounded-lg border bg-card text-card-foreground", className)}
+      className={cn("hr-card-surface overflow-hidden text-card-foreground", className)}
     >
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 px-5 py-4">
         <div className="min-w-0">
           <h2 className="hr-text-primary flex items-center gap-2 font-sans text-sm font-semibold">
             {Icon ? <Icon className="hr-text-muted h-4 w-4 shrink-0" aria-hidden="true" /> : null}
@@ -45,7 +45,7 @@ export function SectionCard({
         </div>
         {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
       </header>
-      <div className={cn("p-5", bodyClassName)}>{children}</div>
+      <div className={cn("p-5 sm:p-6", bodyClassName)}>{children}</div>
     </section>
   );
 }

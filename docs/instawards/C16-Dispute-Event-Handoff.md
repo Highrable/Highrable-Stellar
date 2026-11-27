@@ -22,11 +22,11 @@ Topics, in order:
 
 The named `#[contracttype]` payload is `DisputeMarkedEvent`:
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `version` | `u32` | Payload version; currently `1`. |
-| `actor` | `Address` | Authorized client, assigned freelancer, or platform admin that marked the escrow. |
-| `status` | `TEscrowStatus` | Resulting stored status; `Disputed`. |
+| Field     | Type            | Meaning                                                                           |
+| --------- | --------------- | --------------------------------------------------------------------------------- |
+| `version` | `u32`           | Payload version; currently `1`.                                                   |
+| `actor`   | `Address`       | Authorized client, assigned freelancer, or platform admin that marked the escrow. |
+| `status`  | `TEscrowStatus` | Resulting stored status; `Disputed`.                                              |
 
 Exactly one event is emitted after the escrow write on a successful mark. Rejected calls emit no successful dispute event.
 
@@ -40,18 +40,18 @@ Topics, in order:
 
 The named `#[contracttype]` payload is `DisputeResolvedEvent`:
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `version` | `u32` | Payload version; currently `1`. |
-| `actor` | `Address` | Owner or registered dispute admin that resolved the escrow. |
-| `status` | `TEscrowStatus` | Resulting stored status: `Cancelled` for zero freelancer share, otherwise `Released`. |
-| `resolution_hash` | `BytesN<32>` | Exact hash supplied to `resolve_dispute`; emitted only, not persisted in escrow storage. |
-| `asset` | `Address` | Token contract address held by the escrow. |
-| `client` | `Address` | Escrow client and refund recipient. |
-| `freelancer` | `Address` | Assigned freelancer and payout recipient. |
-| `freelancer_share_bps` | `u32` | Authorized freelancer share in basis points. |
-| `freelancer_amount` | `i128` | Actual amount transferred to the freelancer after integer division. |
-| `client_amount` | `i128` | Actual amount transferred to the client; includes any rounding remainder. |
+| Field                  | Type            | Meaning                                                                                  |
+| ---------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `version`              | `u32`           | Payload version; currently `1`.                                                          |
+| `actor`                | `Address`       | Owner or registered dispute admin that resolved the escrow.                              |
+| `status`               | `TEscrowStatus` | Resulting stored status: `Cancelled` for zero freelancer share, otherwise `Released`.    |
+| `resolution_hash`      | `BytesN<32>`    | Exact hash supplied to `resolve_dispute`; emitted only, not persisted in escrow storage. |
+| `asset`                | `Address`       | Token contract address held by the escrow.                                               |
+| `client`               | `Address`       | Escrow client and refund recipient.                                                      |
+| `freelancer`           | `Address`       | Assigned freelancer and payout recipient.                                                |
+| `freelancer_share_bps` | `u32`           | Authorized freelancer share in basis points.                                             |
+| `freelancer_amount`    | `i128`          | Actual amount transferred to the freelancer after integer division.                      |
+| `client_amount`        | `i128`          | Actual amount transferred to the client; includes any rounding remainder.                |
 
 Exactly one event is emitted after settlement transfers and the escrow write on a successful resolution. The amounts sum to the escrow amount. A zero amount has no corresponding token transfer, but remains present in the payload. Rejected or rolled-back settlement calls emit no successful resolution event.
 

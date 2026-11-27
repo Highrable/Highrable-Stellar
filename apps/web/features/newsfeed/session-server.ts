@@ -75,9 +75,13 @@ export function matchesPasskeySessionSigner(signer: string, keyData: Uint8Array)
   return signer === createHash("sha256").update(keyData).digest("hex");
 }
 
-export function createSocialChallenge(address: string) {
-  if (!/^C[A-Z2-7]{55}$/.test(address)) throw new Error("Invalid smart account.");
+type SocialChallengeScope = Omit<PasskeySessionScope, "sub">;
+
+export function createSocialChallenge(address: string | null, scope: SocialChallengeScope) {
+  if (address !== null && !/^C[A-Z2-7]{55}$/.test(address))
+    throw new Error("Invalid smart account.");
   const payload = {
+    ...scope,
     sub: address,
     nonce: randomUUID(),
     challenge: randomUUID(),
@@ -86,9 +90,12 @@ export function createSocialChallenge(address: string) {
   };
   return { ...payload, proof: signSocialPayload(payload) };
 }
-export function readSocialChallenge(proof: string) {
+export function readSocialChallenge(proof: string, scope: PasskeySessionScope) {
   const data = readSignedSocialPayload(proof) as {
-    sub: string;
+    sub: string | null;
+    origin: string;
+    network: string;
+    rpId: string;
     nonce: string;
     challenge: string;
     exp: number;
@@ -97,6 +104,13 @@ export function readSocialChallenge(proof: string) {
   if (!data) throw new Error("Invalid challenge.");
   if (data.aud !== "highrable-social-challenge" || data.exp <= Date.now())
     throw new Error("Challenge expired.");
+  if (
+    (data.sub !== null && data.sub !== scope.sub) ||
+    data.origin !== scope.origin ||
+    data.network !== scope.network ||
+    data.rpId !== scope.rpId
+  )
+    throw new Error("Passkey challenge scope mismatch.");
   return data;
 }
 export type PasskeyProof = {

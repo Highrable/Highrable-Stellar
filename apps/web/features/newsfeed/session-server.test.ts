@@ -96,16 +96,20 @@ describe("passkey session verification", () => {
   });
   it("binds signed challenges to the account and rejects expiry and tampering", () => {
     vi.stubEnv("NEWSFEED_SESSION_SECRET", "session-test-secret-with-at-least-32-bytes");
-    const challenge = createSocialChallenge("C" + "A".repeat(55));
-    expect(readSocialChallenge(challenge.proof).sub).toBe(challenge.sub);
+    const scope = { sub: "C" + "A".repeat(55), origin, network: "test", rpId };
+    const challenge = createSocialChallenge(scope.sub, scope);
+    expect(readSocialChallenge(challenge.proof, scope).sub).toBe(challenge.sub);
+    expect(() =>
+      readSocialChallenge(challenge.proof, { ...scope, sub: "C" + "B".repeat(55) }),
+    ).toThrow(/scope mismatch/);
     const [payload, signature] = challenge.proof.split(".");
     const changed = Buffer.from(
       JSON.stringify({ ...challenge, sub: "C" + "B".repeat(55) }),
     ).toString("base64url");
-    expect(() => readSocialChallenge(`${changed}.${signature}`)).toThrow();
-    expect(() => readSocialChallenge(`${payload}.bad`)).toThrow();
+    expect(() => readSocialChallenge(`${changed}.${signature}`, scope)).toThrow();
+    expect(() => readSocialChallenge(`${payload}.bad`, scope)).toThrow();
     vi.spyOn(Date, "now").mockReturnValue(challenge.exp + 1);
-    expect(() => readSocialChallenge(challenge.proof)).toThrow(/expired/);
+    expect(() => readSocialChallenge(challenge.proof, scope)).toThrow(/expired/);
     vi.restoreAllMocks();
   });
   it("accepts the current site origin and rejects cross-site requests", () => {

@@ -2,7 +2,7 @@
 type: module
 area: wallet
 status: current
-last_updated: 2026-11-25
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
@@ -29,6 +29,7 @@ Both identity modes are implemented. Passkey escrow execution is compatibility-s
 ## Responsibilities
 
 - Connect/persist external wallet sessions through Stellar Wallets Kit.
+- Establish the verified browser session during wallet sign-in. External wallets sign the Stellar challenge, passkey reconnect uses its discovery assertion, and new passkey setup requests an assertion after account deployment. Newsfeed and Messages resume the signed session on entry.
 - Retain one WalletConnect module instance and poll its asynchronous readiness before picker use or session restoration; a timed-out picker attempt leaves other wallets available and can be retried.
 - Preserve the kit's configured Testnet/Mainnet WalletConnect chain and its phone handoff/desktop QR flow. WalletConnect is omitted on the local network and without a project ID.
 - Detect network/funding and use Friendbot only for testnet account funding.

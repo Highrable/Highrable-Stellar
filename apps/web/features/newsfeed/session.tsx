@@ -1,4 +1,10 @@
 "use client";
+import {
+  requestVerifiedSession,
+  SessionRequestError,
+  verifyPasskey,
+  type VerifiedSession,
+} from "@/core/wallet/auth/social-session-client";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
@@ -11,7 +17,6 @@ import type { FunctionReturnType } from "convex/server";
 
 type Viewer = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.viewer>>;
 type SessionValue = { token: string; viewer: Viewer | null | undefined; status: React.ReactNode };
-type VerifiedSession = { token: string; expiresAt: number };
 type WalletSession = VerifiedSession & { walletKey: string };
 
 const EMPTY_SESSION: SessionValue = { token: "", viewer: null, status: null };
@@ -19,106 +24,6 @@ const Session = createContext<SessionValue>(EMPTY_SESSION);
 const SharedSession = createContext<(SessionValue & { activate: () => () => void }) | null>(null);
 
 export const useSocialSession = () => useContext(Session);
-
-const encode = (buffer: ArrayBuffer) =>
-  btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-function decodeCredentialId(id: string): Uint8Array<ArrayBuffer> {
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error("The connected passkey ID is invalid.");
-  return Uint8Array.from(atob(id.replace(/-/g, "+").replace(/_/g, "/")), (byte) =>
-    byte.charCodeAt(0),
-  );
-}
-
-class SessionRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
-async function sessionRequest(body: object, signal?: AbortSignal) {
-  const response = await fetch("/api/newsfeed/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
-  const data: unknown = await response.json();
-  if (!data || typeof data !== "object") throw new Error("Invalid sign-in response.");
-  if (!response.ok) {
-    const message =
-      "error" in data && typeof data.error === "string" ? data.error : "Sign-in failed.";
-    throw new SessionRequestError(message, response.status);
-  }
-  return data;
-}
-
-async function requestVerifiedSession(
-  body: object,
-  signal?: AbortSignal,
-): Promise<VerifiedSession> {
-  const data = await sessionRequest(body, signal);
-  if (
-    !("token" in data) ||
-    typeof data.token !== "string" ||
-    !data.token ||
-    !("expiresAt" in data) ||
-    typeof data.expiresAt !== "number" ||
-    !Number.isFinite(data.expiresAt) ||
-    data.expiresAt <= Date.now()
-  ) {
-    throw new Error("Invalid sign-in session.");
-  }
-  return { token: data.token, expiresAt: data.expiresAt };
-}
-
-async function verifyPasskey(address: string, credentialId: string, signal: AbortSignal) {
-  const challenge = await sessionRequest({ address, action: "challenge" }, signal);
-  if (
-    !("challenge" in challenge) ||
-    typeof challenge.challenge !== "string" ||
-    !("proof" in challenge) ||
-    typeof challenge.proof !== "string" ||
-    !("rpId" in challenge) ||
-    typeof challenge.rpId !== "string"
-  ) {
-    throw new Error("Invalid passkey challenge.");
-  }
-  signal.throwIfAborted();
-  const credential = (await navigator.credentials.get({
-    signal,
-    publicKey: {
-      challenge: new TextEncoder().encode(challenge.challenge),
-      rpId: challenge.rpId,
-      allowCredentials: [{ id: decodeCredentialId(credentialId), type: "public-key" }],
-      userVerification: "required",
-      timeout: 60_000,
-    },
-  })) as PublicKeyCredential | null;
-  if (!credential) throw new Error("Passkey verification was cancelled.");
-  signal.throwIfAborted();
-  const assertion = credential.response as AuthenticatorAssertionResponse;
-  return await requestVerifiedSession(
-    {
-      address,
-      action: "session",
-      proof: challenge.proof,
-      assertion: {
-        credentialId: encode(credential.rawId),
-        clientDataJSON: encode(assertion.clientDataJSON),
-        authenticatorData: encode(assertion.authenticatorData),
-        signature: encode(assertion.signature),
-      },
-    },
-    signal,
-  );
-}
 
 function getVerificationError(error: unknown): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
@@ -130,8 +35,8 @@ function getVerificationError(error: unknown): string {
 // Keep one verified session above route boundaries. Only mounted scopes request a session.
 export function SocialSessionProvider({ children }: { children: React.ReactNode }) {
   const identity = useHighrableWalletIdentity();
-  const { authenticateWallet } = useWallet();
-  const { credentialId } = usePasskeySmartAccount();
+  const { authenticateWallet, authSession } = useWallet();
+  const { credentialId, webSessionRevision } = usePasskeySmartAccount();
   const client = useConvex();
   const [scopeCount, setScopeCount] = useState(0);
   const activate = useCallback(() => {
@@ -145,6 +50,7 @@ export function SocialSessionProvider({ children }: { children: React.ReactNode 
     ? JSON.stringify([identity.walletType, address, isPasskey ? credentialId : null])
     : null;
 
+  const sessionRevision = isPasskey ? webSessionRevision : authSession?.expiresAt;
   const [session, setSession] = useState<WalletSession | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -206,7 +112,7 @@ export function SocialSessionProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!isActive || !address || !walletKey || token || interactive.current) return;
-    const key = `${walletKey}:${attempt}`;
+    const key = JSON.stringify([walletKey, sessionRevision, attempt]);
     if (pending.current?.key !== key) {
       pending.current = {
         key,
@@ -238,7 +144,7 @@ export function SocialSessionProvider({ children }: { children: React.ReactNode 
     return () => {
       active = false;
     };
-  }, [address, attempt, credentialId, isActive, isPasskey, token, walletKey]);
+  }, [address, attempt, credentialId, isActive, isPasskey, sessionRevision, token, walletKey]);
 
   async function verifyConnectedWallet() {
     if (!address || !walletKey || interactive.current) return;
@@ -252,7 +158,7 @@ export function SocialSessionProvider({ children }: { children: React.ReactNode 
         if (!credentialId) throw new Error("Reconnect your passkey account to verify it.");
         data = await verifyPasskey(address, credentialId, controller.signal);
       } else {
-        await authenticateWallet();
+        await authenticateWallet({ force: true });
         controller.signal.throwIfAborted();
         data = await requestVerifiedSession({ address, action: "session" }, controller.signal);
       }

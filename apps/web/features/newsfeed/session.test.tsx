@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   identity: { isConnected: true, walletAddress: "G-wallet", walletType: "external_wallet" },
   authenticate: vi.fn(),
   credentialId: "Kg",
+  webSessionRevision: 0,
   fetch: vi.fn(),
   viewer: { _id: "viewer" } as { _id: string } | null | undefined,
   onboarding: { isComplete: true } as { isComplete: boolean } | undefined,
@@ -43,7 +44,10 @@ vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({ authenticateWallet: mocks.authenticate }),
 }));
 vi.mock("@/core/wallet/passkey-smart-account-context", () => ({
-  usePasskeySmartAccount: () => ({ credentialId: mocks.credentialId }),
+  usePasskeySmartAccount: () => ({
+    credentialId: mocks.credentialId,
+    webSessionRevision: mocks.webSessionRevision,
+  }),
 }));
 vi.mock("convex/react", () => ({
   useConvex: () => mocks.client,
@@ -123,6 +127,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", mocks.fetch);
   mocks.identity = { isConnected: true, walletAddress: "G-wallet", walletType: "external_wallet" };
   mocks.credentialId = "Kg";
+  mocks.webSessionRevision = 0;
   mocks.fetch.mockReset().mockResolvedValue(response());
   mocks.authenticate.mockReset().mockResolvedValue(undefined);
   mocks.viewer = { _id: "viewer" };
@@ -332,6 +337,17 @@ it("opens Messages after a fresh app mount using prior passkey verification", as
     action: "resume",
     credentialId: "Kg",
   });
+});
+
+it("silently checks for the session after the same passkey is reconnected", async () => {
+  const get = mockPasskeySession();
+  const view = render(<App />);
+  await screen.findByRole("button", { name: "Verify passkey" });
+  mocks.webSessionRevision += 1;
+  mocks.fetch.mockResolvedValue(response("reconnected"));
+  view.rerender(<App />);
+  await waitFor(() => expect(screen.getByTestId("token").textContent).toBe("reconnected"));
+  expect(get).not.toHaveBeenCalled();
 });
 
 it("ignores a late passkey challenge after switching accounts", async () => {

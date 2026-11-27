@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-11-26
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
@@ -40,17 +40,17 @@ Membership grants become active only after the saved contract transaction succee
 
 The admin sidebar shares the wallet- and session-expiry-scoped query in `features/admin/lib/admin-session-query.ts` with the protected page gate. It shows Overview and Admins only when the session verifies the connected external wallet as owner. The server route and Convex functions enforce access independently.
 
-## Newsfeed passkey session
+## Shared account session
 
 The app providers hold one in-memory verified social token for onboarding, Messages, Newsfeed and its public profiles, and the existing professional activity and work chat scopes. Navigation between scopes reuses the active wallet's 15-minute token. Only mounted scopes request or consume it.
 
 After successful WebAuthn verification, a signed HTTP-only browser cookie permits token renewal after expiry or a full page load. The cookie has a fixed 24-hour lifetime, matching the external-wallet session duration. It is scoped to the session endpoint and bound to the origin, Stellar network, RP ID, smart account and exact on-chain signer. Renewal rechecks the configured account artifact, active rule, verifier and credential before issuing another short-lived token. Disconnect or local passkey reset requests cookie deletion. A wallet or credential change immediately clears the in-memory token and cannot use the cookie to open a different account.
 
-An external wallet can silently exchange its existing signed HTTP-only wallet session for the social token. If the proof is missing, the user chooses **Verify wallet**. A passkey assertion starts only from **Verify passkey**. The request uses the connected credential ID and the same configured RP ID used during passkey setup. A cancelled or timed-out prompt leaves verification available for a user-initiated retry.
+External wallet connection requests the existing Stellar sign-in signature before publishing the connected account. Subsequent Newsfeed and Messages visits silently exchange the signed HTTP-only wallet cookie for the shared social token. Passkey reconnect uses a server-issued WebAuthn challenge for credential discovery. When the credential maps to multiple accounts, the app exchanges the same assertion after the user selects an account. New passkey creation requests a credential-bound assertion during setup after deployment. Both flows establish the browser session before publishing the connected account. A connection restored without a verified cookie, an expired login, or a declined proof may still require explicit **Verify wallet** or **Verify passkey** recovery.
 
 Public Newsfeed profile routes share the feed's onboarding exemption. A connected wallet can browse both while marketplace onboarding is loading or incomplete. Social writes still require the verified social session.
 
-The passkey branch of `POST /api/newsfeed/session` requires the request origin to match the configured RP ID or one of its subdomains and verifies the assertion against that RP ID and exact origin. It checks the on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading the default context rule. Verification requires a policy-free rule with one external signer, the configured WebAuthn verifier, and an unexpired signer. The server verifies proof of possession before consuming the challenge nonce.
+The passkey branch of `POST /api/newsfeed/session` requires the request origin to match the configured RP ID or one of its subdomains and verifies the assertion against that RP ID and exact origin. It checks the on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading the default context rule. Verification requires a policy-free rule with one external signer, the configured WebAuthn verifier, and an unexpired signer. The signed challenge is scoped to the origin, network and RP ID. A challenge for an already known account is also bound to that address. Discovery challenges defer account selection until the assertion is submitted, and the server verifies possession against the selected account’s active signer before atomically consuming the one-time challenge nonce.
 
 ## Public Convex limitation
 

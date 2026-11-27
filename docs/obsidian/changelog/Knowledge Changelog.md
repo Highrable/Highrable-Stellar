@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-11-27
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-11-28
+
+- Established the verified browser session during external wallet connection and passkey setup or reconnect, so Newsfeed and Messages can open without asking for another signature or passkey assertion while the session is valid. See [[architecture/Authentication Boundaries]].
 
 ## 2026-11-27
 

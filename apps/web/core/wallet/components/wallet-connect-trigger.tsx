@@ -124,8 +124,7 @@ export function WalletConnectTrigger({
         <ResponsiveDialogHeader className="shrink-0 space-y-2">
           <ResponsiveDialogTitle>Connect Your Account</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            Connect a wallet to continue onboarding. Highrable may ask you to sign a separate
-            message for authentication.
+            Connect your wallet and approve the sign-in request to access your Highrable account.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 

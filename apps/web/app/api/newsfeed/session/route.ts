@@ -83,18 +83,23 @@ export async function POST(request: NextRequest) {
   try {
     const origin = assertSocialOrigin(request);
     const input = (await request.json()) as {
-      address: string;
+      address?: string;
       action: "challenge" | "session" | "resume";
       proof?: string;
       assertion?: PasskeyProof;
       credentialId?: string;
     };
-    if (typeof input?.address !== "string") throw new Error("Invalid wallet address.");
+    if (!input || !["challenge", "session", "resume"].includes(input.action))
+      throw new Error("Invalid session action.");
     let address: string;
     let passkeyCookie: ReturnType<typeof createPasskeySession> | undefined;
     let passkeyExpiresAt: number | undefined;
 
-    if (input.address.startsWith("G")) {
+    if (
+      input.action === "session" &&
+      typeof input.address === "string" &&
+      input.address.startsWith("G")
+    ) {
       if (!env.WALLET_SESSION_SECRET || env.WALLET_SESSION_SECRET.length < 32)
         throw new Error("A strong wallet session secret is required for social sign-in.");
       address = requireWalletRequestContext(request).walletAddress;
@@ -105,18 +110,18 @@ export async function POST(request: NextRequest) {
       const config = getSmartAccountConfigOrThrow();
       if (!matchesRpIdForHostname(config.rpId, new URL(origin).hostname))
         throw new Error("This site does not match the configured passkey domain.");
-      if (input.action === "challenge")
-        return NextResponse.json(
-          { ...createSocialChallenge(input.address), rpId: config.rpId },
-          { headers: headers() },
-        );
+      const domain = { origin, network: config.networkPassphrase, rpId: config.rpId };
+      if (input.action === "challenge") {
+        if (input.address !== undefined && typeof input.address !== "string")
+          throw new Error("Invalid smart account.");
+        return NextResponse.json(createSocialChallenge(input.address ?? null, domain), {
+          headers: headers(),
+        });
+      }
 
-      const scope = {
-        sub: input.address,
-        origin,
-        network: config.networkPassphrase,
-        rpId: config.rpId,
-      };
+      if (typeof input.address !== "string" || !/^C[A-Z2-7]{55}$/.test(input.address))
+        throw new PasskeyAuthorizationError("Invalid smart account.");
+      const scope = { ...domain, sub: input.address };
       if (isResuming) {
         const cookie = request.cookies.get(PASSKEY_SESSION_COOKIE)?.value;
         const session = cookie && readPasskeySession(cookie, scope);
@@ -133,10 +138,9 @@ export async function POST(request: NextRequest) {
       } else {
         if (typeof input.proof !== "string" || !input.proof || !input.assertion)
           throw new Error("Passkey verification is required.");
-        const challenge = readSocialChallenge(input.proof);
-        if (challenge.sub !== input.address) throw new Error("Account mismatch.");
+        const challenge = readSocialChallenge(input.proof, scope);
         const rpcStarted = performance.now();
-        const keyData = await readActiveSigner(challenge.sub, config).finally(() =>
+        const keyData = await readActiveSigner(scope.sub, config).finally(() =>
           timings.push(`rpc;dur=${(performance.now() - rpcStarted).toFixed(1)}`),
         );
         assertPasskeyCredential(keyData, input.assertion.credentialId);
@@ -162,7 +166,7 @@ export async function POST(request: NextRequest) {
           .finally(() =>
             timings.push(`nonce;dur=${(performance.now() - nonceStarted).toFixed(1)}`),
           );
-        address = challenge.sub;
+        address = scope.sub;
         passkeyCookie = createPasskeySession(scope, keyData);
       }
     }

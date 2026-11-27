@@ -84,112 +84,130 @@ it("mints a session only for the verified external subject and rejects developme
   mocks.config.WALLET_SESSION_SECRET = "";
   expect((await POST(request({ address, action: "session" }))).status).toBe(401);
 });
-it("binds a valid passkey assertion to the on-chain account signer and atomically consumes its challenge", async () => {
-  const address = "C" + "A".repeat(55);
-  const challengeResponse = await POST(request({ address, action: "challenge" }));
-  expect(challengeResponse.status).toBe(200);
-  const challenge = await challengeResponse.json();
-  expect(challenge.rpId).toBe("highrable.example");
-  const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-  const jwk = pair.publicKey.export({ format: "jwk" });
-  const credential = Buffer.from("credential-id");
-  const publicKey = Buffer.concat([
-    Buffer.from([4]),
-    Buffer.from(jwk.x!, "base64url"),
-    Buffer.from(jwk.y!, "base64url"),
-  ]);
-  const client = Buffer.from(
-    JSON.stringify({
-      type: "webauthn.get",
-      origin,
-      challenge: Buffer.from(challenge.challenge).toString("base64url"),
-    }),
-  );
-  const auth = Buffer.concat([
-    createHash("sha256").update("highrable.example").digest(),
-    Buffer.from([5, 0, 0, 0, 1]),
-  ]);
-  const assertion = {
-    credentialId: credential.toString("base64url"),
-    clientDataJSON: client.toString("base64url"),
-    authenticatorData: auth.toString("base64url"),
-    signature: sign(
-      "sha256",
-      Buffer.concat([auth, createHash("sha256").update(client).digest()]),
-      pair.privateKey,
-    ).toString("base64url"),
-  };
-  mocks.rule.mockResolvedValue({
-    valid_until: null,
-    signer: { verifier: "CVERIFIER", keyData: Buffer.concat([publicKey, credential]) },
-  });
-  mocks.mutate.mockResolvedValue(null);
-  const result = await POST(
-    request({ address, action: "session", proof: challenge.proof, assertion }),
-  );
-  expect(result.status).toBe(200);
-  expect(result.headers.get("Server-Timing")).toContain("rpc;dur=");
-  expect(result.headers.get("Server-Timing")).toContain("nonce;dur=");
-  expect(mocks.mutate).toHaveBeenCalledTimes(1);
-  const cookie = result.cookies.get(PASSKEY_SESSION_COOKIE);
-  if (!cookie) throw new Error("Expected the verified passkey session cookie.");
-  expect(cookie).toMatchObject({
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    path: "/api/newsfeed/session",
-  });
-  const resumeBody = { address, action: "resume", credentialId: assertion.credentialId };
-  const beforeExpiry = Date.now();
-  const time = vi.spyOn(Date, "now").mockReturnValue(beforeExpiry + 16 * 60_000);
-  const resumed = await POST(request(resumeBody, cookie.value));
-  expect(resumed.status).toBe(200);
-  expect(resumed.headers.get("Set-Cookie")).toBeNull();
-  expect((await resumed.json()).expiresAt).toBe(Date.now() + 15 * 60_000);
-  expect(mocks.mutate).toHaveBeenCalledTimes(1);
-  expect(
-    (await POST(request({ ...resumeBody, address: "C" + "B".repeat(55) }, cookie.value))).status,
-  ).toBe(401);
-  expect(
-    (await POST(request({ ...resumeBody, credentialId: "c3RhbGU" }, cookie.value))).status,
-  ).toBe(401);
-  mocks.rule.mockResolvedValueOnce({
-    valid_until: null,
-    signer: { verifier: "CVERIFIER", keyData: Buffer.concat([Buffer.alloc(65, 9), credential]) },
-  });
-  expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
-  time.mockReturnValue(beforeExpiry + 25 * 60 * 60_000);
-  expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
-  time.mockRestore();
-  expect(
-    (
-      await POST(
-        request({
-          address: "C" + "B".repeat(55),
-          action: "session",
-          proof: challenge.proof,
-          assertion,
-        }),
-      )
-    ).status,
-  ).toBe(401);
-  expect(
-    (
-      await POST(
-        request({
-          address,
-          action: "session",
-          proof: challenge.proof,
-          assertion: { ...assertion, credentialId: "attacker" },
-        }),
-      )
-    ).status,
-  ).toBe(401);
-  mocks.mutate.mockRejectedValue(new Error("Challenge already used"));
-  expect(
-    (await POST(request({ address, action: "session", proof: challenge.proof, assertion }))).status,
-  ).toBe(401);
-});
+it.each(["known account", "account discovery"])(
+  "binds a passkey assertion for %s to the on-chain signer and atomically consumes its challenge",
+  async (mode) => {
+    const address = "C" + "A".repeat(55);
+    const challengeResponse = await POST(
+      request(
+        mode === "known account" ? { address, action: "challenge" } : { action: "challenge" },
+      ),
+    );
+    expect(challengeResponse.status).toBe(200);
+    const challenge = await challengeResponse.json();
+    expect(challenge.rpId).toBe("highrable.example");
+    expect(challenge.sub).toBe(mode === "known account" ? address : null);
+    const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const jwk = pair.publicKey.export({ format: "jwk" });
+    const credential = Buffer.from("credential-id");
+    const publicKey = Buffer.concat([
+      Buffer.from([4]),
+      Buffer.from(jwk.x!, "base64url"),
+      Buffer.from(jwk.y!, "base64url"),
+    ]);
+    const client = Buffer.from(
+      JSON.stringify({
+        type: "webauthn.get",
+        origin,
+        challenge: Buffer.from(challenge.challenge).toString("base64url"),
+      }),
+    );
+    const auth = Buffer.concat([
+      createHash("sha256").update("highrable.example").digest(),
+      Buffer.from([5, 0, 0, 0, 1]),
+    ]);
+    const assertion = {
+      credentialId: credential.toString("base64url"),
+      clientDataJSON: client.toString("base64url"),
+      authenticatorData: auth.toString("base64url"),
+      signature: sign(
+        "sha256",
+        Buffer.concat([auth, createHash("sha256").update(client).digest()]),
+        pair.privateKey,
+      ).toString("base64url"),
+    };
+    mocks.rule.mockResolvedValue({
+      valid_until: null,
+      signer: { verifier: "CVERIFIER", keyData: Buffer.concat([publicKey, credential]) },
+    });
+    mocks.mutate.mockResolvedValue(null);
+    const result = await POST(
+      request({ address, action: "session", proof: challenge.proof, assertion }),
+    );
+    expect(result.status).toBe(200);
+    expect(result.headers.get("Server-Timing")).toContain("rpc;dur=");
+    expect(result.headers.get("Server-Timing")).toContain("nonce;dur=");
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    const cookie = result.cookies.get(PASSKEY_SESSION_COOKIE);
+    if (!cookie) throw new Error("Expected the verified passkey session cookie.");
+    expect(cookie).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/api/newsfeed/session",
+    });
+    const resumeBody = { address, action: "resume", credentialId: assertion.credentialId };
+    const beforeExpiry = Date.now();
+    const time = vi.spyOn(Date, "now").mockReturnValue(beforeExpiry + 16 * 60_000);
+    const resumed = await POST(request(resumeBody, cookie.value));
+    expect(resumed.status).toBe(200);
+    expect(resumed.headers.get("Set-Cookie")).toBeNull();
+    expect((await resumed.json()).expiresAt).toBe(Date.now() + 15 * 60_000);
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    expect(
+      (await POST(request({ ...resumeBody, address: "C" + "B".repeat(55) }, cookie.value))).status,
+    ).toBe(401);
+    expect(
+      (await POST(request({ ...resumeBody, credentialId: "c3RhbGU" }, cookie.value))).status,
+    ).toBe(401);
+    mocks.rule.mockResolvedValueOnce({
+      valid_until: null,
+      signer: { verifier: "CVERIFIER", keyData: Buffer.concat([Buffer.alloc(65, 9), credential]) },
+    });
+    expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
+    time.mockReturnValue(beforeExpiry + 25 * 60 * 60_000);
+    expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
+    time.mockRestore();
+    if (mode === "account discovery") {
+      mocks.rule.mockResolvedValueOnce({
+        valid_until: null,
+        signer: {
+          verifier: "CVERIFIER",
+          keyData: Buffer.concat([publicKey, Buffer.from("other")]),
+        },
+      });
+    }
+    expect(
+      (
+        await POST(
+          request({
+            address: "C" + "B".repeat(55),
+            action: "session",
+            proof: challenge.proof,
+            assertion,
+          }),
+        )
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await POST(
+          request({
+            address,
+            action: "session",
+            proof: challenge.proof,
+            assertion: { ...assertion, credentialId: "attacker" },
+          }),
+        )
+      ).status,
+    ).toBe(401);
+    mocks.mutate.mockRejectedValue(new Error("Challenge already used"));
+    expect(
+      (await POST(request({ address, action: "session", proof: challenge.proof, assertion })))
+        .status,
+    ).toBe(401);
+  },
+);
 
 it("requires a valid browser cookie before checking the signer and treats RPC failure as retryable", async () => {
   const address = "C" + "A".repeat(55);

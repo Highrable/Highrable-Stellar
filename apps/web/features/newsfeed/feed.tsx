@@ -9,7 +9,7 @@ import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
 import { Copy, MessageCircle, MoreHorizontal, Repeat2, Share2, ThumbsUp } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import type { FunctionReturnType } from "convex/server";
 import type { FormEvent, ReactNode } from "react";
@@ -29,13 +29,17 @@ const reactionEmoji: Record<(typeof reactions)[number], string> = {
   Insightful: "💡",
   Funny: "😂",
 };
-type Media = { _id: TConvexId<"socialMedia">; name: string; mime: string; size: number };
+type Media = Post["media"][number];
+const postVideoThreshold = 0.5;
+let playingPostVideo: HTMLVideoElement | null = null;
+
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "Something went wrong. Please retry.";
 export function MediaItem({
   media,
   auto = false,
   autoPlayVideo = false,
+  playInView = false,
   storyMode = false,
   onVideoEnded,
   onVideoProgress,
@@ -43,54 +47,127 @@ export function MediaItem({
   media: Media;
   auto?: boolean;
   autoPlayVideo?: boolean;
+  playInView?: boolean;
   storyMode?: boolean;
   onVideoEnded?: () => void;
   onVideoProgress?: (percent: number) => void;
 }) {
   const client = useConvex();
   const container = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const download = useRef<{ url?: string } | null>(null);
   const [url, setUrl] = useState("");
+  const [inView, setInView] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const isVideo = media.mime.startsWith("video/");
+  const isPhoto = auto && media.mime.startsWith("image/");
+  const isStoryVideo = autoPlayVideo && isVideo;
+  const isPostVideo = playInView && isVideo;
+
   useEffect(
     () => () => {
-      if (url) URL.revokeObjectURL(url);
+      if (download.current?.url) URL.revokeObjectURL(download.current.url);
+      download.current = null;
     },
-    [url],
+    [],
   );
+
   async function load() {
-    if (busy || url) return;
+    if (download.current) return;
+    const request: { url?: string } = {};
+    download.current = request;
     setBusy(true);
     setError("");
     try {
-      setUrl(URL.createObjectURL(await readMedia(client, media._id, media.mime)));
+      const blob = await readMedia(client, media._id, media.mime);
+      if (download.current !== request) return;
+      request.url = URL.createObjectURL(blob);
+      setUrl(request.url);
     } catch (e) {
-      setError(message(e));
+      if (download.current === request) setError(message(e));
     } finally {
-      setBusy(false);
+      if (download.current === request) {
+        if (!request.url) download.current = null;
+        setBusy(false);
+      }
     }
   }
+  const loadWhenVisible = useEffectEvent(() => void load());
+
   useEffect(() => {
-    const isPhoto = auto && media.mime.startsWith("image/");
-    const isStoryVideo = autoPlayVideo && media.mime.startsWith("video/");
-    if ((!isPhoto && !isStoryVideo) || !container.current) return;
+    if ((!isPhoto && !isStoryVideo && !isPostVideo) || !container.current) return;
     if (typeof IntersectionObserver === "undefined") {
       if (!isStoryVideo) return;
-      const timeout = window.setTimeout(() => void load(), 0);
+      const timeout = window.setTimeout(loadWhenVisible, 0);
       return () => window.clearTimeout(timeout);
     }
+    let watching = true;
+    let requested = false;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          observer.disconnect();
-          void load();
-        }
+        const entry = entries[entries.length - 1];
+        if (!watching || !entry) return;
+        const visible =
+          entry.isIntersecting && (!isPostVideo || entry.intersectionRatio >= postVideoThreshold);
+        if (isPostVideo) setInView(visible);
+        if (!visible || requested) return;
+
+        requested = true;
+        if (!isPostVideo) observer.disconnect();
+        loadWhenVisible();
       },
-      { rootMargin: isStoryVideo ? "0px" : "300px 0px" },
+      {
+        rootMargin: isPhoto ? "300px 0px" : "0px",
+        threshold: isPostVideo ? postVideoThreshold : 0,
+      },
     );
     observer.observe(container.current);
-    return () => observer.disconnect();
-  }, [auto, autoPlayVideo, media._id]);
+    return () => {
+      watching = false;
+      observer.disconnect();
+    };
+  }, [isPhoto, isPostVideo, isStoryVideo, media._id]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!isPostVideo || !url || !video) return;
+
+    let active = true;
+    if (inView) {
+      void video.play().catch(async (error: unknown) => {
+        if (
+          !active ||
+          video.muted ||
+          !(error instanceof DOMException) ||
+          error.name !== "NotAllowedError"
+        ) {
+          return;
+        }
+        video.muted = true;
+        await video.play().catch(() => {
+          if (active) video.muted = false;
+        });
+      });
+    }
+    return () => {
+      active = false;
+      if (inView || !video.paused) video.pause();
+      if (playingPostVideo === video) playingPostVideo = null;
+    };
+  }, [inView, isPostVideo, url]);
+
+  function handlePostVideoPlay(event: React.SyntheticEvent<HTMLVideoElement>) {
+    const video = event.currentTarget;
+    if (video.paused) return;
+    if (playingPostVideo && playingPostVideo !== video) playingPostVideo.pause();
+    playingPostVideo = video;
+  }
+
+  function handlePostVideoStop(event: React.SyntheticEvent<HTMLVideoElement>) {
+    if (playingPostVideo === event.currentTarget) playingPostVideo = null;
+  }
+
   return (
     <div
       ref={container}
@@ -113,13 +190,17 @@ export function MediaItem({
           />
         ) : (
           <video
+            ref={videoRef}
             controls
             preload="none"
+            playsInline
             autoPlay={autoPlayVideo}
-            muted={autoPlayVideo}
+            muted={autoPlayVideo || undefined}
             src={url}
             aria-label={media.name}
-            onEnded={onVideoEnded}
+            onPlay={isPostVideo ? handlePostVideoPlay : undefined}
+            onPause={isPostVideo ? handlePostVideoStop : undefined}
+            onEnded={isPostVideo ? handlePostVideoStop : onVideoEnded}
             onTimeUpdate={(event) => {
               const video = event.currentTarget;
               if (video.duration > 0) onVideoProgress?.((video.currentTime / video.duration) * 100);
@@ -136,7 +217,7 @@ export function MediaItem({
         >
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">{media.name}</p>
-            {media.mime.startsWith("video/") || error ? (
+            {isVideo || error ? (
               <Button variant="outline" onClick={() => void load()} disabled={busy}>
                 {busy ? "Loading media…" : error ? "Retry loading media" : "Load video"}
               </Button>
@@ -175,7 +256,7 @@ function AdditionalMedia({ post }: { post: Pick<Post, "_id" | "media"> }) {
     <>
       <div className={`grid gap-3 ${additional.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {additional.map((media) => (
-          <MediaItem key={media._id} media={media} auto />
+          <MediaItem key={media._id} media={media} auto playInView />
         ))}
       </div>
       {status === "LoadingFirstPage" && <p role="status">Loading media…</p>}
@@ -193,7 +274,7 @@ function Gallery({ post }: { post: Pick<Post, "_id" | "media" | "mediaCount"> })
     <div className="space-y-3">
       <div className={`grid gap-3 ${post.media.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {post.media.map((m) => (
-          <MediaItem key={m._id} media={m} auto />
+          <MediaItem key={m._id} media={m} auto playInView />
         ))}
       </div>
       {post.mediaCount > post.media.length && !expanded && (

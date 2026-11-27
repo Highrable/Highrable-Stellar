@@ -1,5 +1,5 @@
 import { api } from "@repo/convex-client";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -63,6 +63,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   Reflect.deleteProperty(URL, "createObjectURL");
   Reflect.deleteProperty(URL, "revokeObjectURL");
   vi.unstubAllGlobals();
@@ -190,5 +191,141 @@ it("keeps video on demand and uses inline controls after loading", async () => {
   const video = document.querySelector("video")!;
   expect(video.getAttribute("controls")).not.toBeNull();
   expect(video.getAttribute("preload")).toBe("none");
+  expect(video.playsInline).toBe(true);
   expect(mock.readMedia).toHaveBeenCalledTimes(1);
+});
+
+const postVideo: (typeof post.media)[number] = {
+  _id: "video-1" as (typeof post.media)[number]["_id"],
+  name: "clip.mp4",
+  mime: "video/mp4",
+  size: 10,
+};
+
+function observePostVideos() {
+  const observers: { reportVisibility: (ratio: number) => void; disconnect: () => void }[] = [];
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      readonly disconnect = vi.fn();
+      constructor(callback: IntersectionObserverCallback, options: IntersectionObserverInit) {
+        expect(options.threshold).toBe(0.5);
+        observers.push({
+          reportVisibility: (ratio) =>
+            act(() => {
+              callback(
+                [
+                  {
+                    isIntersecting: ratio > 0,
+                    intersectionRatio: ratio,
+                  } as IntersectionObserverEntry,
+                ],
+                this as unknown as IntersectionObserver,
+              );
+            }),
+          disconnect: this.disconnect,
+        });
+      }
+      observe() {}
+    },
+  );
+  return observers;
+}
+
+it("loads a published post video when half visible, plays with sound, and pauses on scroll out", async () => {
+  const observers = observePostVideos();
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  const { unmount } = render(<PostCard post={{ ...post, mediaCount: 1, media: [postVideo] }} />);
+  const observer = observers[0]!;
+  observer.reportVisibility(0.49);
+  expect(mock.readMedia).not.toHaveBeenCalled();
+
+  observer.reportVisibility(0.5);
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  const video = document.querySelector("video");
+  expect(video?.muted).toBe(false);
+  expect(video?.controls).toBe(true);
+  expect(video?.playsInline).toBe(true);
+
+  observer.reportVisibility(0.49);
+  expect(pause).toHaveBeenCalledTimes(1);
+  observer.reportVisibility(0.6);
+  expect(play).toHaveBeenCalledTimes(2);
+  expect(mock.readMedia).toHaveBeenCalledTimes(1);
+  unmount();
+  expect(observer.disconnect).toHaveBeenCalledTimes(1);
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:media");
+});
+
+it("retries autoplay muted when the browser requires a gesture for sound", async () => {
+  const observers = observePostVideos();
+  const mutedAttempts: boolean[] = [];
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
+    function (this: HTMLVideoElement) {
+      mutedAttempts.push(this.muted);
+      return this.muted
+        ? Promise.resolve()
+        : Promise.reject(new DOMException("Gesture required", "NotAllowedError"));
+    },
+  );
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  render(<MediaItem media={postVideo} playInView />);
+  observers[0]!.reportVisibility(1);
+  await waitFor(() => expect(mutedAttempts).toEqual([false, true]));
+  expect(document.querySelector("video")?.muted).toBe(true);
+});
+
+it("pauses the previous post video when another starts playing", async () => {
+  const observers = observePostVideos();
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockReturnValue(false);
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  render(
+    <>
+      <MediaItem media={postVideo} playInView />
+      <MediaItem media={{ ...postVideo, name: "second.mp4" }} playInView />
+    </>,
+  );
+  observers[0]!.reportVisibility(1);
+  fireEvent.play(await screen.findByLabelText("clip.mp4"));
+  observers[1]!.reportVisibility(1);
+  fireEvent.play(await screen.findByLabelText("second.mp4"));
+  expect(pause).toHaveBeenCalledTimes(1);
+  expect(pause.mock.contexts[0]).toBe(screen.getByLabelText("clip.mp4"));
+});
+
+it("does not start playback after a delayed download finishes offscreen", async () => {
+  const observers = observePostVideos();
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  let finishDownload: (blob: Blob) => void = () => {};
+  mock.readMedia.mockReturnValue(
+    new Promise<Blob>((resolve) => {
+      finishDownload = resolve;
+    }),
+  );
+  render(<MediaItem media={postVideo} playInView />);
+  const observer = observers[0]!;
+  observer.reportVisibility(1);
+  observer.reportVisibility(0);
+  await act(async () => finishDownload(new Blob(["video"])));
+  expect(document.querySelector("video")).toBeTruthy();
+  expect(play).not.toHaveBeenCalled();
+  observer.reportVisibility(1);
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(mock.readMedia).toHaveBeenCalledTimes(1);
+});
+
+it("offers a manual retry after an automatic video download fails", async () => {
+  const observers = observePostVideos();
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  mock.readMedia.mockRejectedValueOnce(new Error("Media read failed"));
+  render(<MediaItem media={postVideo} playInView />);
+  observers[0]!.reportVisibility(1);
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Retry loading media" }));
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  expect(mock.readMedia).toHaveBeenCalledTimes(2);
 });

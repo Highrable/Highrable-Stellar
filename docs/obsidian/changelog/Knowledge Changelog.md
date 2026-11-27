@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-11-26
+last_updated: 2026-11-27
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-11-27
+
+- Added viewport-triggered playback for videos in Newsfeed post galleries, with sound when browser policy allows and a muted fallback. See [[frontend/Feature Slices]].
 
 ## 2026-11-26
 

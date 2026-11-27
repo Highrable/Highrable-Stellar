@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-11-25
+last_updated: 2026-11-27
 source_of_truth: repository
 ---
 
@@ -43,6 +43,7 @@ source_of_truth: repository
 - Disputes (list, detail, composers, timeline, dialog) and admin pages share the same cards, controls, and status tones. Protected admin access and role-specific controls remain unchanged.
 - `TermHint` (`features/common/components/term-hint.tsx`) holds plain-language definitions (`PLAIN_TERMS`) for jargon such as escrow and wallet.
 - Newsfeed showcase uploads accept both file selection and drag-and-drop, then use the same preview, image-edit, removal, progress, cancellation, and retry flow. Post audiences remain informational, and attaching a milestone still requires explicit public confirmation.
+- Newsfeed post galleries use the existing media download when a video is at least half visible. Playback starts inline with sound when the browser permits it, retries muted when autoplay with sound is blocked, and pauses below the visibility threshold or when another post video starts. Native controls support manual playback and unmuting. Failed downloads can be retried from the media card.
 
 ## Cross-slice rules
 

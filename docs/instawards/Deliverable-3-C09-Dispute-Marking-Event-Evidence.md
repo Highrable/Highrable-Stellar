@@ -12,12 +12,12 @@ Existing role/state coverage is reused: client and assigned freelancer marking f
 
 ## Validation
 
-| Command | Result |
-| --- | --- |
-| `cargo test --locked -p highrable-escrow mark` | Passed: 13 tests. |
-| `cargo test --workspace --locked` | Passed: 80 escrow tests and 9 reputation tests; no failures. |
-| `cargo fmt --all -- --check` | Passed. |
-| `pnpm contracts:build` | Passed. Reputation WASM: 5,359 bytes, SHA-256 `8c43d8f71f978ffda88ae30d930b55e4b8b4b07cecdf6caaf44b947d9252fd60`. Escrow WASM: 15,724 bytes, SHA-256 `d864cae616834033ff6015250f652681bc81dcfb2139687fef08ebd0935e95b7`. |
-| `git diff --check` | Passed. |
+| Command                                        | Result                                                                                                                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cargo test --locked -p highrable-escrow mark` | Passed: 13 tests.                                                                                                                                                                                                        |
+| `cargo test --workspace --locked`              | Passed: 80 escrow tests and 9 reputation tests; no failures.                                                                                                                                                             |
+| `cargo fmt --all -- --check`                   | Passed.                                                                                                                                                                                                                  |
+| `pnpm contracts:build`                         | Passed. Reputation WASM: 5,359 bytes, SHA-256 `8c43d8f71f978ffda88ae30d930b55e4b8b4b07cecdf6caaf44b947d9252fd60`. Escrow WASM: 15,724 bytes, SHA-256 `d864cae616834033ff6015250f652681bc81dcfb2139687fef08ebd0935e95b7`. |
+| `git diff --check`                             | Passed.                                                                                                                                                                                                                  |
 
 These results are local Soroban test-host evidence with mocked authorization. They do not prove wallet signatures, deployed contract behavior, Testnet execution, or event indexing.

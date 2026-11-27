@@ -16,15 +16,15 @@ The SDK's `MockAuth` registers its mock authorization contract at the authorized
 
 ## Validation
 
-| Command | Result |
-| --- | --- |
-| `cargo test --locked -p highrable-escrow d3_c17` | Passed: 2 C17 tests, including 16 success combinations and 6 rejection cases. |
-| `cargo test --locked -p highrable-escrow mark` | Passed: 16 marking-related tests. |
-| `cargo test --locked -p highrable-escrow c20_` | Passed: 6 tests. |
-| `cargo test --workspace --locked` | Passed: 83 escrow and 9 reputation tests; no failures. |
-| `cargo fmt --all -- --check` | Passed. |
-| `pnpm contracts:build` | Could not complete: pnpm attempted workspace dependency downloads and registry DNS lookups failed. |
-| `stellar contract build` (from `contracts/`) | Passed: reputation WASM 5,359 bytes, SHA-256 `8c43d8f71f978ffda88ae30d930b55e4b8b4b07cecdf6caaf44b947d9252fd60`; escrow WASM 15,724 bytes, SHA-256 `d864cae616834033ff6015250f652681bc81dcfb2139687fef08ebd0935e95b7`. |
-| `git diff --check` | Passed. |
+| Command                                          | Result                                                                                                                                                                                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cargo test --locked -p highrable-escrow d3_c17` | Passed: 2 C17 tests, including 16 success combinations and 6 rejection cases.                                                                                                                                          |
+| `cargo test --locked -p highrable-escrow mark`   | Passed: 16 marking-related tests.                                                                                                                                                                                      |
+| `cargo test --locked -p highrable-escrow c20_`   | Passed: 6 tests.                                                                                                                                                                                                       |
+| `cargo test --workspace --locked`                | Passed: 83 escrow and 9 reputation tests; no failures.                                                                                                                                                                 |
+| `cargo fmt --all -- --check`                     | Passed.                                                                                                                                                                                                                |
+| `pnpm contracts:build`                           | Could not complete: pnpm attempted workspace dependency downloads and registry DNS lookups failed.                                                                                                                     |
+| `stellar contract build` (from `contracts/`)     | Passed: reputation WASM 5,359 bytes, SHA-256 `8c43d8f71f978ffda88ae30d930b55e4b8b4b07cecdf6caaf44b947d9252fd60`; escrow WASM 15,724 bytes, SHA-256 `d864cae616834033ff6015250f652681bc81dcfb2139687fef08ebd0935e95b7`. |
+| `git diff --check`                               | Passed.                                                                                                                                                                                                                |
 
 These are local test-host and build results only. No deployment or live-chain verification was performed.

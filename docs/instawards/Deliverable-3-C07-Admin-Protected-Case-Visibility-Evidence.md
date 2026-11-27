@@ -24,14 +24,14 @@ C07 verifies that newly opened client micro-gig and freelancer milestone cases e
 
 Executed locally on 2026-10-13 from `instawards/dev/bette`:
 
-| Command | Result |
-| --- | --- |
-| `pnpm --filter web test features/admin` | PASS — 8 files, 247 tests. |
-| `pnpm --filter web exec tsc --noEmit` | PASS. |
-| Scoped `oxlint` on the four changed frontend files | PASS — 0 warnings, 0 errors. |
-| Scoped `oxfmt --check` on the four changed frontend files | PASS. |
-| `pnpm --filter web test` | 26 of 27 files passed; 421 of 423 tests passed. The two failures are the existing participant assertions in `features/disputes/components/dispute-participant-integration.test.tsx` that still expect `Escrow dispute marking is confirmed on Stellar.` while the current UI renders `Outcome Pending` or `Recording Confirmation`. Participant files were not changed. |
-| `pnpm --filter web build` | PASS — Next.js production build completed and generated the admin queue/detail routes. |
+| Command                                                   | Result                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter web test features/admin`                   | PASS — 8 files, 247 tests.                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm --filter web exec tsc --noEmit`                     | PASS.                                                                                                                                                                                                                                                                                                                                                                   |
+| Scoped `oxlint` on the four changed frontend files        | PASS — 0 warnings, 0 errors.                                                                                                                                                                                                                                                                                                                                            |
+| Scoped `oxfmt --check` on the four changed frontend files | PASS.                                                                                                                                                                                                                                                                                                                                                                   |
+| `pnpm --filter web test`                                  | 26 of 27 files passed; 421 of 423 tests passed. The two failures are the existing participant assertions in `features/disputes/components/dispute-participant-integration.test.tsx` that still expect `Escrow dispute marking is confirmed on Stellar.` while the current UI renders `Outcome Pending` or `Recording Confirmation`. Participant files were not changed. |
+| `pnpm --filter web build`                                 | PASS — Next.js production build completed and generated the admin queue/detail routes.                                                                                                                                                                                                                                                                                  |
 
 ## Evidence limits
 

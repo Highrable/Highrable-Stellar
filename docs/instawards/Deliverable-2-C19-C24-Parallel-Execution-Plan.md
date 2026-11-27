@@ -21,13 +21,13 @@ Deliverable 1 C19–C24 already exist and must not be confused with these Delive
 
 Relevant starting points:
 
-| Area | Existing sources and evidence |
-| --- | --- |
-| C19 backend/route recovery | `packages/backend/tests/disputes/c19.rpc-reconciliation.test.ts`, `apps/web/core/admin/settlement-recovery.test.ts`, `Deliverable-2-C19-RPC-Recovery-Evidence.md` |
-| Deployment verification | `scripts/verify-testnet.sh`, `packages/backend/convex/lib/stellarReads.ts`, `apps/web/core/config/env.ts`, public deployment artifacts |
-| Administrator integration | `apps/web/features/admin/admin-dispute-detail-page.test.tsx`, `admin-protected-pages.integration.test.tsx`, `lib/settlement-validation.test.ts`, `apps/web/app/api/admin/disputes/[disputeId]/resolve/route.ts` |
-| Participant integration | `apps/web/features/disputes/components/dispute-participant-integration.test.tsx`, `dispute-participant-actions.test.tsx`, `dispute-marking-status.test.tsx`, `dispute-timeline.test.tsx` |
-| Backend access/evidence | `packages/backend/tests/disputes/c08.evidence.test.ts`, `c19.participant-evidence.test.ts`, dispute permission and mutation helpers |
+| Area                       | Existing sources and evidence                                                                                                                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C19 backend/route recovery | `packages/backend/tests/disputes/c19.rpc-reconciliation.test.ts`, `apps/web/core/admin/settlement-recovery.test.ts`, `Deliverable-2-C19-RPC-Recovery-Evidence.md`                                               |
+| Deployment verification    | `scripts/verify-testnet.sh`, `packages/backend/convex/lib/stellarReads.ts`, `apps/web/core/config/env.ts`, public deployment artifacts                                                                          |
+| Administrator integration  | `apps/web/features/admin/admin-dispute-detail-page.test.tsx`, `admin-protected-pages.integration.test.tsx`, `lib/settlement-validation.test.ts`, `apps/web/app/api/admin/disputes/[disputeId]/resolve/route.ts` |
+| Participant integration    | `apps/web/features/disputes/components/dispute-participant-integration.test.tsx`, `dispute-participant-actions.test.tsx`, `dispute-marking-status.test.tsx`, `dispute-timeline.test.tsx`                        |
+| Backend access/evidence    | `packages/backend/tests/disputes/c08.evidence.test.ts`, `c19.participant-evidence.test.ts`, dispute permission and mutation helpers                                                                             |
 
 The existing verifier checks wiring through contract invocations, requires a signing identity, assumes `get_next_escrow_id == 1`, and does not compare deployed WASM identity to the tested build. It is not sufficient evidence for C20. Do not run it as an assumed read-only identity check.
 
@@ -41,12 +41,12 @@ Workers implement and test in coordinator-created, temporary **non-Git source co
 
 Each worker returns a patch bundle or changed-file bundle, its base revision, exact owned paths, requirement-to-test mapping, commands/results, and limitations. Worker Git mutations, staging, commits, deployment, and edits to the canonical checkout are prohibited. This isolates unfinished later deliverables from both earlier commits and repository-wide formatting hooks.
 
-| Owner | Deliverables | Allowed primary files | Dependencies |
-| --- | --- | --- | --- |
-| Coordinator | C19 audit, integration, shared fixes, evidence | Canonical checkout; backend/server boundaries; root configuration; plan and vault notes | Owns frozen API/status contract |
-| Worker A — deployment | C20 | Agreed verification script/helper and dedicated verifier tests | Backend network/contract configuration; tested local WASM |
-| Worker B — administrator | C21, then C23 | `apps/web/features/admin/` and assigned administrator test files | C19 recovery contract; C21 committed before C23 implementation |
-| Worker C — participant | C22, then C24 | `apps/web/features/disputes/` and assigned participant test files | Existing permission/marking contract; C22 committed before C24 implementation |
+| Owner                    | Deliverables                                   | Allowed primary files                                                                   | Dependencies                                                                  |
+| ------------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Coordinator              | C19 audit, integration, shared fixes, evidence | Canonical checkout; backend/server boundaries; root configuration; plan and vault notes | Owns frozen API/status contract                                               |
+| Worker A — deployment    | C20                                            | Agreed verification script/helper and dedicated verifier tests                          | Backend network/contract configuration; tested local WASM                     |
+| Worker B — administrator | C21, then C23                                  | `apps/web/features/admin/` and assigned administrator test files                        | C19 recovery contract; C21 committed before C23 implementation                |
+| Worker C — participant   | C22, then C24                                  | `apps/web/features/disputes/` and assigned participant test files                       | Existing permission/marking contract; C22 committed before C24 implementation |
 
 Before dispatch, replace directory-level ownership with a concrete file list. Shared `core/admin`, `core/stellar`, attachment primitives, backend helpers, manifests, lockfiles, Vitest configuration, and vault files require coordinator ownership. A worker reports needed shared changes instead of editing them opportunistically. Transfer ownership explicitly if inspection proves another assignment is better.
 
@@ -165,16 +165,16 @@ Choose `fix`, `feat`, or `test` based on actual final changes. Do not amend the 
 
 Use actual package scripts and installed versions. Expected commands, narrowed to changed files when appropriate:
 
-| Scope | Checks |
-| --- | --- |
-| C19 baseline | `pnpm --filter @repo/backend test tests/disputes/c19.rpc-reconciliation.test.ts`; `pnpm --filter web test core/admin/settlement-recovery.test.ts` |
-| C20 | Dedicated verifier suite; local contract build and relevant Rust tests for the exact source whose identity is recorded; shell syntax checks if a shell entry point changes |
-| C21/C23 | `pnpm --filter web test features/admin`; affected route/recovery suite when those seams change |
-| C22/C24 | `pnpm --filter web test features/disputes`; attachment/accessibility tests only if touched; focused backend access/evidence suites supporting acceptance claims |
-| Web types | `pnpm --filter web exec tsc --noEmit`, with route type generation if required |
-| Backend types if changed | Backend `convex/tsconfig.json` and `tests/tsconfig.json` through installed TypeScript |
-| Commit checks | Required root lint/fix hook, changed-path formatting verification, staged diff review, `git diff --check` |
-| Final integration | Full web suite and web production build once; full backend suite if backend code/harness changed; contract workspace tests/build if contract source changed, plus C20 identity prerequisites |
+| Scope                    | Checks                                                                                                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C19 baseline             | `pnpm --filter @repo/backend test tests/disputes/c19.rpc-reconciliation.test.ts`; `pnpm --filter web test core/admin/settlement-recovery.test.ts`                                            |
+| C20                      | Dedicated verifier suite; local contract build and relevant Rust tests for the exact source whose identity is recorded; shell syntax checks if a shell entry point changes                   |
+| C21/C23                  | `pnpm --filter web test features/admin`; affected route/recovery suite when those seams change                                                                                               |
+| C22/C24                  | `pnpm --filter web test features/disputes`; attachment/accessibility tests only if touched; focused backend access/evidence suites supporting acceptance claims                              |
+| Web types                | `pnpm --filter web exec tsc --noEmit`, with route type generation if required                                                                                                                |
+| Backend types if changed | Backend `convex/tsconfig.json` and `tests/tsconfig.json` through installed TypeScript                                                                                                        |
+| Commit checks            | Required root lint/fix hook, changed-path formatting verification, staged diff review, `git diff --check`                                                                                    |
+| Final integration        | Full web suite and web production build once; full backend suite if backend code/harness changed; contract workspace tests/build if contract source changed, plus C20 identity prerequisites |
 
 Do not rerun expensive broad suites at every checkpoint without cause. Do not add a new browser/E2E framework unless existing tools cannot prove a required behavior and the extra scope is justified. Passing mocked tests does not prove deployed code, live storage access, signed participant identity, or Testnet transaction execution.
 

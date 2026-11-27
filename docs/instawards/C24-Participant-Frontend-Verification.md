@@ -2,14 +2,14 @@
 
 The participant work for Deliverable 1 is on `instawards/dev/sherwin`. This verification maps the six Frontend Developer 2 commits from the sprint plan. Source code and test results are authoritative.
 
-| Sprint ID | Commit | Evidence |
-| --- | --- | --- |
-| C07 | `d18bea6` | Participant routes and wallet-scoped list/detail state coverage |
-| C11 | `bea0955` | Open dispute validation and creation flow coverage |
-| C15 | `d90672d` | Participant timeline, detail, and state coverage |
-| C19 | `dc1d340` | Evidence and response actions with attachment validation and retry coverage |
-| C23 | `2e2656e` | On-chain marking, transaction links, failure and recovery states |
-| C24 | This verification commit | Integrated detail/actions/timeline and attachment accessibility regression coverage |
+| Sprint ID | Commit                   | Evidence                                                                            |
+| --------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| C07       | `d18bea6`                | Participant routes and wallet-scoped list/detail state coverage                     |
+| C11       | `bea0955`                | Open dispute validation and creation flow coverage                                  |
+| C15       | `d90672d`                | Participant timeline, detail, and state coverage                                    |
+| C19       | `dc1d340`                | Evidence and response actions with attachment validation and retry coverage         |
+| C23       | `2e2656e`                | On-chain marking, transaction links, failure and recovery states                    |
+| C24       | This verification commit | Integrated detail/actions/timeline and attachment accessibility regression coverage |
 
 ## C24 checks
 

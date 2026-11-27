@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-11-28
 
+- Hid the app sidebar and floating Messages shortcut on Marketplace and Post a Job for guests. Those pages keep their wallet-connect header and existing action guards. See [[architecture/Frontend Architecture]].
 - Established the verified browser session during external wallet connection and passkey setup or reconnect, so Newsfeed and Messages can open without asking for another signature or passkey assertion while the session is valid. See [[architecture/Authentication Boundaries]].
 
 ## 2026-11-27

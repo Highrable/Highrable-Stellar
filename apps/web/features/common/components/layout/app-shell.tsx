@@ -56,9 +56,8 @@ function useScrollToTopOnNavigate(pathname: string) {
 }
 
 /** Sends the user to the home page whenever their wallet goes from connected to disconnected. */
-function useRedirectHomeOnDisconnect() {
+function useRedirectHomeOnDisconnect(isConnected: boolean) {
   const router = useRouter();
-  const { isConnected } = useHighrableWalletIdentity();
   const wasConnected = useRef(isConnected);
 
   useEffect(() => {
@@ -71,9 +70,15 @@ function useRedirectHomeOnDisconnect() {
 
 function ShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  useRedirectHomeOnDisconnect();
+  const { isConnected } = useHighrableWalletIdentity();
+  useRedirectHomeOnDisconnect(isConnected);
   const { mode } = useAppMode();
   const isAdminRoute = isAdminPath(pathname);
+  const isGuestPreview =
+    !isConnected &&
+    (pathname === "/marketplace" ||
+      pathname.startsWith("/marketplace/") ||
+      pathname === "/post-job");
   const activeMode = isAdminRoute ? "admin" : mode;
   const useProductRefresh = shouldUseProductRefresh(pathname);
 
@@ -97,16 +102,16 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
       data-product-ui={useProductRefresh ? "refresh" : undefined}
       className="min-h-screen bg-[var(--mode-page)] text-foreground"
     >
-      <SidebarProvider>
-        <AppSidebar />
+      <SidebarProvider enableKeyboardShortcut={!isGuestPreview}>
+        {isGuestPreview ? null : <AppSidebar />}
         <SidebarInset className="min-w-0 bg-muted/60">
-          <Header />
+          <Header showSidebarToggle={!isGuestPreview} />
           {isAdminRoute ? null : <ModeBanner />}
           <div className="hr-app-main mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
             {children}
           </div>
         </SidebarInset>
-        {!isAdminRoute && pathname !== "/messages" ? (
+        {!isGuestPreview && !isAdminRoute && pathname !== "/messages" ? (
           <Link
             href="/messages"
             aria-label="Open messages"

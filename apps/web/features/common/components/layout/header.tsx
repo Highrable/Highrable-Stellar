@@ -20,7 +20,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /** Renders the shared navigation and wallet controls for the Highrable app. */
-export function Header() {
+export function Header({ showSidebarToggle }: { readonly showSidebarToggle: boolean }) {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
@@ -58,7 +58,9 @@ export function Header() {
     >
       <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <SidebarTrigger aria-label="Toggle navigation sidebar" className="size-9" />
+          {showSidebarToggle ? (
+            <SidebarTrigger aria-label="Toggle navigation sidebar" className="size-9" />
+          ) : null}
           <Link href="/home" className="flex shrink-0 items-center gap-2.5 md:hidden">
             <img
               src="/logo/highrable-landscape.png"
@@ -66,7 +68,9 @@ export function Header() {
               className="h-7 w-auto max-w-[128px] object-contain"
             />
           </Link>
-          <Separator orientation="vertical" className="hidden h-5 md:block" />
+          {showSidebarToggle ? (
+            <Separator orientation="vertical" className="hidden h-5 md:block" />
+          ) : null}
           <Breadcrumb className="hidden min-w-0 md:block">
             <BreadcrumbList className="flex-nowrap">
               <BreadcrumbItem>

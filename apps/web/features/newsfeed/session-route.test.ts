@@ -1,10 +1,11 @@
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 
-import { POST } from "@/app/api/newsfeed/session/route";
+import { DELETE, POST } from "@/app/api/newsfeed/session/route";
 import { NextRequest } from "next/server";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 
-import { createSocialChallenge } from "./session-server";
+import { createPasskeySession, PASSKEY_SESSION_COOKIE, signSocialPayload } from "./session-server";
+
 const mocks = vi.hoisted(() => ({
   wallet: vi.fn(),
   rule: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   config: {
     WALLET_SESSION_SECRET: "strong-existing-wallet-session-secret-32-chars",
     NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: "CVERIFIER",
+    NEXT_PUBLIC_APP_DOMAIN: "https://highrable.example",
     NEXT_PUBLIC_CONVEX_URL: "https://example.convex.cloud",
     NEXT_PUBLIC_STELLAR_RPC_URL: "https://rpc.example",
     NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: "test",
@@ -38,11 +40,15 @@ vi.mock("@stellar/stellar-sdk", () => ({
     },
   },
 }));
-const origin = "https://highrable.example";
-function request(body: object) {
+const origin = "https://app.highrable.example";
+function request(body: object, cookie?: string) {
   return new NextRequest(`${origin}/api/newsfeed/session`, {
     method: "POST",
-    headers: { origin, "content-type": "application/json" },
+    headers: {
+      origin,
+      "content-type": "application/json",
+      ...(cookie ? { cookie: `${PASSKEY_SESSION_COOKIE}=${cookie}` } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -55,7 +61,10 @@ beforeEach(() => {
   mocks.mutate.mockReset();
   mocks.config.WALLET_SESSION_SECRET = "strong-existing-wallet-session-secret-32-chars";
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 it("refuses an address that differs from the verified external wallet", async () => {
   mocks.wallet.mockReturnValue({ walletAddress: "G" + "A".repeat(55) });
   const result = await POST(request({ address: "G" + "B".repeat(55), action: "session" }));
@@ -77,7 +86,10 @@ it("mints a session only for the verified external subject and rejects developme
 });
 it("binds a valid passkey assertion to the on-chain account signer and atomically consumes its challenge", async () => {
   const address = "C" + "A".repeat(55);
-  const challenge = createSocialChallenge(address);
+  const challengeResponse = await POST(request({ address, action: "challenge" }));
+  expect(challengeResponse.status).toBe(200);
+  const challenge = await challengeResponse.json();
+  expect(challenge.rpId).toBe("highrable.example");
   const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const jwk = pair.publicKey.export({ format: "jwk" });
   const credential = Buffer.from("credential-id");
@@ -119,6 +131,36 @@ it("binds a valid passkey assertion to the on-chain account signer and atomicall
   expect(result.headers.get("Server-Timing")).toContain("rpc;dur=");
   expect(result.headers.get("Server-Timing")).toContain("nonce;dur=");
   expect(mocks.mutate).toHaveBeenCalledTimes(1);
+  const cookie = result.cookies.get(PASSKEY_SESSION_COOKIE);
+  if (!cookie) throw new Error("Expected the verified passkey session cookie.");
+  expect(cookie).toMatchObject({
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+    path: "/api/newsfeed/session",
+  });
+  const resumeBody = { address, action: "resume", credentialId: assertion.credentialId };
+  const beforeExpiry = Date.now();
+  const time = vi.spyOn(Date, "now").mockReturnValue(beforeExpiry + 16 * 60_000);
+  const resumed = await POST(request(resumeBody, cookie.value));
+  expect(resumed.status).toBe(200);
+  expect(resumed.headers.get("Set-Cookie")).toBeNull();
+  expect((await resumed.json()).expiresAt).toBe(Date.now() + 15 * 60_000);
+  expect(mocks.mutate).toHaveBeenCalledTimes(1);
+  expect(
+    (await POST(request({ ...resumeBody, address: "C" + "B".repeat(55) }, cookie.value))).status,
+  ).toBe(401);
+  expect(
+    (await POST(request({ ...resumeBody, credentialId: "c3RhbGU" }, cookie.value))).status,
+  ).toBe(401);
+  mocks.rule.mockResolvedValueOnce({
+    valid_until: null,
+    signer: { verifier: "CVERIFIER", keyData: Buffer.concat([Buffer.alloc(65, 9), credential]) },
+  });
+  expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
+  time.mockReturnValue(beforeExpiry + 25 * 60 * 60_000);
+  expect((await POST(request(resumeBody, cookie.value))).status).toBe(401);
+  time.mockRestore();
   expect(
     (
       await POST(
@@ -147,4 +189,51 @@ it("binds a valid passkey assertion to the on-chain account signer and atomicall
   expect(
     (await POST(request({ address, action: "session", proof: challenge.proof, assertion }))).status,
   ).toBe(401);
+});
+
+it("requires a valid browser cookie before checking the signer and treats RPC failure as retryable", async () => {
+  const address = "C" + "A".repeat(55);
+  const body = { address, action: "resume", credentialId: "YQ" };
+  const scope = { sub: address, origin, network: "test", rpId: "highrable.example" };
+  expect((await POST(request(body))).status).toBe(401);
+  expect((await POST(request(body, "tampered.invalid"))).status).toBe(401);
+  const bearer = signSocialPayload({ ...scope, aud: "highrable-social", exp: Date.now() + 60_000 });
+  expect((await POST(request(body, bearer))).status).toBe(401);
+  const otherNetwork = createPasskeySession({ ...scope, network: "other" }, Buffer.alloc(66, 1));
+  expect((await POST(request(body, otherNetwork.value))).status).toBe(401);
+  expect(mocks.rule).not.toHaveBeenCalled();
+  const cookie = createPasskeySession(scope, Buffer.alloc(66, 1));
+  mocks.rule.mockRejectedValue(new Error("RPC is offline"));
+  expect((await POST(request(body, cookie.value))).status).toBe(503);
+});
+
+it("expires the browser cookie on same-origin sign-out", () => {
+  const signOut = (requestOrigin: string) =>
+    DELETE(
+      new NextRequest(`${origin}/api/newsfeed/session`, {
+        method: "DELETE",
+        headers: { origin: requestOrigin },
+      }),
+    );
+  expect(signOut("https://example.org").status).toBe(403);
+  const response = signOut(origin);
+  expect(response.status).toBe(204);
+  expect(response.cookies.get(PASSKEY_SESSION_COOKIE)).toMatchObject({
+    value: "",
+    expires: new Date(0),
+    path: "/api/newsfeed/session",
+  });
+});
+
+it("rejects a challenge from a host outside the configured RP ID", async () => {
+  const outside = "https://highrable.example.other.test";
+  const result = await POST(
+    new NextRequest(`${outside}/api/newsfeed/session`, {
+      method: "POST",
+      headers: { origin: outside, "content-type": "application/json" },
+      body: JSON.stringify({ address: "C" + "A".repeat(55), action: "challenge" }),
+    }),
+  );
+  expect(result.status).toBe(401);
+  expect(mocks.rule).not.toHaveBeenCalled();
 });

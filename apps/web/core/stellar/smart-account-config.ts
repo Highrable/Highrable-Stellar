@@ -68,7 +68,7 @@ function normalizeHostname(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function matchesRpIdForHostname(rpId: string, hostname: string): boolean {
+export function matchesRpIdForHostname(rpId: string, hostname: string): boolean {
   const normalizedRpId = normalizeHostname(rpId);
   const normalizedHostname = normalizeHostname(hostname);
 

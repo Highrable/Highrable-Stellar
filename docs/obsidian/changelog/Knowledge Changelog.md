@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-11-26
 
+- Restored verified passkey sessions in Messages after reload or token expiry using a signed browser cookie and on-chain signer revalidation. See [[architecture/Authentication Boundaries]].
+- Shared verified wallet sessions across onboarding, Messages, Newsfeed, and public profiles. Passkey verification now starts from a user action and uses the connected credential and configured RP ID. See [[architecture/Authentication Boundaries]].
 - Added read-only Stellar RPC verification for passkey reconnect and restore during Testnet indexer outages. See [[stellar/Smart Accounts and Passkeys]].
 - Documented the two-dialog onboarding flow, initial app mode, private `privateEmails` storage and verified-session ownership, optional signup skills/social handles, and the role-based post-completion destinations in the profile, frontend, authentication, and Convex schema notes.
 

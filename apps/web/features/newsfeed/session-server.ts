@@ -27,6 +27,54 @@ export function signSocialPayload(payload: object) {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${encoded}.${createHmac("sha256", sessionSecret()).update(encoded).digest("base64url")}`;
 }
+
+function readSignedSocialPayload(token: string): unknown {
+  const [encoded, signature, extra] = token.split(".");
+  if (!encoded || !signature || extra) return null;
+  const expected = createHmac("sha256", sessionSecret()).update(encoded).digest();
+  const actual = Buffer.from(signature, "base64url");
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+  return JSON.parse(Buffer.from(encoded, "base64url").toString());
+}
+
+export const PASSKEY_SESSION_COOKIE = "highrable_passkey_social_session";
+const PASSKEY_SESSION_TTL_MS = 24 * 60 * 60_000;
+const PASSKEY_SESSION_AUDIENCE = "highrable-passkey-social-session";
+
+type PasskeySessionScope = { sub: string; origin: string; network: string; rpId: string };
+
+export function createPasskeySession(scope: PasskeySessionScope, keyData: Uint8Array) {
+  const exp = Date.now() + PASSKEY_SESSION_TTL_MS;
+  const signer = createHash("sha256").update(keyData).digest("hex");
+  return {
+    value: signSocialPayload({ ...scope, aud: PASSKEY_SESSION_AUDIENCE, exp, signer }),
+    expires: new Date(exp),
+  };
+}
+
+export function readPasskeySession(token: string, scope: PasskeySessionScope) {
+  const claims = readSignedSocialPayload(token);
+  if (!claims || typeof claims !== "object") return null;
+  const { aud, sub, origin, network, rpId, exp, signer } = claims as Record<string, unknown>;
+  if (
+    aud !== PASSKEY_SESSION_AUDIENCE ||
+    sub !== scope.sub ||
+    origin !== scope.origin ||
+    network !== scope.network ||
+    rpId !== scope.rpId ||
+    typeof exp !== "number" ||
+    !Number.isFinite(exp) ||
+    exp <= Date.now() ||
+    typeof signer !== "string"
+  )
+    return null;
+  return { exp, signer };
+}
+
+export function matchesPasskeySessionSigner(signer: string, keyData: Uint8Array): boolean {
+  return signer === createHash("sha256").update(keyData).digest("hex");
+}
+
 export function createSocialChallenge(address: string) {
   if (!/^C[A-Z2-7]{55}$/.test(address)) throw new Error("Invalid smart account.");
   const payload = {
@@ -39,19 +87,14 @@ export function createSocialChallenge(address: string) {
   return { ...payload, proof: signSocialPayload(payload) };
 }
 export function readSocialChallenge(proof: string) {
-  const [encoded, signature, extra] = proof.split(".");
-  if (!encoded || !signature || extra) throw new Error("Invalid challenge.");
-  const expected = createHmac("sha256", sessionSecret()).update(encoded).digest();
-  const actual = Buffer.from(signature, "base64url");
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-    throw new Error("Invalid challenge.");
-  const data = JSON.parse(Buffer.from(encoded, "base64url").toString()) as {
+  const data = readSignedSocialPayload(proof) as {
     sub: string;
     nonce: string;
     challenge: string;
     exp: number;
     aud: string;
-  };
+  } | null;
+  if (!data) throw new Error("Invalid challenge.");
   if (data.aud !== "highrable-social-challenge" || data.exp <= Date.now())
     throw new Error("Challenge expired.");
   return data;
@@ -67,6 +110,7 @@ export function verifyPasskeyProof(
   publicKey: Uint8Array,
   challenge: string,
   origin: string,
+  rpId: string,
 ) {
   const clientData = Buffer.from(input.clientDataJSON, "base64url");
   const data = JSON.parse(clientData.toString());
@@ -78,7 +122,6 @@ export function verifyPasskeyProof(
   )
     throw new Error("Passkey challenge or origin mismatch.");
   const auth = Buffer.from(input.authenticatorData, "base64url");
-  const rpId = new URL(origin).hostname;
   if (
     auth.length < 37 ||
     !timingSafeEqual(auth.subarray(0, 32), createHash("sha256").update(rpId).digest()) ||

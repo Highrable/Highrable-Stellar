@@ -990,7 +990,7 @@ function ConversationPane({
 }
 
 function MessagesContent() {
-  const { token } = useSocialSession();
+  const { token, status } = useSocialSession();
   const wallet = useHighrableWalletIdentity().walletAddress?.toUpperCase() ?? "";
   const [tab, setTab] = useState<"general" | "clients">("general");
   const [selectedId, setSelectedId] = useState<TConvexId<"conversations"> | null>(null);
@@ -1042,9 +1042,11 @@ function MessagesContent() {
           meta="Inbox"
           description="Your work conversations and direct chats in one place."
         />
-        <div className="hr-card-surface rounded-3xl p-5 text-sm sm:p-7" role="status">
-          Verify your connected wallet or passkey to open messages.
-        </div>
+        {status || (
+          <div className="hr-card-surface rounded-3xl p-5 text-sm sm:p-7" role="status">
+            Verify your connected wallet or passkey to open messages.
+          </div>
+        )}
       </main>
     );
   }

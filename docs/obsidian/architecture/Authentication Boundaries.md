@@ -42,11 +42,15 @@ The admin sidebar shares the wallet- and session-expiry-scoped query in `feature
 
 ## Newsfeed passkey session
 
-The `(social)` App Router layout holds one in-memory Newsfeed session for `/newsfeed`, its child routes, and `/people/[profileId]`. Client-side navigation within that layout reuses the verified session for the active wallet. Disconnect, wallet change, expiry, or a fresh mount still require the existing session checks. Marketplace trust profiles mount their professional activity session independently.
+The app providers hold one in-memory verified social token for onboarding, Messages, Newsfeed and its public profiles, and the existing professional activity and work chat scopes. Navigation between scopes reuses the active wallet's 15-minute token. Only mounted scopes request or consume it.
+
+After successful WebAuthn verification, a signed HTTP-only browser cookie permits token renewal after expiry or a full page load. The cookie has a fixed 24-hour lifetime, matching the external-wallet session duration. It is scoped to the session endpoint and bound to the origin, Stellar network, RP ID, smart account and exact on-chain signer. Renewal rechecks the configured account artifact, active rule, verifier and credential before issuing another short-lived token. Disconnect or local passkey reset requests cookie deletion. A wallet or credential change immediately clears the in-memory token and cannot use the cookie to open a different account.
+
+An external wallet can silently exchange its existing signed HTTP-only wallet session for the social token. If the proof is missing, the user chooses **Verify wallet**. A passkey assertion starts only from **Verify passkey**. The request uses the connected credential ID and the same configured RP ID used during passkey setup. A cancelled or timed-out prompt leaves verification available for a user-initiated retry.
 
 Public Newsfeed profile routes share the feed's onboarding exemption. A connected wallet can browse both while marketplace onboarding is loading or incomplete. Social writes still require the verified social session.
 
-The passkey branch of `POST /api/newsfeed/session` checks the account's on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading its default context rule. It accepts a policy-free rule with one external signer, checks the ledger expiry and configured WebAuthn verifier, and verifies the assertion before consuming the challenge nonce. Accounts with a different executable or additional policies cannot use this sign-in path.
+The passkey branch of `POST /api/newsfeed/session` requires the request origin to match the configured RP ID or one of its subdomains and verifies the assertion against that RP ID and exact origin. It checks the on-chain executable against `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH` before reading the default context rule. Verification requires a policy-free rule with one external signer, the configured WebAuthn verifier, and an unexpired signer. The server verifies proof of possession before consuming the challenge nonce.
 
 ## Public Convex limitation
 

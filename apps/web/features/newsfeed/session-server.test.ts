@@ -9,7 +9,8 @@ import {
   readSocialChallenge,
   verifyPasskeyProof,
 } from "./session-server";
-const origin = "https://highrable.example";
+const rpId = "highrable.example";
+const origin = `https://${rpId}`;
 afterEach(() => vi.unstubAllEnvs());
 function proof() {
   const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
@@ -52,13 +53,13 @@ describe("passkey session verification", () => {
   it("accepts a verified P-256 assertion and rejects different keys, challenges and origins", () => {
     const input = proof();
     expect(() =>
-      verifyPasskeyProof(input.assertion, input.publicKey, input.challenge, origin),
+      verifyPasskeyProof(input.assertion, input.publicKey, input.challenge, origin, rpId),
     ).not.toThrow();
     expect(() =>
-      verifyPasskeyProof(input.assertion, proof().publicKey, input.challenge, origin),
+      verifyPasskeyProof(input.assertion, proof().publicKey, input.challenge, origin, rpId),
     ).toThrow(/signature/);
     expect(() =>
-      verifyPasskeyProof(input.assertion, input.publicKey, "attacker challenge", origin),
+      verifyPasskeyProof(input.assertion, input.publicKey, "attacker challenge", origin, rpId),
     ).toThrow(/mismatch/);
     expect(() =>
       verifyPasskeyProof(
@@ -66,6 +67,7 @@ describe("passkey session verification", () => {
         input.publicKey,
         input.challenge,
         "https://attacker.example",
+        rpId,
       ),
     ).toThrow(/mismatch/);
   });
@@ -79,6 +81,7 @@ describe("passkey session verification", () => {
         input.publicKey,
         input.challenge,
         origin,
+        rpId,
       ),
     ).toThrow(/verification/);
     expect(() =>
@@ -87,6 +90,7 @@ describe("passkey session verification", () => {
         input.publicKey,
         input.challenge,
         origin,
+        rpId,
       ),
     ).toThrow();
   });

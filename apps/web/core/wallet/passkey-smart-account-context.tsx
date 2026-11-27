@@ -87,6 +87,10 @@ async function loadSmartAccountRuntime(): Promise<typeof SmartAccountRuntime> {
   return await smartAccountRuntimePromise;
 }
 
+async function clearPasskeyWebSession(): Promise<void> {
+  await fetch("/api/newsfeed/session", { method: "DELETE", keepalive: true });
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof PasskeyConfigError) {
     return error.message;
@@ -430,6 +434,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   }, []);
 
   const disconnectPasskeyAccount = useCallback(async () => {
+    const clearWebSession = clearPasskeyWebSession().catch(() => undefined);
     try {
       const { getSmartAccountKit } = await loadSmartAccountRuntime();
       await getSmartAccountKit().disconnect();
@@ -439,9 +444,11 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
 
     setState(DEFAULT_STATE);
     setActiveWalletMode("external_wallet");
+    await clearWebSession;
   }, []);
 
   const clearLocalPasskeySession = useCallback(async () => {
+    const clearWebSession = clearPasskeyWebSession().catch(() => undefined);
     try {
       const { clearSmartAccountLocalSession } = await loadSmartAccountRuntime();
       await clearSmartAccountLocalSession();
@@ -460,6 +467,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         isRestoring: false,
         error: getErrorMessage(error),
       }));
+    } finally {
+      await clearWebSession;
     }
   }, []);
 

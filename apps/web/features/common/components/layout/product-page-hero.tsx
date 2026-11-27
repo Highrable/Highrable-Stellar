@@ -1,44 +1,46 @@
-"use client";
-
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { cn } from "@repo/ui/lib/utils";
-import { motion } from "framer-motion";
+import React from "react";
 
 import type { ReactNode } from "react";
 
 interface IProductPageHeroProps {
-  readonly label: string;
   readonly title: ReactNode;
-  readonly description: string;
+  readonly description?: ReactNode;
+  /** Small context line above the title, such as a case number or a back link. */
+  readonly meta?: ReactNode;
   readonly actions?: ReactNode;
   readonly className?: string;
 }
 
-/** Reusable v2-inspired page hero for product routes. */
+/** Page title row for product routes: title and short description, with actions on the right. */
 export function ProductPageHero({
-  label,
   title,
   description,
+  meta,
   actions,
   className,
 }: IProductPageHeroProps) {
   return (
-    <section className={cn("max-w-4xl", className)}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-        className="max-w-3xl space-y-4"
-      >
-        <SectionLabel>{label}</SectionLabel>
-        <h1 className="hr-text-primary font-sans text-3xl leading-tight font-bold sm:text-4xl">
+    <header
+      className={cn(
+        "hr-product-page-hero flex flex-col gap-5 border-b border-border/80 pb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-8",
+        className,
+      )}
+    >
+      <div className="min-w-0 space-y-3">
+        {meta ? <div className="hr-text-accent font-mono text-xs font-medium">{meta}</div> : null}
+        <h1 className="hr-text-primary font-sans text-4xl leading-[1.08] font-bold tracking-tight sm:text-5xl">
           {title}
         </h1>
-        <p className="hr-text-secondary max-w-xl text-sm leading-relaxed sm:text-base">
-          {description}
-        </p>
-        {actions ? <div className="flex flex-wrap items-center gap-3 pt-2">{actions}</div> : null}
-      </motion.div>
-    </section>
+        {description ? (
+          <p className="hr-text-secondary max-w-3xl text-base leading-relaxed sm:text-lg">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
+      ) : null}
+    </header>
   );
 }

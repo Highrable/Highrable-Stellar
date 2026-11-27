@@ -34,9 +34,11 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 
+import type { TStellarExecutionPhase } from "./transaction";
+import type { TStellarSubmissionIdentity } from "./transaction";
 import type { ContextRule, ContextRuleType, ContractSigner } from "smart-account-kit";
 
-export type TPasskeyExecutionStatus = "success" | "failed";
+export type TPasskeyExecutionStatus = "success" | "failed" | "pending";
 
 export interface IPasskeySmartAccountExecutionResult {
   readonly txHash: string;
@@ -44,6 +46,7 @@ export interface IPasskeySmartAccountExecutionResult {
   readonly result?: unknown;
   readonly returnValue?: xdr.ScVal;
   readonly errorMessage?: string;
+  readonly submissionIdentity?: TStellarSubmissionIdentity;
 }
 
 export interface IPasskeySmartAccountExecutionParams {
@@ -54,6 +57,8 @@ export interface IPasskeySmartAccountExecutionParams {
   readonly args: readonly xdr.ScVal[];
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
+  readonly onPhase?: (phase: TStellarExecutionPhase) => void;
+  readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
 }
 
 export type TPasskeyFeePath = "relayer" | "classic_source_account" | "missing";
@@ -233,6 +238,17 @@ function toReadablePasskeyError(error: unknown): string {
   }
 
   return message;
+}
+
+function notifyPasskeyExecutionPhase(
+  onPhase: ((phase: TStellarExecutionPhase) => void) | undefined,
+  phase: TStellarExecutionPhase,
+): void {
+  try {
+    onPhase?.(phase);
+  } catch {
+    // Phase reporting is observational and must never alter smart-account routing.
+  }
 }
 
 function normalizeWasmHash(value: string): string {
@@ -840,7 +856,15 @@ async function signAuthEntryWithAuthPayload(
 
 async function signAndSubmitWithAuthPayload(
   assembledTransaction: stellarContract.AssembledTransaction<xdr.ScVal>,
-): Promise<{ readonly success: boolean; readonly hash: string; readonly error?: string }> {
+  onPhase?: (phase: TStellarExecutionPhase) => void,
+  onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>,
+  onSubmissionStarted?: () => void,
+): Promise<{
+  readonly success: boolean;
+  readonly hash: string;
+  readonly error?: string;
+  readonly submissionIdentity: TStellarSubmissionIdentity;
+}> {
   const kit = getSmartAccountKit() as unknown as TLegacyCompatibleSmartAccountKit;
   const config = getSmartAccountConfig();
 
@@ -868,6 +892,7 @@ async function signAndSubmitWithAuthPayload(
   }
 
   const rules = await readConnectedContextRules(kit, config);
+  notifyPasskeyExecutionPhase(onPhase, "signing");
   const signedAuthEntries = await Promise.all(
     authEntries.map((authEntry) =>
       signAuthEntryWithAuthPayload(kit, authEntry, rules, kit.credentialId!),
@@ -908,12 +933,31 @@ async function signAndSubmitWithAuthPayload(
   const normalizedTx = TransactionBuilder.fromXDR(resimTx.toXDR(), kit.networkPassphrase);
   const preparedTx = rpc.assembleTransaction(normalizedTx as Transaction, resimResult).build();
   const submissionOptions = {};
+  const isFeeSponsored = kit.shouldUseFeeSponsoring(submissionOptions);
 
-  if (!kit.shouldUseFeeSponsoring(submissionOptions) || kit.hasSourceAccountAuth(preparedTx)) {
+  if (!isFeeSponsored || kit.hasSourceAccountAuth(preparedTx)) {
     preparedTx.sign(kit.deployerKeypair);
   }
 
-  return await kit.sendAndPoll(preparedTx, submissionOptions);
+  const timeBounds = (
+    preparedTx as unknown as { timeBounds?: { maxTime?: string | number | bigint } }
+  ).timeBounds;
+  const transactionValidUntil = Number(timeBounds?.maxTime ?? 0);
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new Error("Signed passkey transaction did not include an expiry time.");
+  }
+  const submissionIdentity: TStellarSubmissionIdentity = {
+    transactionHash: Buffer.from(preparedTx.hash()).toString("hex"),
+    transactionValidUntil,
+    ...(isFeeSponsored ? { identityType: "inner_transaction" } : {}),
+  };
+  await onSigned?.(submissionIdentity);
+
+  notifyPasskeyExecutionPhase(onPhase, "submission");
+  onSubmissionStarted?.();
+  notifyPasskeyExecutionPhase(onPhase, "confirmation");
+  const result = await kit.sendAndPoll(preparedTx, submissionOptions);
+  return { ...result, submissionIdentity };
 }
 
 function contextRuleTypesEqual(left: ContextRuleType, right: ContextRuleType): boolean {
@@ -1196,7 +1240,7 @@ async function buildSmartAccountExecuteTransaction(params: {
 
 export async function assertSmartAccountKitCompatibility(
   kit: ReturnType<typeof getSmartAccountKit>,
-): Promise<void> {
+): Promise<string> {
   if (!kit.wallet) {
     throw new Error("Reconnect your passkey smart account to continue.");
   }
@@ -1230,6 +1274,7 @@ export async function assertSmartAccountKitCompatibility(
   }
 
   installContextRulesCompatibilityFallback(kit);
+  return deployedWasmHash;
 }
 
 export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscrowExecutionReadiness> {
@@ -1281,13 +1326,7 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 
   if (kit.isConnected) {
     try {
-      await assertSmartAccountKitCompatibility(kit);
-      if (kit.contractId) {
-        connectedAccountWasmHash = await readSmartAccountWasmHash({
-          rpcUrl: config.rpcUrl,
-          contractId: kit.contractId,
-        }).catch(() => undefined);
-      }
+      connectedAccountWasmHash = await assertSmartAccountKitCompatibility(kit);
     } catch (error) {
       return createPasskeyExecutionReadiness({
         canExecute: false,
@@ -1438,8 +1477,9 @@ export async function executeWithPasskeySmartAccount(
     }
   }
 
+  let submissionIdentity: TStellarSubmissionIdentity | undefined;
+  let submissionAttempted = false;
   try {
-    await assertSmartAccountKitCompatibility(kit);
     const readiness = await getPasskeyEscrowExecutionReadiness();
     if (!readiness.canExecute) {
       throw new Error(
@@ -1452,6 +1492,7 @@ export async function executeWithPasskeySmartAccount(
       "Classic source account",
     );
 
+    notifyPasskeyExecutionPhase(params.onPhase, "simulation");
     const assembledTransaction = await buildSmartAccountExecuteTransaction({
       smartAccountAddress,
       contractId,
@@ -1462,12 +1503,23 @@ export async function executeWithPasskeySmartAccount(
       networkPassphrase: params.networkPassphrase,
     });
 
-    const result = await signAndSubmitWithAuthPayload(assembledTransaction);
+    const result = await signAndSubmitWithAuthPayload(
+      assembledTransaction,
+      params.onPhase,
+      async (identity) => {
+        submissionIdentity = identity;
+        await params.onSigned?.(identity);
+      },
+      () => {
+        submissionAttempted = true;
+      },
+    );
     if (!result.success) {
       return {
         txHash: result.hash,
         status: "failed",
         errorMessage: toReadablePasskeyError(result.error ?? `${params.actionLabel} failed.`),
+        submissionIdentity: result.submissionIdentity,
       };
     }
 
@@ -1481,14 +1533,16 @@ export async function executeWithPasskeySmartAccount(
       status: "success",
       returnValue,
       result: returnValue ? scValToNative(returnValue) : undefined,
+      submissionIdentity: result.submissionIdentity,
     };
   } catch (error) {
     await resetStalePasskeySessionIfNeeded(error);
 
     return {
-      txHash: "",
-      status: "failed",
+      txHash: submissionIdentity?.transactionHash ?? "",
+      status: submissionAttempted ? "pending" : "failed",
       errorMessage: toReadablePasskeyError(error),
+      ...(submissionIdentity ? { submissionIdentity } : {}),
     };
   }
 }

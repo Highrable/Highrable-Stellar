@@ -1,18 +1,32 @@
 import { defineSchema } from "convex/server";
 
+import {
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
+} from "./admin/schema";
 import applications from "./applications/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
-import { conversationReads, conversations, messages } from "./conversations/schema";
+import {
+  conversationParticipants,
+  conversationReads,
+  conversations,
+  messages,
+} from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
 import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
+import { socialTables } from "./newsfeed/schema";
+import registryRegistrations from "./registry/schema";
 import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
+import privateEmails from "./users/private_email_schema";
 import users from "./users/schema";
 import waitlistEntries from "./waitlist/schema";
 import workAgreements, {
@@ -22,6 +36,7 @@ import workAgreements, {
 import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
+  ...socialTables,
   attachments,
   attachmentAccessLogs,
   cancellationRequests,
@@ -29,13 +44,16 @@ export default defineSchema({
   conversations,
   messages,
   conversationReads,
+  conversationParticipants,
   users,
+  privateEmails,
   jobs,
   milestones,
   applications,
   escrows,
   jobReports,
   reputationRecords,
+  registryRegistrations,
   revisionRequests,
   transactions,
   waitlistEntries,
@@ -48,4 +66,8 @@ export default defineSchema({
   deadlineAuditEvents,
   disputes,
   disputeEvents,
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
 });

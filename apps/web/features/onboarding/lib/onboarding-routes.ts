@@ -7,7 +7,13 @@ export function isOnboardingExemptRoute(pathname: string | null): boolean {
     return false;
   }
 
-  return pathname === ONBOARDING_ROUTE || LANDING_PAGE_V2_ROUTES.has(pathname);
+  return (
+    pathname === ONBOARDING_ROUTE ||
+    LANDING_PAGE_V2_ROUTES.has(pathname) ||
+    pathname === "/newsfeed" ||
+    pathname.startsWith("/newsfeed/") ||
+    /^\/people\/[^/]+\/?$/.test(pathname)
+  );
 }
 
 export function buildOnboardingRedirectPath(pathname: string | null, search: string): string {

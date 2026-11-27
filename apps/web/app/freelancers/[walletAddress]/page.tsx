@@ -46,10 +46,7 @@ export async function generateMetadata({
     return buildNoIndexMetadata(NOT_FOUND_TITLE, NOT_FOUND_DESCRIPTION, path);
   }
 
-  const displayName = sanitizeSeoText(
-    profileData.profile.name,
-    `Freelancer ${parsedWalletAddress.slice(0, 8)}`,
-  );
+  const displayName = sanitizeSeoText(profileData.profile.name, "Highrable participant");
   const skills = profileData.profile.skills.slice(0, 4).join(", ");
   const description = sanitizeSeoText(
     profileData.profile.bio,

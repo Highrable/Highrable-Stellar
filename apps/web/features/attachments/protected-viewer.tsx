@@ -39,6 +39,7 @@ type TProtectedPreviewResult = {
 
 interface IProtectedAttachmentDialogProps {
   readonly attachment: TProtectedAttachment;
+  readonly sessionToken?: string;
   readonly isOpen: boolean;
   readonly onOpenChange: (isOpen: boolean) => void;
 }
@@ -61,7 +62,7 @@ export function AttachmentProtectionBadge({
   }
 
   return (
-    <Badge className="rounded-md border border-[#ffd7bd] bg-[#fff7f1] px-2 py-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#9a3d00] uppercase hover:bg-[#fff7f1]">
+    <Badge className="rounded-md border border-[#ffd7bd] bg-[#fff7f1] px-2 py-1 text-xs text-[#9a3d00] hover:bg-[#fff7f1]">
       Protected preview
     </Badge>
   );
@@ -88,7 +89,7 @@ export function DownloadRestrictedNotice() {
 
 export function PaymentReleasedNotice() {
   return (
-    <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+    <p className="border-l-2 border-emerald-500 bg-emerald-50/60 py-2.5 pr-3 pl-3 text-sm text-emerald-800">
       Payment released. Deliverables are now available for download.
     </p>
   );
@@ -103,7 +104,7 @@ export function WatermarkOverlay({ text }: { readonly text: string }) {
         backgroundImage: `repeating-linear-gradient( -28deg, transparent 0 64px, rgba(10,10,10,0.08) 64px 66px, transparent 66px 156px )`,
       }}
     >
-      <div className="grid h-full w-full grid-cols-2 content-around gap-10 p-8 text-center font-mono text-xs font-semibold text-[#0a0a0a] uppercase sm:grid-cols-3">
+      <div className="grid h-full w-full grid-cols-2 content-around gap-10 p-8 text-center text-xs font-semibold text-[#0a0a0a] sm:grid-cols-3">
         {Array.from({ length: 12 }).map((_, index) => (
           <span key={index} className="-rotate-12 whitespace-nowrap select-none">
             {text}
@@ -140,7 +141,7 @@ function ProtectedAttachmentShell({
       {isInactive ? (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/90 p-6 text-center">
           <div>
-            <ShieldCheck className="mx-auto h-8 w-8 text-[#FF7003]" />
+            <ShieldCheck className="hr-mode-text mx-auto h-8 w-8" />
             <p className="mt-3 text-sm font-semibold text-[#0a0a0a]">
               Protected content hidden while inactive
             </p>
@@ -244,7 +245,7 @@ function ProtectedPreviewBody({
           External sites are outside Highrable content protection controls.
         </p>
         <a
-          className="mt-2 block text-sm font-semibold break-all text-[#FF7003]"
+          className="hr-mode-text mt-2 block text-sm font-semibold break-all"
           href={url}
           target="_blank"
           rel="noreferrer"
@@ -294,6 +295,7 @@ export function AttachmentAccessLogsPanel({
 
 export function ProtectedAttachmentDialog({
   attachment,
+  sessionToken,
   isOpen,
   onOpenChange,
 }: IProtectedAttachmentDialogProps) {
@@ -318,6 +320,7 @@ export function ProtectedAttachmentDialog({
       ...(walletIdentity.walletType
         ? { viewerWalletType: walletIdentity.walletType as TWalletType }
         : {}),
+      ...(sessionToken ? { sessionToken } : {}),
       sessionId,
     })
       .then((result) => setPreview(result as TProtectedPreviewResult))
@@ -335,6 +338,7 @@ export function ProtectedAttachmentDialog({
     sessionId,
     walletIdentity.walletAddress,
     walletIdentity.walletType,
+    sessionToken,
   ]);
 
   useEffect(() => {
@@ -348,6 +352,7 @@ export function ProtectedAttachmentDialog({
           attachmentId: attachment._id,
           viewerWallet: walletIdentity.walletAddress,
           ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+          ...(sessionToken ? { sessionToken } : {}),
           action: "visibility_hidden",
           result: "allowed",
           sessionId,
@@ -363,6 +368,7 @@ export function ProtectedAttachmentDialog({
           attachmentId: attachment._id,
           viewerWallet: walletIdentity.walletAddress,
           ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+          ...(sessionToken ? { sessionToken } : {}),
           action: "print_attempt_blocked",
           result: "blocked",
           reason: "Print action blocked inside protected preview.",
@@ -388,6 +394,7 @@ export function ProtectedAttachmentDialog({
     sessionId,
     walletIdentity.walletAddress,
     walletIdentity.walletType,
+    sessionToken,
   ]);
 
   const logDeterrent = (action: "copy_attempt_blocked" | "print_attempt_blocked") => {
@@ -396,6 +403,7 @@ export function ProtectedAttachmentDialog({
       attachmentId: attachment._id,
       viewerWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+      ...(sessionToken ? { sessionToken } : {}),
       action,
       result: "blocked",
       sessionId,
@@ -415,6 +423,7 @@ export function ProtectedAttachmentDialog({
         attachmentId: attachment._id,
         viewerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+        ...(sessionToken ? { sessionToken } : {}),
         sessionId,
       });
       if (result.url) window.open(result.url, "_blank", "noopener,noreferrer");
@@ -439,7 +448,7 @@ export function ProtectedAttachmentDialog({
       <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="flex flex-wrap items-center gap-2 text-xl text-[#0a0a0a]">
-            <Eye className="h-5 w-5 text-[#FF7003]" />
+            <Eye className="hr-mode-text h-5 w-5" />
             Protected preview
             <AttachmentProtectionBadge protection={protection} />
           </ResponsiveDialogTitle>

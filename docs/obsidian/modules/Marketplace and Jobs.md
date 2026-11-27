@@ -2,7 +2,7 @@
 type: module
 area: marketplace
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-11-25
 source_of_truth: repository
 ---
 
@@ -60,7 +60,7 @@ agreement/escrow flow → funded → submitted/revision → completed/cancelled/
 
 ## Common Change Locations
 
-Change schema/status fields in `jobs/schema.ts`; validation and transitions in `jobs/helpers.ts`/`mutations.ts`; marketplace composition in `features/marketplace`; route metadata in `app/marketplace/jobs/[jobId]/page.tsx`.
+Change schema/status fields in `jobs/schema.ts`; validation and transitions in `jobs/helpers.ts`/`mutations.ts`; marketplace composition in `features/marketplace`; route metadata in `app/marketplace/jobs/[jobId]/page.tsx`. Job detail renders ordered milestone records with the shared `packages/ui` `MilestoneTimeline`; the display reads existing statuses and does not own milestone gates or action permissions.
 
 ## Risks / Gotchas
 

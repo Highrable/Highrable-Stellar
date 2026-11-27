@@ -13,14 +13,15 @@ import {
   ProtectedAttachmentDialog,
 } from "@/features/attachments/protected-viewer";
 import { showWarningToast } from "@/features/common";
+import { useSocialSession } from "@/features/newsfeed/session";
 import { api } from "@repo/convex-client";
 import {
   HighrableV2Badge,
-  HighrableV2Bullet,
   HighrableV2IconNotice,
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { FileUploadZone } from "@repo/ui/components/ui/file-upload-zone";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import {
@@ -43,10 +44,9 @@ import {
   Loader2,
   ShieldCheck,
   Trash2,
-  Upload,
   Video,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useId, useState } from "react";
 
 import type {
   TAttachmentProtectionSummary,
@@ -119,6 +119,7 @@ interface ILinkAttachmentInputProps {
 
 interface IAttachmentDropzoneProps {
   readonly disabled?: boolean;
+  readonly context?: "job" | "dispute" | "chat";
   readonly onFiles: (files: File[]) => void;
 }
 
@@ -127,6 +128,7 @@ interface IAttachmentUploaderProps {
   readonly onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
   readonly disabled?: boolean;
   readonly ownerRole?: "client" | "freelancer";
+  readonly context?: "job" | "dispute" | "chat";
 }
 
 function getAttachmentLabel(type: TAttachmentType): string {
@@ -178,7 +180,7 @@ export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
 
 export function AttachmentTypeBadge({ type }: IAttachmentTypeBadgeProps) {
   return (
-    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-muted">
+    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted">
       {getAttachmentLabel(type)}
     </Badge>
   );
@@ -208,6 +210,7 @@ export function AttachmentPreviewCard({
   onRemove,
 }: IAttachmentPreviewCardProps) {
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const recordDownloadAttempt = useMutation(api.attachments.recordDownloadAttempt);
   const isDraft = "id" in attachment;
   const type = attachment.type as TAttachmentType;
@@ -233,6 +236,7 @@ export function AttachmentPreviewCard({
         attachmentId: attachment._id,
         viewerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+        ...(token ? { sessionToken: token } : {}),
       });
       if (result.url) {
         window.open(result.url, "_blank", "noopener,noreferrer");
@@ -341,6 +345,7 @@ export function AttachmentPreviewCard({
       {isProtected && !isDraft ? (
         <ProtectedAttachmentDialog
           attachment={attachment}
+          sessionToken={token}
           isOpen={isProtectedPreviewOpen}
           onOpenChange={setIsProtectedPreviewOpen}
         />
@@ -355,7 +360,9 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
   if (attachments.length === 0) {
     return (
       <div className="hr-text-secondary flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-4 font-sans text-sm">
-        <HighrableV2Bullet tone="muted" aria-hidden="true" />
+        <span aria-hidden="true" className="hr-text-muted">
+          ·
+        </span>
         <span>No attachments added.</span>
       </div>
     );
@@ -382,6 +389,7 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
 // Link attachment input
 
 export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputProps) {
+  const urlId = useId();
   const [url, setUrl] = useState("");
   const [type, setType] = useState<"link" | "video_link">("link");
   const [error, setError] = useState<string | null>(null);
@@ -410,12 +418,12 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
   return (
     <div className="space-y-2">
-      <Label className="sr-only" htmlFor="link-attachment-url">
+      <Label className="sr-only" htmlFor={urlId}>
         Link URL
       </Label>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]">
         <AppInput
-          id="link-attachment-url"
+          id={urlId}
           value={url}
           disabled={disabled || isAdding}
           onChange={(event) => {
@@ -423,7 +431,6 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
             setError(null);
           }}
           placeholder="https://example.com/reference"
-          aria-label="Attachment URL"
           maxLength={MAX_EXTERNAL_URL_LENGTH}
           className="w-full"
         />
@@ -465,71 +472,33 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
 // Dropzone
 
-export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzoneProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleFiles = (fileList: FileList | null) => {
-    if (!fileList || disabled) return;
-    onFiles(Array.from(fileList));
-    if (inputRef.current) inputRef.current.value = "";
-  };
+export function AttachmentDropzone({
+  disabled,
+  context = "job",
+  onFiles,
+}: IAttachmentDropzoneProps) {
+  const isChatContext = context === "chat";
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          inputRef.current?.click();
-        }
-      }}
-      onDragOver={(event) => {
-        event.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(event) => {
-        event.preventDefault();
-        setIsDragging(false);
-        handleFiles(event.dataTransfer.files);
-      }}
-      className={cn(
-        "grid cursor-pointer place-items-center rounded-lg border border-dashed p-6 text-center transition-colors",
-        isDragging
-          ? "border-highrable-orange-2 bg-orange-50"
-          : "border-border bg-muted/30 hover:border-highrable-orange-2/60 hover:bg-muted/50",
-        disabled ? "pointer-events-none opacity-60" : undefined,
-      )}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept={ACCEPTED_ATTACHMENT_TYPES}
-        className="hidden"
-        aria-label="Upload attachments"
-        onChange={(event) => handleFiles(event.target.files)}
-      />
-
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
-        <Upload className="h-5 w-5" />
-      </div>
-
-      <p className="hr-text-primary mt-3 font-mono text-sm font-semibold">
-        Drop files or click to browse
-      </p>
-
-      <div className="mt-1 flex items-center justify-center gap-1.5">
-        <p className="hr-text-secondary font-sans text-xs">Images, docs, PDFs, Markdown, video</p>
-        <HighrableV2IconNotice
-          label="Attachment limits"
-          message="Images, documents, PDFs, and Markdown must be 10 MB or smaller. Videos must be 25 MB or smaller."
-        />
-      </div>
-    </div>
+    <FileUploadZone
+      ariaLabel="Upload attachments"
+      title={isChatContext ? "Drop files or click to browse" : "Drop files to upload"}
+      density={isChatContext ? "compact" : "comfortable"}
+      showBrowseAction={!isChatContext}
+      description={
+        <span className="inline-flex items-center justify-center gap-1.5">
+          Images, docs, PDFs, Markdown, video
+          <HighrableV2IconNotice
+            label="Attachment limits"
+            message="Images, documents, PDFs, and Markdown must be 10 MB or smaller. Videos must be 25 MB or smaller."
+          />
+        </span>
+      }
+      accept={ACCEPTED_ATTACHMENT_TYPES}
+      multiple
+      disabled={disabled}
+      onFiles={onFiles}
+    />
   );
 }
 
@@ -540,8 +509,11 @@ export function AttachmentUploader({
   onChange,
   disabled,
   ownerRole = "client",
+  context = "job",
 }: IAttachmentUploaderProps) {
+  const protectedPreviewId = useId();
   const walletIdentity = useHighrableWalletIdentity();
+  const { token } = useSocialSession();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const saveUploadedAttachment = useMutation(api.attachments.saveUploadedAttachment);
   const createExternalAttachment = useMutation(api.attachments.createExternalAttachment);
@@ -594,10 +566,12 @@ export function AttachmentUploader({
       const postUrl = await generateUploadUrl({
         walletAddress: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(token ? { sessionToken: token } : {}),
         name: file.name,
         size: file.size,
         ...(file.type ? { mimeType: file.type } : {}),
         type,
+        context,
       });
       const result = await fetch(postUrl, {
         method: "POST",
@@ -615,10 +589,12 @@ export function AttachmentUploader({
         uploadedByWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
         ownerRole,
+        ...(token ? { sessionToken: token } : {}),
         name: file.name,
         size: file.size,
         ...(file.type ? { mimeType: file.type } : {}),
         type,
+        context,
         parentType: "unknown",
         visibility: "private",
         ...(useProtectedPreview
@@ -661,6 +637,8 @@ export function AttachmentUploader({
       uploadedByWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
       ownerRole,
+      ...(token ? { sessionToken: token } : {}),
+      context,
       type: input.type,
       name: normalizedUrl,
       parentType: "unknown",
@@ -706,6 +684,7 @@ export function AttachmentUploader({
       await softDeleteAttachment({
         attachmentId: attachmentId as TConvexId<"attachments">,
         walletAddress: walletIdentity.walletAddress,
+        ...(token ? { sessionToken: token } : {}),
       });
     } catch (error) {
       setError(getReadableAttachmentError(error, "Could not remove attachment."));
@@ -734,11 +713,23 @@ export function AttachmentUploader({
         <div className="flex items-center gap-1.5">
           <HighrableV2IconNotice
             label="Attachment storage notice"
-            message="Attachments are stored off-chain and linked to the job after the post is created."
+            message={
+              context === "chat"
+                ? "Chat files are stored off-chain and linked to messages after sending."
+                : context === "dispute"
+                  ? "Evidence is stored off-chain and linked to this dispute after submission."
+                  : "Attachments are stored off-chain and linked to the job after the post is created."
+            }
           />
           <HighrableV2IconNotice
             label="Attachment visibility notice"
-            message="Job attachments become visible on the public job detail page after they are linked."
+            message={
+              context === "chat"
+                ? "Chat files are visible to current conversation members after sending."
+                : context === "dispute"
+                  ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
+                  : "Job attachments become visible on the public job detail page after they are linked."
+            }
           />
           {!walletIdentity.walletAddress ? (
             <HighrableV2IconNotice
@@ -753,13 +744,14 @@ export function AttachmentUploader({
       {/* Dropzone */}
       <AttachmentDropzone
         disabled={disabled || !walletIdentity.walletAddress}
+        context={context}
         onFiles={handleFiles}
       />
 
       {/* Protected preview toggle */}
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
         <label
-          htmlFor="attachment-protected-preview"
+          htmlFor={protectedPreviewId}
           className="hr-text-primary flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold"
         >
           <ShieldCheck className="h-4 w-4 shrink-0 text-highrable-text-accent" aria-hidden="true" />
@@ -771,7 +763,7 @@ export function AttachmentUploader({
             message="New uploads use protected preview, restricted download, visible watermarking, and access logging."
           />
           <AppSwitch
-            id="attachment-protected-preview"
+            id={protectedPreviewId}
             aria-label="Enable content protection controls"
             checked={useProtectedPreview}
             disabled={disabled}
@@ -795,7 +787,7 @@ export function AttachmentUploader({
 
       {/* Upload/action error */}
       {error ? (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+        <div className="flex items-center gap-2 border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-600">
           <HighrableV2IconNotice label="Attachment action error" tone="danger" message={error} />
           <span>Attachment action failed</span>
         </div>

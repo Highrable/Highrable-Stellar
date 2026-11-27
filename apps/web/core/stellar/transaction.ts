@@ -12,6 +12,16 @@ export type TSignedTransactionSubmitter = (
   options?: { requiresServerSession?: boolean },
 ) => Promise<string>;
 
+export type TStellarExecutionPhase = "simulation" | "signing" | "submission" | "confirmation";
+export type TSubmissionIdentityType = "transaction" | "inner_transaction";
+
+export type TStellarSubmissionIdentity = {
+  readonly operationId?: string;
+  readonly transactionHash: string;
+  readonly transactionValidUntil: number;
+  readonly identityType?: TSubmissionIdentityType;
+};
+
 export type TInvokeContractParams = {
   rpcUrl: string;
   networkPassphrase: string;
@@ -21,10 +31,13 @@ export type TInvokeContractParams = {
   args: xdr.ScVal[];
   signTransaction: TSignedTransactionSubmitter;
   operationId?: string;
+  onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
+  onPhase?: (phase: TStellarExecutionPhase) => void;
 };
 
 export type TConfirmedContractTx = {
   txHash: string;
+  transactionValidUntil?: number;
   result?: unknown;
   returnValue?: xdr.ScVal;
 };
@@ -92,32 +105,59 @@ async function submitViaVeloGas(params: {
   server: rpc.Server;
   operationId: string;
   signedTransactionXdr: string;
+  transactionHash: string;
 }): Promise<TConfirmedContractTx> {
-  let gasResult = await postVeloGas<TVeloGasResponse>("/api/stellar/gas/submit", {
-    operationId: params.operationId,
-    signedTransactionXdr: params.signedTransactionXdr,
-  });
+  let gasResult: TVeloGasResponse;
+  try {
+    gasResult = await postVeloGas<TVeloGasResponse>("/api/stellar/gas/submit", {
+      operationId: params.operationId,
+      signedTransactionXdr: params.signedTransactionXdr,
+    });
+  } catch (error) {
+    throw new StellarTransactionPendingError(getErrorMessage(error), params.transactionHash);
+  }
 
   for (let attempt = 0; attempt < 3 && gasResult.status !== "succeeded"; attempt += 1) {
     if (gasResult.status === "failed" || gasResult.status === "cancelled") {
-      throw new StellarTransactionError(`Velo Gas Station execution ${gasResult.status}.`);
+      throw new StellarTransactionError(
+        `Velo Gas Station execution ${gasResult.status}.`,
+        gasResult.outerTransactionHash ?? gasResult.transactionHash ?? params.transactionHash,
+      );
     }
 
-    gasResult = await postVeloGas<TVeloGasResponse>("/api/stellar/gas/status", {
-      operationId: params.operationId,
-      observeUntilTerminal: true,
-    });
+    try {
+      gasResult = await postVeloGas<TVeloGasResponse>("/api/stellar/gas/status", {
+        operationId: params.operationId,
+        observeUntilTerminal: true,
+      });
+    } catch (error) {
+      throw new StellarTransactionPendingError(
+        getErrorMessage(error),
+        gasResult.outerTransactionHash ?? params.transactionHash,
+      );
+    }
   }
 
   if (gasResult.status !== "succeeded") {
     throw new StellarTransactionPendingError(
       "Velo Gas Station execution is still pending. Use the transaction recovery status to continue observing.",
-      gasResult.outerTransactionHash ?? undefined,
+      gasResult.outerTransactionHash ?? gasResult.transactionHash ?? params.transactionHash,
     );
   }
 
   const confirmationHash = gasResult.outerTransactionHash ?? gasResult.transactionHash;
-  const confirmedTransaction = await pollTransaction(params.server, confirmationHash);
+  let confirmedTransaction: rpc.Api.GetSuccessfulTransactionResponse;
+  try {
+    confirmedTransaction = await pollTransaction(params.server, confirmationHash);
+  } catch (error) {
+    if (error instanceof StellarTransactionError) {
+      if (error instanceof StellarTransactionPendingError) {
+        throw new StellarTransactionPendingError(getErrorMessage(error), confirmationHash);
+      }
+      throw new StellarTransactionError(getErrorMessage(error), confirmationHash);
+    }
+    throw new StellarTransactionPendingError(getErrorMessage(error), confirmationHash);
+  }
 
   return {
     txHash: confirmationHash,
@@ -226,6 +266,17 @@ function createRpcServer(rpcUrl: string): rpc.Server {
   });
 }
 
+function notifyExecutionPhase(
+  onPhase: TInvokeContractParams["onPhase"],
+  phase: TStellarExecutionPhase,
+): void {
+  try {
+    onPhase?.(phase);
+  } catch {
+    // Phase reporting is observational and must never alter transaction routing.
+  }
+}
+
 export async function simulateContractCall<T = unknown>({
   rpcUrl,
   networkPassphrase,
@@ -269,13 +320,13 @@ async function pollTransaction(
     }
 
     if (transaction.status === rpc.Api.GetTransactionStatus.FAILED) {
-      throw new Error("On-chain transaction failed.");
+      throw new StellarTransactionError("On-chain transaction failed.", txHash);
     }
 
     await wait(POLL_DELAY_MS);
   }
 
-  throw new Error("Stellar RPC confirmation timed out.");
+  throw new StellarTransactionPendingError("Stellar RPC confirmation timed out.", txHash);
 }
 
 export async function invokeContract(params: TInvokeContractParams): Promise<TConfirmedContractTx> {
@@ -290,39 +341,81 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
     .addOperation(contract.call(params.method, ...params.args))
     .build();
 
+  notifyExecutionPhase(params.onPhase, "simulation");
   const preparedTransaction = (await server.prepareTransaction(transaction)) as Transaction;
   const useVeloGas = shouldUseVeloGas(params.operationId);
+  notifyExecutionPhase(params.onPhase, "signing");
   const signedXdr = await params.signTransaction(preparedTransaction.toXDR(), {
     requiresServerSession: useVeloGas,
   });
+  const signedTransaction = TransactionBuilder.fromXDR(signedXdr, params.networkPassphrase);
+  const transactionHash = Array.from(signedTransaction.hash(), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const timeBounds = (
+    signedTransaction as unknown as {
+      timeBounds?: { maxTime?: string | number | bigint };
+    }
+  ).timeBounds;
+  const transactionValidUntil = Number(timeBounds?.maxTime ?? 0);
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new StellarTransactionError(
+      "Signed transaction did not include an expiry time.",
+      transactionHash,
+    );
+  }
+  try {
+    await params.onSigned?.({
+      operationId: params.operationId,
+      transactionHash,
+      transactionValidUntil,
+      ...(useVeloGas ? { identityType: "inner_transaction" as const } : {}),
+    });
+  } catch (error) {
+    throw new StellarTransactionError(getErrorMessage(error), transactionHash);
+  }
 
+  notifyExecutionPhase(params.onPhase, "submission");
   if (useVeloGas) {
     return await submitViaVeloGas({
       server,
       operationId: params.operationId!,
       signedTransactionXdr: signedXdr,
+      transactionHash,
     });
   }
 
-  const signedTransaction = TransactionBuilder.fromXDR(signedXdr, params.networkPassphrase);
-  const submittedTransaction = await server.sendTransaction(signedTransaction);
+  let submittedTransaction: Awaited<ReturnType<typeof server.sendTransaction>>;
+  try {
+    submittedTransaction = await server.sendTransaction(signedTransaction);
+  } catch (error) {
+    throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
+  }
 
   if (submittedTransaction.status !== "PENDING" && submittedTransaction.status !== "DUPLICATE") {
     throw new StellarTransactionError(
       `Stellar RPC rejected the transaction: ${submittedTransaction.status}`,
-      submittedTransaction.hash,
+      transactionHash,
     );
   }
 
   let confirmedTransaction: rpc.Api.GetSuccessfulTransactionResponse;
+  notifyExecutionPhase(params.onPhase, "confirmation");
   try {
     confirmedTransaction = await pollTransaction(server, submittedTransaction.hash);
   } catch (error) {
-    throw new StellarTransactionError(getErrorMessage(error), submittedTransaction.hash);
+    if (error instanceof StellarTransactionError) {
+      if (error instanceof StellarTransactionPendingError) {
+        throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
+      }
+      throw new StellarTransactionError(getErrorMessage(error), transactionHash);
+    }
+    throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
   }
 
   return {
     txHash: submittedTransaction.hash,
+    transactionValidUntil,
     result: confirmedTransaction.returnValue
       ? scValToNative(confirmedTransaction.returnValue)
       : undefined,

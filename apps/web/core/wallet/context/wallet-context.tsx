@@ -40,7 +40,7 @@ type TWalletContextValue = {
   authSession: TAuthSession | null;
   isConnected: boolean;
   address: string | null;
-  connectWallet: () => Promise<string | null>;
+  connectWallet: (onNotice?: (message: string) => void) => Promise<string | null>;
   disconnectWallet: () => Promise<void>;
   checkFundingStatus: (address?: string) => Promise<boolean | null>;
   fundTestnetAccount: () => Promise<void>;
@@ -48,7 +48,7 @@ type TWalletContextValue = {
   clearWalletError: () => void;
   getPublicKey: () => Promise<string | null>;
   signTransaction: (xdr: string) => Promise<string>;
-  authenticateWallet: () => Promise<void>;
+  authenticateWallet: (options?: { force?: boolean }) => Promise<void>;
   logoutWallet: () => void;
 };
 
@@ -130,7 +130,8 @@ export function WalletContextProvider({
 }) {
   const [walletState, setWalletState] = useState<TWalletState>(DEFAULT_STATE);
   const [authSession, setAuthSession] = useState<TAuthSession | null>(null);
-  const hasAttemptedWalletRestoreRef = useRef(false);
+  const walletRestore = useRef<Promise<TWalletAccount | null> | null>(null);
+  const walletRestoreSettled = useRef(false);
   const activeWalletAddressRef = useRef<string | null>(DEFAULT_STATE.walletAddress);
   const [wallet] = useState<IWalletClient>(() => walletClient ?? new LazyStellarWalletClient());
   const [auth] = useState<IWalletAuthService>(() => walletAuthService ?? new StellarAuthService());
@@ -391,49 +392,74 @@ export function WalletContextProvider({
     walletState.walletAddress,
   ]);
 
-  const connectWallet = useCallback(async (): Promise<string | null> => {
-    setWalletState((currentValue) => ({
-      ...currentValue,
-      status: "connecting",
-      isConnecting: true,
-      friendbotError: null,
-      friendbotSuccess: false,
-      error: null,
-    }));
+  const signWalletSession = useCallback(
+    async (address: string): Promise<TAuthSession> => {
+      const challenge = await auth.createChallenge(address);
+      const signature = await wallet.signMessage(challenge.message);
+      return auth.verifySignature({
+        address,
+        signature,
+        message: challenge.message,
+        nonce: challenge.nonce,
+      });
+    },
+    [auth, wallet],
+  );
 
-    try {
-      const account: TWalletAccount = await wallet.connect();
-      setConnectedWalletState(account, {
-        isCheckingFunding: account.isTestnet,
-        isFundingWithFriendbot: false,
-        isFunded: null,
+  const connectWallet = useCallback(
+    async (onNotice?: (message: string) => void): Promise<string | null> => {
+      walletRestoreSettled.current = true;
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        status: "connecting",
+        isConnecting: true,
         friendbotError: null,
         friendbotSuccess: false,
-        lastFriendbotResponse: null,
-        lastTxStatus: "idle",
-      });
+        error: null,
+      }));
 
-      if (account.isTestnet) {
-        await checkFundingStatus(account.address);
-      } else {
-        setWalletState((currentValue) => ({
-          ...currentValue,
-          isCheckingFunding: false,
+      try {
+        const account: TWalletAccount = await wallet.connect(onNotice);
+        let session = authSession;
+        if (session?.address !== account.address || Date.parse(session.expiresAt) <= Date.now()) {
+          // Some wallet providers cannot sign messages. Keep their transaction connection usable.
+          session = await signWalletSession(account.address).catch(() => null);
+        }
+        setAuthSession(session);
+        setConnectedWalletState(account, {
+          isCheckingFunding: account.isTestnet,
+          isFundingWithFriendbot: false,
           isFunded: null,
-        }));
+          friendbotError: null,
+          friendbotSuccess: false,
+          lastFriendbotResponse: null,
+          lastTxStatus: "idle",
+        });
+
+        if (account.isTestnet) {
+          await checkFundingStatus(account.address);
+        } else {
+          setWalletState((currentValue) => ({
+            ...currentValue,
+            isCheckingFunding: false,
+            isFunded: null,
+          }));
+        }
+        return account.address;
+      } catch (error) {
+        setWalletState({
+          ...DEFAULT_STATE,
+          status: "error",
+          error: toErrorMessage(error),
+        });
+        return null;
       }
-      return account.address;
-    } catch (error) {
-      setWalletState({
-        ...DEFAULT_STATE,
-        status: "error",
-        error: toErrorMessage(error),
-      });
-      return null;
-    }
-  }, [checkFundingStatus, setConnectedWalletState, wallet]);
+    },
+    [authSession, checkFundingStatus, setConnectedWalletState, signWalletSession, wallet],
+  );
 
   const disconnectWallet = useCallback(async () => {
+    walletRestoreSettled.current = true;
     setWalletState((currentValue) => ({ ...currentValue, status: "disconnecting" }));
 
     try {
@@ -490,32 +516,28 @@ export function WalletContextProvider({
     }
   }, [wallet, walletState.walletAddress]);
 
-  const ensureWalletSession = useCallback(async (): Promise<TAuthSession> => {
-    const address = walletState.walletAddress;
-    if (!address) {
-      throw new Error("Connect wallet before authenticating the transaction.");
-    }
+  const ensureWalletSession = useCallback(
+    async (force = false): Promise<TAuthSession> => {
+      const address = walletState.walletAddress;
+      if (!address) {
+        throw new Error("Connect wallet before authenticating the transaction.");
+      }
 
-    if (
-      authSession &&
-      authSession.address === address &&
-      new Date(authSession.expiresAt).getTime() > Date.now()
-    ) {
-      return authSession;
-    }
+      if (
+        !force &&
+        authSession &&
+        authSession.address === address &&
+        new Date(authSession.expiresAt).getTime() > Date.now()
+      ) {
+        return authSession;
+      }
 
-    const challenge = await auth.createChallenge(address);
-    const signature = await wallet.signMessage(challenge.message);
-    const session = await auth.verifySignature({
-      address,
-      signature,
-      message: challenge.message,
-      nonce: challenge.nonce,
-    });
-
-    setAuthSession(session);
-    return session;
-  }, [auth, authSession, wallet, walletState.walletAddress]);
+      const session = await signWalletSession(address);
+      setAuthSession(session);
+      return session;
+    },
+    [authSession, signWalletSession, walletState.walletAddress],
+  );
 
   const signTransaction = useCallback(
     async (xdr: string, options?: { requiresServerSession?: boolean }) => {
@@ -558,38 +580,40 @@ export function WalletContextProvider({
     [ensureWalletSession, wallet, walletState.isTestnet, walletState.walletAddress],
   );
 
-  const authenticateWallet = useCallback(async () => {
-    try {
-      await ensureWalletSession();
-      setWalletState((currentValue) => ({ ...currentValue, error: null }));
-    } catch (error) {
-      setWalletState((currentValue) => ({
-        ...currentValue,
-        error: toErrorMessage(error),
-      }));
-    }
-  }, [ensureWalletSession]);
+  const authenticateWallet = useCallback(
+    async (options?: { force?: boolean }) => {
+      try {
+        await ensureWalletSession(options?.force);
+        setWalletState((currentValue) => ({ ...currentValue, error: null }));
+      } catch (error) {
+        setWalletState((currentValue) => ({
+          ...currentValue,
+          error: toErrorMessage(error),
+        }));
+      }
+    },
+    [ensureWalletSession],
+  );
 
   const logoutWallet = useCallback(() => {
     setAuthSession(null);
   }, []);
 
   useEffect(() => {
-    if (hasAttemptedWalletRestoreRef.current) {
+    if (walletRestoreSettled.current) {
       return;
     }
 
-    hasAttemptedWalletRestoreRef.current = true;
+    const restoration = (walletRestore.current ??= wallet.restoreConnection().catch(() => null));
     let isMounted = true;
 
     const restoreWalletConnection = async () => {
-      try {
-        const restoredWallet = await wallet.restoreConnection();
-
-        if (!isMounted || !restoredWallet) {
-          return;
-        }
-
+      const restoredWallet = await restoration;
+      if (!isMounted || walletRestoreSettled.current) {
+        return;
+      }
+      walletRestoreSettled.current = true;
+      if (restoredWallet) {
         setConnectedWalletState(restoredWallet, {
           isCheckingFunding: restoredWallet.isTestnet,
           isFundingWithFriendbot: false,
@@ -602,8 +626,6 @@ export function WalletContextProvider({
         if (restoredWallet.isTestnet) {
           await checkFundingStatus(restoredWallet.address);
         }
-      } catch {
-        // Ignore restore failures and let the user reconnect manually.
       }
     };
 

@@ -4,7 +4,20 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
-import { Bell } from "lucide-react";
+import React from "react";
+
+import type { FunctionReturnType } from "convex/server";
+
+type TDeadlineNotification = FunctionReturnType<
+  typeof api.deadlines.getNotificationsForWallet
+>[number];
+
+export interface IDeadlineNotificationsState {
+  readonly walletAddress: string | null;
+  readonly rows: TDeadlineNotification[];
+  readonly unreadCount: number;
+  readonly markAllRead: () => void;
+}
 
 function formatNotificationTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString(undefined, {
@@ -13,7 +26,7 @@ function formatNotificationTime(timestamp: number): string {
   });
 }
 
-export function DeadlineNotificationsPanel() {
+export function useDeadlineNotifications(): IDeadlineNotificationsState {
   const walletIdentity = useHighrableWalletIdentity();
   const walletAddress = walletIdentity.walletAddress;
   const notifications = useQuery(
@@ -26,66 +39,90 @@ export function DeadlineNotificationsPanel() {
   );
   const markAllRead = useMutation(api.deadlines.markAllNotificationsRead);
 
-  if (!walletAddress) {
+  function handleMarkAllRead() {
+    if (walletAddress) {
+      void markAllRead({ recipientWallet: walletAddress });
+    }
+  }
+
+  return {
+    walletAddress,
+    rows: notifications ?? [],
+    unreadCount: unreadCount ?? 0,
+    markAllRead: handleMarkAllRead,
+  };
+}
+
+interface IDeadlineNotificationsPanelProps {
+  readonly state: IDeadlineNotificationsState;
+}
+
+export function DeadlineNotificationsPanel({ state }: IDeadlineNotificationsPanelProps) {
+  const { walletAddress, rows, unreadCount: unread, markAllRead } = state;
+
+  // Reminders only take space when there is something to read.
+  if (!walletAddress || rows.length === 0) {
     return null;
   }
 
-  const rows = notifications ?? [];
-
   return (
-    <section className="rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-      <div className="flex flex-wrap items-center justify-between gap-3 p-5 sm:p-6">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Deadline Reminders
-          </p>
-          <p className="hr-text-secondary font-sans text-sm">
-            {unreadCount ?? 0} unread reminder{(unreadCount ?? 0) === 1 ? "" : "s"}
-          </p>
+    <section
+      aria-labelledby="deadline-reminders-title"
+      className="hr-card-surface min-w-0 overflow-hidden rounded-3xl"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-5 py-4 sm:px-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2
+            id="deadline-reminders-title"
+            className="hr-text-primary font-sans text-base font-semibold"
+          >
+            Deadline reminders
+          </h2>
+          {unread > 0 ? (
+            <span className="hr-mode-soft hr-mode-text rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase">
+              {unread} unread
+            </span>
+          ) : null}
         </div>
         <AppButton
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
-          disabled={(unreadCount ?? 0) === 0}
-          onClick={() => void markAllRead({ recipientWallet: walletAddress })}
-          className="h-9 gap-2 rounded-lg px-4 text-xs font-semibold"
+          disabled={unread === 0}
+          onClick={markAllRead}
+          className="hr-mode-text h-8 px-2 text-xs"
         >
-          <Bell className="h-3.5 w-3.5" aria-hidden="true" />
           Mark all read
         </AppButton>
       </div>
-
-      {notifications === undefined ? (
-        <p className="border-t border-border/80 px-5 py-4 font-sans text-sm text-muted-foreground sm:px-6">
-          Loading reminders...
-        </p>
-      ) : rows.length === 0 ? (
-        <p className="border-t border-border/80 bg-muted/30 px-5 py-4 font-sans text-sm text-muted-foreground sm:px-6">
-          No deadline reminders yet.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-3 border-t border-border/80 p-3 sm:p-4">
-          {rows.slice(0, 5).map((notification) => (
-            <article
-              key={notification._id}
-              className={`rounded-lg border px-4 py-3 ${
-                notification.readAt ? "border-border/80 bg-card" : "border-amber-200 bg-amber-50"
+      <ul className="divide-y divide-border/70">
+        {rows.slice(0, 5).map((notification) => (
+          <li key={notification._id} className="flex gap-3 px-5 py-4 sm:px-6">
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                notification.readAt ? "bg-transparent" : "bg-(--mode-solid)"
               }`}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="hr-text-primary font-sans text-sm font-semibold">
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-3">
+                <p
+                  className={`hr-text-primary font-sans text-sm ${notification.readAt ? "" : "font-medium"}`}
+                >
+                  {notification.readAt ? null : <span className="sr-only">Unread: </span>}
                   {notification.title}
                 </p>
-                <time className="font-sans text-[11px] text-muted-foreground/70">
+                <time className="hr-text-muted font-sans text-xs">
                   {formatNotificationTime(notification.createdAt)}
                 </time>
               </div>
-              <p className="hr-text-secondary mt-1 font-sans text-sm">{notification.body}</p>
-            </article>
-          ))}
-        </div>
-      )}
+              <p className="hr-text-secondary mt-0.5 font-sans text-sm leading-relaxed">
+                {notification.body}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

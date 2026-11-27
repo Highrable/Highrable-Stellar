@@ -1,6 +1,7 @@
 "use client";
 
 import { HighrableDebugger } from "@/core/debugger/highrable-debugger";
+import { SocialSessionProvider } from "@/features/newsfeed/session";
 import { OnboardingRouteGuard } from "@/features/onboarding/components/onboarding-route-guard";
 import { getConvexClient } from "@repo/convex-client";
 import UiProviders from "@repo/ui/ui-providers";
@@ -21,7 +22,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ConvexProvider client={convexClient}>
       <WalletProvider>
         <UiProviders>
-          <OnboardingRouteGuard>{children}</OnboardingRouteGuard>
+          <SocialSessionProvider>
+            <OnboardingRouteGuard>{children}</OnboardingRouteGuard>
+          </SocialSessionProvider>
           <HighrableDebugger />
         </UiProviders>
       </WalletProvider>

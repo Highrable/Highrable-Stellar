@@ -99,7 +99,7 @@ export function V2HowItWorksSection() {
                     transition={{ duration: 0.4 }}
                     className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-full border font-sans text-lg font-bold transition-colors duration-400 ${
                       isActive
-                        ? "border-[#FF8703] bg-highrable-surface-accent text-highrable-orange-1"
+                        ? "border-highrable-orange-1 bg-highrable-surface-accent text-highrable-orange-4"
                         : "border-transparent bg-muted text-highrable-text-muted"
                     }`}
                   >

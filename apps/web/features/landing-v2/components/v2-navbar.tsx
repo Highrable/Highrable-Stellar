@@ -1,23 +1,34 @@
 "use client";
 
+import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import {
   V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
   V2_PAGE_CONTAINER_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@repo/ui/components/ui/sheet";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
+import { Menu } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { NAV_LINKS } from "../constants/landing-v2.constants";
+import { LandingConnectButton } from "./landing-connect-button";
 
 // Shared nav link styles — keep in sync with header.tsx
 const NAV_LINK_BASE =
-  "flex items-center gap-2 rounded-lg px-3 py-2 font-mono whitespace-nowrap text-xs tracking-[0.06em] uppercase transition-colors";
+  "flex items-center gap-2 rounded-lg px-3 py-2 font-sans text-xs font-medium whitespace-nowrap tracking-[0.06em] uppercase transition-colors";
 const NAV_LINK_INACTIVE = "hr-text-secondary hover:text-highrable-orange-1";
-const NAV_LINK_ACTIVE = "hr-v2-button-primary text-white";
+const NAV_LINK_ACTIVE = "hr-v2-button-primary";
 
 function Logo() {
   return (
@@ -57,24 +68,12 @@ function NavLinks({ pathname }: { pathname: string }) {
 }
 
 function NavActions() {
-  const router = useRouter();
-
   return (
     <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-      <button
-        type="button"
-        onClick={() => router.push("/jobs")}
-        className={`${V2_BUTTON_SECONDARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
-      >
-        Find Work
-      </button>
-      <button
-        type="button"
-        onClick={() => router.push("/post-job")}
-        className={`${V2_BUTTON_PRIMARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
-      >
-        Post a Job
-      </button>
+      <LandingConnectButton
+        className={`${V2_BUTTON_PRIMARY_CLASS} h-auto px-2.5 py-2 font-sans text-[0.6rem] font-semibold tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
+      />
+      <ThemeToggle />
     </div>
   );
 }
@@ -83,6 +82,7 @@ function NavActions() {
 export function V2Navbar() {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -110,6 +110,37 @@ export function V2Navbar() {
         <div className="ml-auto flex items-center gap-1 sm:gap-3">
           <NavLinks pathname={pathname} />
           <NavActions />
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground transition-colors hover:bg-muted lg:hidden"
+                aria-label="Open landing page navigation"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[min(88vw,22rem)] p-0">
+              <SheetHeader className="border-b border-border/80 pr-12">
+                <SheetTitle>Explore Highrable</SheetTitle>
+                <SheetDescription>
+                  Learn how payment-backed freelance work operates.
+                </SheetDescription>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-4" aria-label="Landing page navigation">
+                {NAV_LINKS.map((link) => (
+                  <SheetClose key={link.href} asChild>
+                    <a
+                      href={link.href}
+                      className="rounded-lg px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      {link.label}
+                    </a>
+                  </SheetClose>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </motion.header>

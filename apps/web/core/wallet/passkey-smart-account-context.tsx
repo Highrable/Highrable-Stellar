@@ -9,6 +9,12 @@ import {
   PasskeySmartAccountCompatibilityError,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
+import {
+  establishPasskeyWebSession,
+  getPasskeyAssertion,
+  requestPasskeyChallenge,
+  verifyPasskey,
+} from "@/core/wallet/auth/social-session-client";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import {
@@ -40,6 +46,7 @@ export type TPasskeySmartAccountState = {
 };
 
 type TPasskeySmartAccountContextValue = TPasskeySmartAccountState & {
+  webSessionRevision: number;
   isSupported: boolean;
   hasConfig: boolean;
   activeWalletMode: TActiveWalletMode;
@@ -85,6 +92,10 @@ let smartAccountRuntimePromise: Promise<typeof SmartAccountRuntime> | null = nul
 async function loadSmartAccountRuntime(): Promise<typeof SmartAccountRuntime> {
   smartAccountRuntimePromise ??= import("@/core/stellar/smart-account-kit");
   return await smartAccountRuntimePromise;
+}
+
+async function clearPasskeyWebSession(): Promise<void> {
+  await fetch("/api/newsfeed/session", { method: "DELETE", keepalive: true });
 }
 
 function getErrorMessage(error: unknown): string {
@@ -169,13 +180,18 @@ function createPasskeyUserName(): string {
   return `${PASSKEY_USER_NAME_PREFIX}-${randomId}`;
 }
 
+type PendingPasskey = {
+  credentialId: string;
+  proof?: Awaited<ReturnType<typeof getPasskeyAssertion>>;
+};
+
 function resetDiscoveredContracts(
   setDiscoveredContracts: React.Dispatch<React.SetStateAction<IndexedContractSummary[]>>,
-  setPendingCredentialId: React.Dispatch<React.SetStateAction<string | null>>,
+  setPendingPasskey: React.Dispatch<React.SetStateAction<PendingPasskey | null>>,
   setIsContractPickerOpen: React.Dispatch<React.SetStateAction<boolean>>,
 ): void {
   setDiscoveredContracts([]);
-  setPendingCredentialId(null);
+  setPendingPasskey(null);
   setIsContractPickerOpen(false);
 }
 
@@ -183,7 +199,15 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   const [state, setState] = useState<TPasskeySmartAccountState>(DEFAULT_STATE);
   const [activeWalletMode, setActiveWalletMode] = useState<TActiveWalletMode>("external_wallet");
   const [discoveredContracts, setDiscoveredContracts] = useState<IndexedContractSummary[]>([]);
-  const [pendingCredentialId, setPendingCredentialId] = useState<string | null>(null);
+  const [pendingPasskey, setPendingPasskey] = useState<PendingPasskey | null>(null);
+  const [webSessionRevision, setWebSessionRevision] = useState(0);
+  const webSignIn = useRef<AbortController | null>(null);
+  const beginWebSignIn = useCallback(() => {
+    webSignIn.current?.abort();
+    const controller = new AbortController();
+    webSignIn.current = controller;
+    return controller.signal;
+  }, []);
   const [isContractPickerOpen, setIsContractPickerOpen] = useState(false);
   const restoreAttemptedRef = useRef(false);
   const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
@@ -207,11 +231,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         isRestoring: false,
         error: null,
       }));
-      resetDiscoveredContracts(
-        setDiscoveredContracts,
-        setPendingCredentialId,
-        setIsContractPickerOpen,
-      );
+      resetDiscoveredContracts(setDiscoveredContracts, setPendingPasskey, setIsContractPickerOpen);
       setActiveWalletMode("passkey_smart_account");
     },
     [],
@@ -270,6 +290,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   }, [hasConfig, isSupported, setConnectedState]);
 
   const createPasskeyAccount = useCallback(async (): Promise<string> => {
+    const signal = beginWebSignIn();
     try {
       ensurePasskeyReady();
       setState((currentValue) => ({ ...currentValue, isCreating: true, error: null }));
@@ -295,6 +316,11 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         credentialId: result.credentialId,
       });
 
+      const session = await verifyPasskey(result.contractId, result.credentialId, signal).catch(
+        () => null,
+      );
+      signal.throwIfAborted();
+      if (session) setWebSessionRevision((revision) => revision + 1);
       setConnectedState({ ...result, sessionStatus: "created" });
       await persistIdentity(result.contractId);
       return result.contractId;
@@ -307,81 +333,56 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       }));
       throw new Error(message);
     }
-  }, [persistIdentity, setConnectedState]);
+  }, [beginWebSignIn, persistIdentity, setConnectedState]);
 
   const reconnectPasskeyAccount = useCallback(async (): Promise<string | null> => {
+    const signal = beginWebSignIn();
     try {
       ensurePasskeyReady();
       setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
-      let result;
-      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit, resetSmartAccountKit } =
-        await loadSmartAccountRuntime();
-      try {
+      const {
+        connectPasskeySmartAccount,
+        discoverPasskeyContracts,
+        getSmartAccountKit,
+        resetSmartAccountKit,
+      } = await loadSmartAccountRuntime();
+
+      const challenge = await requestPasskeyChallenge(undefined, signal).catch(() => null);
+      signal.throwIfAborted();
+      const proof = challenge ? await getPasskeyAssertion(challenge, signal) : undefined;
+      const { credentialId } =
+        proof?.assertion ?? (await getSmartAccountKit().authenticatePasskey());
+
+      const attemptReconnect = async () => {
         const kit = getSmartAccountKit();
-        const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
+        const { contracts, indexerUnavailable } = await discoverPasskeyContracts(kit, credentialId);
+        signal.throwIfAborted();
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
-          setPendingCredentialId(authentication.credentialId);
+          setPendingPasskey({ credentialId, proof });
           setIsContractPickerOpen(true);
-          setState((currentValue) => ({
-            ...currentValue,
-            isReconnecting: false,
-            error: null,
-          }));
           return null;
         }
 
-        result = await kit.connectWallet({
-          credentialId: authentication.credentialId,
+        return await connectPasskeySmartAccount(kit, {
+          credentialId,
           contractId: contracts?.[0]?.contract_id,
-          fresh: true,
+          indexerUnavailable,
         });
+      };
 
-        if (result) {
-          await ensureConnectedPasskeyWalletShape({
-            kit,
-            contractId: result.contractId,
-            credentialId: result.credentialId,
-          });
-        }
+      let result;
+      try {
+        result = await attemptReconnect();
       } catch (error) {
         if (!isIndexedDbClosingError(error)) {
           throw error;
         }
 
         await resetSmartAccountKit();
-        const kit = getSmartAccountKit();
-        const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
-
-        if (contracts && contracts.length > 1) {
-          setDiscoveredContracts(contracts);
-          setPendingCredentialId(authentication.credentialId);
-          setIsContractPickerOpen(true);
-          setState((currentValue) => ({
-            ...currentValue,
-            isReconnecting: false,
-            error: null,
-          }));
-          return null;
-        }
-
-        result = await kit.connectWallet({
-          credentialId: authentication.credentialId,
-          contractId: contracts?.[0]?.contract_id,
-          fresh: true,
-        });
-
-        if (result) {
-          await ensureConnectedPasskeyWalletShape({
-            kit,
-            contractId: result.contractId,
-            credentialId: result.credentialId,
-          });
-        }
+        result = await attemptReconnect();
       }
 
       if (!result) {
@@ -389,6 +390,11 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         return null;
       }
 
+      const session = proof
+        ? await establishPasskeyWebSession(result.contractId, proof, signal).catch(() => null)
+        : null;
+      signal.throwIfAborted();
+      if (session) setWebSessionRevision((revision) => revision + 1);
       setConnectedState({ ...result, sessionStatus: "reconnected" });
       await persistIdentity(result.contractId);
       return result.contractId;
@@ -401,14 +407,15 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       }));
       throw new Error(message);
     }
-  }, [persistIdentity, setConnectedState]);
+  }, [beginWebSignIn, persistIdentity, setConnectedState]);
 
   const selectDiscoveredPasskeyContract = useCallback(
     async (contractId: string): Promise<string | null> => {
-      if (!pendingCredentialId) {
+      if (!pendingPasskey) {
         throw new Error("Select a passkey again before choosing a smart account.");
       }
 
+      const signal = beginWebSignIn();
       try {
         ensurePasskeyReady();
         setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
@@ -417,7 +424,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
           await loadSmartAccountRuntime();
         const result = await getSmartAccountKit().connectWallet({
           contractId,
-          credentialId: pendingCredentialId,
+          credentialId: pendingPasskey.credentialId,
           fresh: true,
         });
 
@@ -431,6 +438,13 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
           credentialId: result.credentialId,
         });
 
+        const session = pendingPasskey.proof
+          ? await establishPasskeyWebSession(result.contractId, pendingPasskey.proof, signal).catch(
+              () => null,
+            )
+          : null;
+        signal.throwIfAborted();
+        if (session) setWebSessionRevision((revision) => revision + 1);
         setConnectedState({ ...result, sessionStatus: "reconnected" });
         await persistIdentity(result.contractId);
         return result.contractId;
@@ -445,23 +459,21 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       } finally {
         resetDiscoveredContracts(
           setDiscoveredContracts,
-          setPendingCredentialId,
+          setPendingPasskey,
           setIsContractPickerOpen,
         );
       }
     },
-    [pendingCredentialId, persistIdentity, setConnectedState],
+    [beginWebSignIn, pendingPasskey, persistIdentity, setConnectedState],
   );
 
   const dismissContractPicker = useCallback(() => {
-    resetDiscoveredContracts(
-      setDiscoveredContracts,
-      setPendingCredentialId,
-      setIsContractPickerOpen,
-    );
+    resetDiscoveredContracts(setDiscoveredContracts, setPendingPasskey, setIsContractPickerOpen);
   }, []);
 
   const disconnectPasskeyAccount = useCallback(async () => {
+    webSignIn.current?.abort();
+    const clearWebSession = clearPasskeyWebSession().catch(() => undefined);
     try {
       const { getSmartAccountKit } = await loadSmartAccountRuntime();
       await getSmartAccountKit().disconnect();
@@ -469,19 +481,19 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       // Local UI state should clear even if the SDK session was already gone.
     }
 
+    dismissContractPicker();
     setState(DEFAULT_STATE);
     setActiveWalletMode("external_wallet");
-  }, []);
+    await clearWebSession;
+  }, [dismissContractPicker]);
 
   const clearLocalPasskeySession = useCallback(async () => {
+    webSignIn.current?.abort();
+    const clearWebSession = clearPasskeyWebSession().catch(() => undefined);
     try {
       const { clearSmartAccountLocalSession } = await loadSmartAccountRuntime();
       await clearSmartAccountLocalSession();
-      resetDiscoveredContracts(
-        setDiscoveredContracts,
-        setPendingCredentialId,
-        setIsContractPickerOpen,
-      );
+      resetDiscoveredContracts(setDiscoveredContracts, setPendingPasskey, setIsContractPickerOpen);
       setState(DEFAULT_STATE);
       setActiveWalletMode("external_wallet");
     } catch (error) {
@@ -492,6 +504,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         isRestoring: false,
         error: getErrorMessage(error),
       }));
+    } finally {
+      await clearWebSession;
     }
   }, []);
 
@@ -511,6 +525,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   const value = useMemo<TPasskeySmartAccountContextValue>(
     () => ({
       ...state,
+      webSessionRevision,
       isSupported,
       hasConfig,
       activeWalletMode,
@@ -541,6 +556,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       restorePasskeySession,
       selectDiscoveredPasskeyContract,
       state,
+      webSessionRevision,
     ],
   );
 

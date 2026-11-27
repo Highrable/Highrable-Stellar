@@ -1,43 +1,46 @@
 "use client";
 
-import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
+import { MODE_NAVIGATION, useAppMode } from "@/features/mode";
+import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@repo/ui/components/ui/breadcrumb";
+import { Separator } from "@repo/ui/components/ui/separator";
+import { SidebarTrigger } from "@repo/ui/components/ui/sidebar";
 import { cn } from "@repo/ui/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-import { Award, Briefcase, Menu, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const navigation = [
-  { name: "Browse Jobs", href: "/jobs", icon: Briefcase },
-  { name: "Find Talent", href: "/talent", icon: Users },
-  { name: "Dashboard", href: "/dashboard", icon: Award },
-] as const;
-
-function isActivePath(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-// Shared nav link styles — keep in sync with v2-navbar.tsx
-const NAV_LINK_BASE =
-  "flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors";
-const NAV_LINK_INACTIVE = "text-[#6b6b6b] hover:text-[#FF7003]";
-const NAV_LINK_ACTIVE = "hr-v2-button-primary text-white";
-
 /** Renders the shared navigation and wallet controls for the Highrable app. */
-export function Header() {
+export function Header({ showSidebarToggle }: { readonly showSidebarToggle: boolean }) {
   const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
-
-  const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
-  const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
-  const connectedWalletClass =
-    "hidden rounded-lg border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003] sm:inline-flex";
+  const { mode } = useAppMode();
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const activeItem = MODE_NAVIGATION[mode].find(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+  const pageLabel = isAdminRoute
+    ? pathname.startsWith("/admin/disputes")
+      ? "Disputes"
+      : pathname.startsWith("/admin/admins")
+        ? "Admins"
+        : "Overview"
+    : (activeItem?.name ??
+      (pathname.startsWith("/newsfeed")
+        ? "Newsfeed"
+        : pathname.startsWith("/freelancers/") || pathname.startsWith("/clients/")
+          ? "Profile"
+          : "Workspace"));
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -49,101 +52,50 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 bg-white transition-shadow duration-300",
-        isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
+        "sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
+        isScrolled && "shadow-xs",
       )}
     >
-      <nav className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
-        {/* Logo */}
-        <Link href="/home" className="flex items-center gap-2.5">
-          <motion.div
-            whileHover={{ scale: 1.03 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="flex items-center gap-2.5"
-          >
+      <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          {showSidebarToggle ? (
+            <SidebarTrigger aria-label="Toggle navigation sidebar" className="size-9" />
+          ) : null}
+          <Link href="/home" className="flex shrink-0 items-center gap-2.5 md:hidden">
             <img
               src="/logo/highrable-landscape.png"
               alt="Highrable logo"
-              className="h-8 w-auto max-w-[128px] object-contain"
+              className="h-7 w-auto max-w-[128px] object-contain"
             />
-          </motion.div>
-        </Link>
-
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-1 md:flex">
-          {navigation.map(({ href, icon: Icon, name }) => (
-            <Link
-              key={name}
-              href={href}
-              className={cn(
-                NAV_LINK_BASE,
-                isActivePath(pathname, href) ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE,
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{name}</span>
-            </Link>
-          ))}
+          </Link>
+          {showSidebarToggle ? (
+            <Separator orientation="vertical" className="hidden h-5 md:block" />
+          ) : null}
+          <Breadcrumb className="hidden min-w-0 md:block">
+            <BreadcrumbList className="flex-nowrap">
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href="/home">Highrable</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate font-medium">{pageLabel}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
 
-        {/* Wallet + mobile toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {!walletIdentity.isConnected ? (
-            <WalletConnectTrigger className={walletActionClass} />
-          ) : (
-            <WalletAccountButton className={connectedWalletClass} />
-          )}
-          <button
-            className="rounded-lg p-2 text-[#6b6b6b] transition-colors hover:bg-[#fff5ee] hover:text-[#FF7003] md:hidden"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+            <WalletConnectTrigger
+              label="Connect wallet"
+              className="h-10 rounded-xl px-4 font-sans text-xs font-semibold tracking-normal normal-case sm:text-sm"
+            />
+          ) : null}
+          <ThemeToggle className="rounded-xl" />
         </div>
-      </nav>
-
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="absolute inset-x-0 top-16 overflow-hidden border-t border-[#e8e8e8] bg-white shadow-[0_16px_32px_rgba(10,10,10,0.08)] md:hidden"
-          >
-            <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-1 py-4")}>
-              {navigation.map(({ href, icon: Icon, name }) => (
-                <Link
-                  key={name}
-                  href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    NAV_LINK_BASE,
-                    "gap-3 text-sm",
-                    isActivePath(pathname, href) ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE,
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{name}</span>
-                </Link>
-              ))}
-              <div className="border-t border-[#e8e8e8] pt-3">
-                {!walletIdentity.isConnected ? (
-                  <WalletConnectTrigger className={walletDrawerActionClass} />
-                ) : (
-                  <WalletAccountButton
-                    className={cn(
-                      walletDrawerActionClass,
-                      "border border-[#e8e8e8] bg-white text-[#0a0a0a]",
-                    )}
-                  />
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
     </header>
   );
 }

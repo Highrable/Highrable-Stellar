@@ -4,10 +4,12 @@ import { v, type Infer } from "convex/values";
 import { createStringEnum } from "../_shared/enum";
 
 const roleEnum = createStringEnum(["client", "freelancer", "admin"] as const);
+const initialRoleEnum = createStringEnum(["client", "freelancer"] as const);
 const walletTypeEnum = createStringEnum(["external_wallet", "passkey_smart_account"] as const);
 
 export const USER_ROLES = roleEnum.map;
 export const roleValidator = roleEnum.validator;
+export const initialRoleValidator = initialRoleEnum.validator;
 export const walletTypeValidator = walletTypeEnum.validator;
 
 export type TUserRole = Infer<typeof roleValidator>;
@@ -41,4 +43,5 @@ export default defineTable({
 })
   .index("by_walletAddress", ["walletAddress"])
   .index("by_role", ["role"])
-  .index("by_normalizedPublicHandle", ["normalizedPublicHandle"]);
+  .index("by_normalizedPublicHandle", ["normalizedPublicHandle"])
+  .searchIndex("search_name", { searchField: "name" });

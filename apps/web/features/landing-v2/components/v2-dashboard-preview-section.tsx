@@ -23,13 +23,13 @@ export function V2DashboardPreviewSection() {
     <section className={`${EDITORIAL_SECTION_CLASS} text-center`}>
       <motion.div
         aria-hidden="true"
-        className="absolute top-1/3 -left-24 h-72 w-72 rounded-full bg-linear-to-br from-[#FF8703] to-[#FE6002] opacity-20 blur-3xl"
+        className="absolute top-1/3 -left-24 h-72 w-72 rounded-full bg-linear-to-br from-highrable-orange-1 to-highrable-orange-2 opacity-20 blur-3xl"
         animate={shouldReduceMotion ? undefined : { x: [0, 26, 0], y: [0, -18, 0] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
         aria-hidden="true"
-        className="absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-linear-to-br from-highrable-orange-3 to-[#FF8703] opacity-20 blur-3xl"
+        className="absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-linear-to-br from-highrable-orange-3 to-highrable-orange-1 opacity-20 blur-3xl"
         animate={shouldReduceMotion ? undefined : { x: [0, -22, 0], y: [0, 16, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />

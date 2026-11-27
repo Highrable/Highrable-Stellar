@@ -70,6 +70,8 @@ export type TStellarReadConfig = {
   readSourceAccount: string;
 };
 
+export type TStellarReadScope = Pick<TStellarReadConfig, "networkPassphrase" | "escrowContractId">;
+
 function requireEnvVar(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -78,26 +80,74 @@ function requireEnvVar(name: string): string {
   return value;
 }
 
-export function loadStellarReadConfig(): TStellarReadConfig {
+export function loadStellarReadScope(): TStellarReadScope {
   const network = requireEnvVar("STELLAR_NETWORK");
-  const rpcUrl = requireEnvVar("STELLAR_RPC_URL");
   const escrowContractId = requireEnvVar("ESCROW_CONTRACT_ID");
+  const networkPassphrase = STELLAR_NETWORK_PASSPHRASES[network] ?? network;
+
+  return { networkPassphrase, escrowContractId };
+}
+
+export function loadStellarReadConfig(): TStellarReadConfig {
+  const scope = loadStellarReadScope();
+  const rpcUrl = requireEnvVar("STELLAR_RPC_URL");
   const reputationContractId = requireEnvVar("REPUTATION_CONTRACT_ID");
   const readSourceAccount = requireEnvVar("STELLAR_READ_SOURCE_ACCOUNT");
 
-  const networkPassphrase = STELLAR_NETWORK_PASSPHRASES[network] ?? network;
-
   return {
     rpcUrl,
-    networkPassphrase,
-    escrowContractId,
+    ...scope,
     reputationContractId,
     readSourceAccount,
   };
 }
 
 function u64ScVal(value: string): xdr.ScVal {
-  return nativeToScVal(BigInt(value), { type: "u64" });
+  return nativeToScVal(normalizeInteger(value, (1n << 64n) - 1n), { type: "u64" });
+}
+
+function normalizeInteger(value: unknown, maximum: bigint): bigint {
+  if (
+    typeof value !== "bigint" &&
+    !(typeof value === "number" && Number.isSafeInteger(value)) &&
+    !(typeof value === "string" && /^\d+$/.test(value))
+  ) {
+    throw new Error("On-chain record contains an unreadable integer.");
+  }
+  const integer = BigInt(value);
+  if (integer < 0n || integer > maximum) {
+    throw new Error("On-chain record contains an out-of-range integer.");
+  }
+  return integer;
+}
+
+function readRecord(value: unknown, escrowId: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`On-chain record for escrow "${escrowId}" is unreadable.`);
+  }
+  const record = value as Record<string, unknown>;
+  const maximum = (1n << 64n) - 1n;
+  if (normalizeInteger(record.escrow_id, maximum) !== normalizeInteger(escrowId, maximum)) {
+    throw new Error("On-chain record does not match the requested escrow.");
+  }
+  return record;
+}
+
+function requireBytes32(value: unknown): Uint8Array {
+  if (!(value instanceof Uint8Array) || value.length !== 32) {
+    throw new Error("On-chain record contains an unreadable 32-byte hash.");
+  }
+  return value;
+}
+
+function normalizeRecordFields(record: Record<string, unknown>) {
+  return {
+    escrow_id: normalizeInteger(record.escrow_id, (1n << 64n) - 1n),
+    client: normalizeOnChainAddress(record.client),
+    asset: normalizeOnChainAddress(record.asset),
+    amount: normalizeInteger(record.amount, (1n << 127n) - 1n),
+    job_hash: requireBytes32(record.job_hash),
+  };
 }
 
 function createRpcServer(rpcUrl: string): rpc.Server {
@@ -145,12 +195,19 @@ export async function getEscrowFromContract(
     u64ScVal(escrowId),
   ]);
 
-  const record = result as Partial<TOnChainEscrow> | undefined;
-  if (!record || typeof record !== "object" || record.escrow_id === undefined) {
-    throw new Error(`On-chain escrow "${escrowId}" was not found or is unreadable.`);
+  const record = readRecord(result, escrowId);
+  if (!normalizeOnChainEscrowStatus(record.status)) {
+    throw new Error("On-chain escrow contains an unrecognized status.");
   }
-
-  return record as TOnChainEscrow;
+  return {
+    ...normalizeRecordFields(record),
+    freelancer: record.freelancer === null ? null : normalizeOnChainAddress(record.freelancer),
+    status: record.status,
+    created_at: normalizeInteger(record.created_at, (1n << 64n) - 1n),
+    funded_at: normalizeInteger(record.funded_at, (1n << 64n) - 1n),
+    submitted_at: normalizeInteger(record.submitted_at, (1n << 64n) - 1n),
+    released_at: normalizeInteger(record.released_at, (1n << 64n) - 1n),
+  };
 }
 
 export async function getCompletionFromContract(
@@ -168,21 +225,29 @@ export async function getCompletionFromContract(
     return null;
   }
 
-  const record = result as Partial<TOnChainCompletionRecord>;
-  if (typeof record !== "object" || record.escrow_id === undefined) {
-    return null;
+  const record = readRecord(result, escrowId);
+  const rating = normalizeInteger(record.rating, 5n);
+  if (rating < 1n) {
+    throw new Error("On-chain completion contains an invalid rating.");
   }
-
-  return record as TOnChainCompletionRecord;
+  return {
+    ...normalizeRecordFields(record),
+    freelancer: normalizeOnChainAddress(record.freelancer),
+    rating: Number(rating),
+    review_hash: requireBytes32(record.review_hash),
+    completed_at: normalizeInteger(record.completed_at, (1n << 64n) - 1n),
+  };
 }
 
 export function normalizeOnChainEscrowStatus(onChainStatus: unknown): TEscrowStatus | null {
   if (typeof onChainStatus === "string") {
-    return ON_CHAIN_STATUS_MAP[onChainStatus] ?? null;
+    return Object.hasOwn(ON_CHAIN_STATUS_MAP, onChainStatus)
+      ? ON_CHAIN_STATUS_MAP[onChainStatus]!
+      : null;
   }
 
   if (Array.isArray(onChainStatus)) {
-    if (onChainStatus.length !== 1) {
+    if (onChainStatus.length !== 1 || typeof onChainStatus[0] !== "string") {
       return null;
     }
 
@@ -192,7 +257,9 @@ export function normalizeOnChainEscrowStatus(onChainStatus: unknown): TEscrowSta
   if (typeof onChainStatus === "object" && onChainStatus !== null) {
     const keys = Object.keys(onChainStatus);
     if (keys.length === 1 && keys[0]) {
-      return ON_CHAIN_STATUS_MAP[keys[0]] ?? null;
+      const payload = (onChainStatus as Record<string, unknown>)[keys[0]];
+      if (payload !== null && !(Array.isArray(payload) && payload.length === 0)) return null;
+      return normalizeOnChainEscrowStatus(keys[0]);
     }
   }
 
@@ -205,7 +272,7 @@ export function getStatusRank(status: TEscrowStatus): number {
 
 export function normalizeOnChainAddress(address: unknown): string {
   if (typeof address === "string") {
-    return address.trim().toUpperCase();
+    return new Address(address.trim().toUpperCase()).toString();
   }
 
   if (address instanceof Address) {
@@ -216,7 +283,7 @@ export function normalizeOnChainAddress(address: unknown): string {
 }
 
 export function normalizeOnChainBytes32(bytes: unknown): string | undefined {
-  if (bytes instanceof Uint8Array || Buffer.isBuffer(bytes)) {
+  if ((bytes instanceof Uint8Array || Buffer.isBuffer(bytes)) && bytes.length === 32) {
     return Buffer.from(bytes).toString("hex");
   }
 

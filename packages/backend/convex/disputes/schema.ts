@@ -117,6 +117,9 @@ export const disputes = defineTable({
   agreementVersionId: v.optional(v.id("workAgreementVersions")),
   agreementHash: v.optional(v.string()),
   proofHash: v.optional(v.string()),
+  assignedAdminWallet: v.optional(v.string()),
+  assignedAt: v.optional(v.number()),
+  assignedByWallet: v.optional(v.string()),
   status: disputeStatusValidator,
   onChainStatus: disputeOnChainStatusValidator,
   transactionHash: v.optional(v.string()),
@@ -143,6 +146,7 @@ export const disputes = defineTable({
   .index("by_milestone_status", ["milestoneId", "status"])
   .index("by_client", ["clientWallet", "updatedAt"])
   .index("by_freelancer", ["freelancerWallet", "updatedAt"])
+  .index("by_assignedAdmin_updatedAt", ["assignedAdminWallet", "updatedAt"])
   .index("by_status", ["status", "updatedAt"]);
 
 export const disputeEvents = defineTable({
@@ -156,8 +160,10 @@ export const disputeEvents = defineTable({
   oldStatus: v.optional(disputeStatusValidator),
   newStatus: v.optional(disputeStatusValidator),
   transactionHash: v.optional(v.string()),
+  requestId: v.optional(v.string()),
   createdAt: v.number(),
   metadata: v.optional(v.any()),
 })
   .index("by_dispute", ["disputeId", "createdAt"])
+  .index("by_dispute_actor_requestId", ["disputeId", "actorWallet", "requestId"])
   .index("by_type", ["type", "createdAt"]);

@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 
 import { query } from "../_generated/server";
+import { ForbiddenError } from "../_shared/errors";
+import { verifyToken } from "../newsfeed/auth";
 import {
+  findPrivateEmail,
   findUserByHandle,
   findUserByWallet,
   resolveAvatarUrl,
@@ -43,6 +46,26 @@ export const getOnboardingState = query({
       user,
       avatarUrl: (await resolveAvatarUrl(ctx, user)) ?? null,
     };
+  },
+});
+
+export const getPrivateEmail = query({
+  args: {
+    sessionToken: v.string(),
+    walletAddress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.sessionToken.trim()) {
+      throw new ForbiddenError("Sign in with your verified Highrable session to view your email.");
+    }
+    const walletAddress = sanitizeUserWalletAddress(await verifyToken(args.sessionToken));
+    if (
+      args.walletAddress !== undefined &&
+      sanitizeUserWalletAddress(args.walletAddress) !== walletAddress
+    ) {
+      throw new ForbiddenError("The verified session does not match this wallet.");
+    }
+    return (await findPrivateEmail(ctx, walletAddress))?.email ?? null;
   },
 });
 

@@ -1,9 +1,13 @@
 "use client";
 
 import { parseWalletAddressParam } from "@/core/seo";
+import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { ProductPageHero } from "@/features/common";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
+import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { ModeSwitchCard } from "@/features/mode";
+import { ProfessionalActivity } from "@/features/newsfeed/profile";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
 import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
@@ -25,6 +29,10 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   const decodedWalletAddress = useMemo(() => {
     return parseWalletAddressParam(walletAddress);
   }, [walletAddress]);
+  const socialProfile = useQuery(
+    api.newsfeed.queries.profile,
+    decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
+  );
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
   const profileData = useQuery(
@@ -33,15 +41,25 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   ) as TFreelancerProfileResponse | null | undefined;
 
   if (!decodedWalletAddress) {
-    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Freelancer profile not found"
+        description="Check the wallet address and try again."
+      />
+    );
   }
 
   if (profileData === undefined) {
-    return <p className="text-sm text-muted-foreground">Loading freelancer profile...</p>;
+    return <PageLoadingState label="freelancer profile" />;
   }
 
   if (profileData === null) {
-    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Freelancer profile not found"
+        description="This wallet does not have a public freelancer profile yet."
+      />
+    );
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
@@ -49,28 +67,39 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
 
   return (
     <div className="space-y-8">
-      <ProductPageHero
-        label="Freelancer Profile"
-        title={
-          <>
-            Wallet-based <span className="hr-v2-gradient-text">Work History</span>
-          </>
-        }
-        description="Completed work and reviews are verified through real paid Stellar escrow transactions — harder to fake than standard marketplace ratings."
-      />
-
+      {socialProfile?.details?.coverUrl && (
+        <img
+          src={socialProfile.details.coverUrl}
+          alt="Profile cover"
+          className="h-40 w-full rounded-xl border border-border object-cover sm:h-56"
+        />
+      )}
       <FreelancerProfileHeader
-        profile={profile}
+        profile={{
+          ...profile,
+          name: socialProfile?.author.name ?? profile.name,
+          avatarUrl: socialProfile?.author.avatarUrl ?? profile.avatarUrl,
+        }}
         stats={stats}
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+      {socialProfile?.details?.headline && (
+        <p className="text-lg">{socialProfile.details.headline}</p>
+      )}
+
+      {canEdit ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WalletStatusCard />
+          <ModeSwitchCard />
+        </div>
+      ) : null}
 
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
-              Edit profile
+              Edit Profile
             </ResponsiveDialogTitle>
             <ResponsiveDialogDescription className="hr-text-secondary text-sm">
               Keep these fields aligned with your public onboarding identity.
@@ -79,7 +108,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
           <ResponsiveDialogBody>
             {canEdit ? (
               <EditFreelancerProfileForm
-                profile={profile}
+                profile={{ ...profile, name: socialProfile?.author.name ?? profile.name }}
                 onSaved={() => setIsEditing(false)}
                 onCancel={() => setIsEditing(false)}
               />
@@ -88,17 +117,12 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         </ResponsiveDialogContent>
       </ResponsiveDialog>
 
-      {stats.completedContracts === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-muted/20 p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
-          This freelancer does not have escrow-verified paid work yet.
-        </p>
-      ) : null}
-
       <FreelancerReputationSection
         stats={stats}
         reviews={verifiedReviews}
         contracts={recentContracts}
       />
+      <ProfessionalActivity walletAddress={decodedWalletAddress} />
     </div>
   );
 }

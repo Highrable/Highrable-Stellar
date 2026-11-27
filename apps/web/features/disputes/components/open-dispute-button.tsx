@@ -38,12 +38,13 @@ export function OpenDisputeButton({
         onClick={() => setIsOpen(true)}
         className={
           className ??
-          "rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          "rounded-md border bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
         }
       >
         Open Dispute
       </AppButton>
       <OpenDisputeDialog
+        key={escrow._id}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         job={job}

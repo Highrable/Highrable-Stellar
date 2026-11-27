@@ -22,12 +22,6 @@ export function useHighrableWalletIdentity(): THighrableWalletIdentity {
     usePasskeySmartAccount();
 
   useEffect(() => {
-    if (isPasskeyConnected && smartAccountAddress) {
-      setActiveWalletMode("passkey_smart_account");
-    }
-  }, [isPasskeyConnected, setActiveWalletMode, smartAccountAddress]);
-
-  useEffect(() => {
     if (isExternalConnected && externalWalletAddress && !isPasskeyConnected) {
       setActiveWalletMode("external_wallet");
     }

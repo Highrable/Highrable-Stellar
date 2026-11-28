@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-11-28
 
+- Documented Newsfeed request ID generation and retry behavior for browsers without `crypto.randomUUID()`. See [[frontend/Feature Slices]].
+
 - Added a production release after successful CI on `main`. The workflow builds the Vercel frontend, deploys Convex production, and publishes the frontend for the Stellar Testnet app. See [[operations/Deployment]].
 
 - Excluded the imported agent skill library from CI's changed-file formatting check so its newline-delimited dataset retains its original format. See [[operations/Testing]].

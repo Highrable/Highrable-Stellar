@@ -65,3 +65,10 @@ it("places the composer and circular showcase before filters and feed posts", ()
   expect(document.querySelector(".hr-newsfeed-feed-layout")).toBeTruthy();
   expect(screen.getByRole("complementary", { name: "Sidebar feed" })).toBeTruthy();
 });
+
+it("shows a card skeleton while a linked post is loading", () => {
+  render(<NewsfeedPage postId="post-1" />);
+  const placeholder = screen.getByRole("status", { name: "Loading post" });
+  expect(placeholder.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+  expect(placeholder.textContent).toBe("");
+});

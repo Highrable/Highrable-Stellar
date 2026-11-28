@@ -16,6 +16,7 @@ import type { FunctionReturnType } from "convex/server";
 import { MediaItem, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
 import { FollowButton } from "./follow-button";
+import { MediaSkeleton, PostListSkeleton, ThreadSkeleton } from "./loading-skeletons";
 import { NewsfeedSidebar } from "./newsfeed-sidebar";
 import { SocialSessionStatus } from "./session";
 
@@ -79,12 +80,7 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
         </p>
       ) : category === "all" ? (
         all === undefined ? (
-          <p
-            role="status"
-            className="rounded-xl border bg-background p-5 text-sm text-muted-foreground"
-          >
-            Searching Highrable…
-          </p>
+          <PostListSkeleton label="Searching Highrable" />
         ) : (
           <div className="space-y-5">
             {allItems?.people.length ? <PeopleSection items={allItems.people} /> : null}
@@ -103,12 +99,7 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
           </div>
         )
       ) : paginated.status === "LoadingFirstPage" ? (
-        <p
-          role="status"
-          className="rounded-xl border bg-background p-5 text-sm text-muted-foreground"
-        >
-          Searching {categoryLabels.find((item) => item.id === category)?.label.toLowerCase()}…
-        </p>
+        <SearchResultsSkeleton category={category} />
       ) : categoryItems.length === 0 ? (
         <div className="space-y-3">
           <p className="rounded-xl border bg-background p-5 text-sm text-muted-foreground">
@@ -119,11 +110,7 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
               Load more results
             </Button>
           )}
-          {paginated.status === "LoadingMore" && (
-            <p role="status" className="text-sm text-muted-foreground">
-              Loading more results…
-            </p>
-          )}
+          {paginated.status === "LoadingMore" && <SearchResultsSkeleton category={category} more />}
         </div>
       ) : (
         <>
@@ -153,15 +140,18 @@ function SearchResults({ term, tag }: { term: string; tag: string }) {
               Load more results
             </Button>
           )}
-          {paginated.status === "LoadingMore" && (
-            <p role="status" className="text-sm text-muted-foreground">
-              Loading more results…
-            </p>
-          )}
+          {paginated.status === "LoadingMore" && <SearchResultsSkeleton category={category} more />}
         </>
       )}
     </section>
   );
+}
+
+function SearchResultsSkeleton({ category, more }: { category: Category; more?: boolean }) {
+  const label = more ? "Loading more results" : "Searching Highrable";
+  if (category === "sparks") return <MediaSkeleton label={label} />;
+  if (category === "people") return <ThreadSkeleton label={label} />;
+  return <PostListSkeleton label={label} count={more ? 1 : 2} />;
 }
 
 function PeopleSection({

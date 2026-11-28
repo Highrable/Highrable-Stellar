@@ -41,6 +41,7 @@ interface ResponsiveDialogProps {
   readonly onOpenChange?: (open: boolean) => void;
   readonly children: React.ReactNode;
   readonly breakpoint?: string; // Default: "(min-width: 768px)"
+  readonly repositionDrawerInputs?: boolean;
 }
 
 interface ResponsiveDialogTriggerProps extends React.ComponentPropsWithoutRef<
@@ -81,7 +82,10 @@ interface ResponsiveDialogBodyProps {
  * Root component - wraps both Dialog and Drawer
  */
 const ResponsiveDialog = React.forwardRef<HTMLDivElement, ResponsiveDialogProps>(
-  ({ open, onOpenChange, children, breakpoint = "(min-width: 768px)" }, _ref) => {
+  (
+    { open, onOpenChange, children, breakpoint = "(min-width: 768px)", repositionDrawerInputs },
+    _ref,
+  ) => {
     const isDesktop = useMediaQuery(breakpoint);
     const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -99,7 +103,11 @@ const ResponsiveDialog = React.forwardRef<HTMLDivElement, ResponsiveDialogProps>
     }
 
     return (
-      <Drawer open={controlledOpen} onOpenChange={handleOpenChange}>
+      <Drawer
+        open={controlledOpen}
+        onOpenChange={handleOpenChange}
+        repositionInputs={repositionDrawerInputs}
+      >
         {children}
       </Drawer>
     );
@@ -135,7 +143,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
         <DialogContent
           ref={ref}
           className={cn(
-            "max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] flex flex-col",
+            "flex max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] flex-col",
             className,
           )}
         >
@@ -145,7 +153,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
     }
 
     return (
-      <DrawerContent ref={ref} className={cn("max-h-[90dvh] flex flex-col", className)}>
+      <DrawerContent ref={ref} className={cn("flex max-h-[90dvh] flex-col", className)}>
         {children}
       </DrawerContent>
     );
@@ -183,7 +191,7 @@ const ResponsiveDialogTitle = React.forwardRef<HTMLHeadingElement, ResponsiveDia
       return (
         <DialogTitle
           ref={ref}
-          className={cn("text-xl font-bold font-sans leading-none tracking-tight", className)}
+          className={cn("font-sans text-xl leading-none font-bold tracking-tight", className)}
           {...props}
         />
       );
@@ -192,7 +200,7 @@ const ResponsiveDialogTitle = React.forwardRef<HTMLHeadingElement, ResponsiveDia
     return (
       <DrawerTitle
         ref={ref}
-        className={cn("text-lg font-bold font-sans leading-none tracking-tight", className)}
+        className={cn("font-sans text-lg leading-none font-bold tracking-tight", className)}
         {...props}
       />
     );
@@ -213,7 +221,7 @@ const ResponsiveDialogDescription = React.forwardRef<
     return (
       <DialogDescription
         ref={ref}
-        className={cn("text-sm font-sans text-muted-foreground", className)}
+        className={cn("font-sans text-sm text-muted-foreground", className)}
         {...props}
       />
     );
@@ -222,7 +230,7 @@ const ResponsiveDialogDescription = React.forwardRef<
   return (
     <DrawerDescription
       ref={ref}
-      className={cn("text-sm font-sans text-muted-foreground", className)}
+      className={cn("font-sans text-sm text-muted-foreground", className)}
       {...props}
     />
   );

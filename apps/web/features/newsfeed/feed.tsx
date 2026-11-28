@@ -4,6 +4,7 @@ import { TagChip } from "@repo/ui/components/highrable/social-primitives";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useConvex, useMutation, usePaginatedQuery } from "convex/react";
 import { Copy, MessageCircle, MoreHorizontal, Repeat2, Share2, ThumbsUp } from "lucide-react";
@@ -14,7 +15,9 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { FormEvent, ReactNode } from "react";
 
+import { MediaSkeleton, PostListSkeleton, ThreadSkeleton } from "./loading-skeletons";
 import { readMedia, uploadMedia } from "./media-client";
+import { createNewsfeedRequestId } from "./request-id";
 import { useSocialSession } from "./session";
 
 const Composer = dynamic(() => import("./composer").then((module) => module.Composer));
@@ -41,6 +44,7 @@ export function MediaItem({
   autoPlayVideo = false,
   playInView = false,
   storyMode = false,
+  onImageReady,
   onVideoEnded,
   onVideoProgress,
 }: {
@@ -49,6 +53,7 @@ export function MediaItem({
   autoPlayVideo?: boolean;
   playInView?: boolean;
   storyMode?: boolean;
+  onImageReady?: () => void;
   onVideoEnded?: () => void;
   onVideoProgress?: (percent: number) => void;
 }) {
@@ -57,13 +62,16 @@ export function MediaItem({
   const videoRef = useRef<HTMLVideoElement>(null);
   const download = useRef<{ url?: string } | null>(null);
   const [url, setUrl] = useState("");
+  const [imageReady, setImageReady] = useState(false);
   const [inView, setInView] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const isVideo = media.mime.startsWith("video/");
-  const isPhoto = auto && media.mime.startsWith("image/");
+  const isImage = media.mime.startsWith("image/");
+  const isPhoto = auto && isImage;
   const isStoryVideo = autoPlayVideo && isVideo;
   const isPostVideo = playInView && isVideo;
+  const loading = busy || (Boolean(url) && isImage && !imageReady);
 
   useEffect(
     () => () => {
@@ -98,7 +106,7 @@ export function MediaItem({
   useEffect(() => {
     if ((!isPhoto && !isStoryVideo && !isPostVideo) || !container.current) return;
     if (typeof IntersectionObserver === "undefined") {
-      if (!isStoryVideo) return;
+      if (!storyMode || (!isPhoto && !isStoryVideo)) return;
       const timeout = window.setTimeout(loadWhenVisible, 0);
       return () => window.clearTimeout(timeout);
     }
@@ -127,7 +135,7 @@ export function MediaItem({
       watching = false;
       observer.disconnect();
     };
-  }, [isPhoto, isPostVideo, isStoryVideo, media._id]);
+  }, [isPhoto, isPostVideo, isStoryVideo, storyMode, media._id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -177,15 +185,41 @@ export function MediaItem({
           : "relative min-w-0 overflow-hidden rounded-xl bg-muted/30"
       }
     >
-      {url ? (
-        media.mime.startsWith("image/") ? (
+      {(!url || loading) && (
+        <div className="relative size-full">
+          <MediaSkeleton label={loading ? "Loading media" : undefined} storyMode={storyMode} />
+          {!loading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Button variant="outline" onClick={() => void load()}>
+                {error ? "Retry loading media" : isVideo ? "Load video" : "Load photo"}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {url &&
+        (isImage ? (
           <img
             src={url}
-            alt={media.name}
+            alt={storyMode ? "Showcase photo" : "Photo attachment"}
+            aria-hidden={loading || undefined}
+            onLoad={() => {
+              setImageReady(true);
+              onImageReady?.();
+            }}
+            onError={() => {
+              URL.revokeObjectURL(url);
+              download.current = null;
+              setUrl("");
+              setImageReady(false);
+              setError("Could not display this photo.");
+            }}
             className={
-              storyMode
-                ? "size-full object-contain"
-                : "max-h-[min(70vh,42rem)] w-full object-contain"
+              loading
+                ? "invisible absolute inset-0 size-full object-contain"
+                : storyMode
+                  ? "size-full object-contain"
+                  : "max-h-[min(70vh,42rem)] w-full object-contain"
             }
           />
         ) : (
@@ -197,7 +231,7 @@ export function MediaItem({
             autoPlay={autoPlayVideo}
             muted={autoPlayVideo || undefined}
             src={url}
-            aria-label={media.name}
+            aria-label={storyMode ? "Showcase video" : "Video attachment"}
             onPlay={isPostVideo ? handlePostVideoPlay : undefined}
             onPause={isPostVideo ? handlePostVideoStop : undefined}
             onEnded={isPostVideo ? handlePostVideoStop : onVideoEnded}
@@ -210,29 +244,7 @@ export function MediaItem({
             <track kind="captions" />
             Your browser does not support video playback.
           </video>
-        )
-      ) : (
-        <div
-          className={`flex items-center justify-center p-5 text-center ${storyMode ? "size-full" : "min-h-52"}`}
-        >
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">{media.name}</p>
-            {isVideo || error ? (
-              <Button variant="outline" onClick={() => void load()} disabled={busy}>
-                {busy ? "Loading media…" : error ? "Retry loading media" : "Load video"}
-              </Button>
-            ) : busy ? (
-              <p role="status" className="text-sm">
-                Loading photo…
-              </p>
-            ) : (
-              <Button variant="outline" onClick={() => void load()}>
-                Load photo
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+        ))}
       {error && (
         <p
           role="alert"
@@ -259,7 +271,9 @@ function AdditionalMedia({ post }: { post: Pick<Post, "_id" | "media"> }) {
           <MediaItem key={media._id} media={media} auto playInView />
         ))}
       </div>
-      {status === "LoadingFirstPage" && <p role="status">Loading media…</p>}
+      {(status === "LoadingFirstPage" || status === "LoadingMore") && (
+        <MediaSkeleton label="Loading more media" />
+      )}
       {status === "CanLoadMore" && (
         <Button variant="link" size="sm" className="h-auto px-0" onClick={() => loadMore(12)}>
           Load more media
@@ -295,6 +309,7 @@ function PostText({ post }: { post: Pick<Post, "preview" | "bodyId" | "bodySize"
   async function expand() {
     if (!post.bodyId) return;
     setBusy(true);
+    setError("");
     try {
       setText(await (await readMedia(client, post.bodyId, "text/plain")).text());
     } catch (e) {
@@ -306,14 +321,20 @@ function PostText({ post }: { post: Pick<Post, "preview" | "bodyId" | "bodySize"
   return (
     <>
       <p className="break-words whitespace-pre-wrap">{text ?? post.preview}</p>
-      {expandable && (
-        <button
-          disabled={busy}
-          className="text-sm underline"
-          onClick={() => (text === null ? expand() : setText(null))}
-        >
-          {busy ? "Loading text…" : text === null ? "Read full post" : "Show less"}
-        </button>
+      {busy ? (
+        <div role="status" aria-label="Loading full post" className="space-y-2 py-2">
+          <Skeleton aria-hidden="true" className="h-4 w-full" />
+          <Skeleton aria-hidden="true" className="h-4 w-2/3" />
+        </div>
+      ) : (
+        expandable && (
+          <button
+            className="text-sm underline"
+            onClick={() => (text === null ? expand() : setText(null))}
+          >
+            {text === null ? "Read full post" : "Show less"}
+          </button>
+        )
       )}
       {error && <p role="alert">{error}</p>}
     </>
@@ -630,7 +651,7 @@ function CommentReplies({
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const requestKey = useRef(crypto.randomUUID());
+  const requestKey = useRef<string | null>(null);
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.replies,
     { commentId, ...(token ? { token } : {}) },
@@ -646,11 +667,11 @@ function CommentReplies({
         token,
         postId,
         parentId: commentId,
-        requestId: requestKey.current,
+        requestId: (requestKey.current ??= createNewsfeedRequestId()),
         body,
       });
       setBody("");
-      requestKey.current = crypto.randomUUID();
+      requestKey.current = null;
     } catch (reason) {
       setError(message(reason));
     } finally {
@@ -662,10 +683,8 @@ function CommentReplies({
       {results.map((reply) => (
         <CommentCard key={reply._id} comment={reply} />
       ))}
-      {status === "LoadingFirstPage" && (
-        <p role="status" className="text-xs text-muted-foreground">
-          Loading replies…
-        </p>
+      {(status === "LoadingFirstPage" || status === "LoadingMore") && (
+        <ThreadSkeleton label="Loading replies" />
       )}
       {status === "CanLoadMore" && (
         <Button type="button" variant="ghost" size="sm" onClick={() => loadMore(5)}>
@@ -755,7 +774,7 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const key = useRef(crypto.randomUUID());
+  const key = useRef<string | null>(null);
   const { results, status, loadMore } = usePaginatedQuery(
     api.newsfeed.queries.comments,
     { postId, ...(token ? { token } : {}) },
@@ -770,11 +789,11 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
       await client.mutation(api.newsfeed.mutations.comment, {
         token,
         postId,
-        requestId: key.current,
+        requestId: (key.current ??= createNewsfeedRequestId()),
         body,
       });
       setBody("");
-      key.current = crypto.randomUUID();
+      key.current = null;
     } catch (reason) {
       setError(message(reason));
     } finally {
@@ -783,10 +802,8 @@ function Comments({ postId }: { postId: TConvexId<"socialPosts"> }) {
   }
   return (
     <section id={`comments-${postId}`} aria-label="Comments" className="space-y-4 border-t pt-4">
-      {status === "LoadingFirstPage" && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading comments…
-        </p>
+      {(status === "LoadingFirstPage" || status === "LoadingMore") && (
+        <ThreadSkeleton label="Loading comments" />
       )}
       {results.map((comment) => (
         <Thread key={comment._id} comment={comment} postId={postId} />
@@ -1178,7 +1195,7 @@ export function PostCard({ post, variant = "feed" }: { post: Post; variant?: "fe
               const bodyId = await uploadMedia(client, {
                 token,
                 postId: post._id,
-                requestId: crypto.randomUUID(),
+                requestId: createNewsfeedRequestId(),
                 file: new File([body], "post.txt", { type: "text/plain" }),
                 signal: new AbortController().signal,
                 onProgress: () => {},
@@ -1244,7 +1261,7 @@ export function Feed({
   return (
     <div className="hr-newsfeed-feed-list space-y-4">
       {status === "LoadingFirstPage" ? (
-        <p role="status">Loading posts…</p>
+        <PostListSkeleton />
       ) : results.length === 0 ? (
         <p className="rounded-xl border bg-background p-5 text-sm text-muted-foreground">
           {followingOnly
@@ -1261,7 +1278,7 @@ export function Feed({
           Load more posts
         </Button>
       )}
-      {status === "LoadingMore" && <p role="status">Loading more posts…</p>}
+      {status === "LoadingMore" && <PostListSkeleton label="Loading more posts" count={1} />}
     </div>
   );
 }

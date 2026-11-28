@@ -62,8 +62,14 @@ it("keeps the search sidebar order and its loading and empty states", () => {
   data.suggestions = undefined;
   data.tags = undefined;
   const { rerender } = render(<NewsfeedSidebar />);
-  expect(screen.getByText("Loading people…")).toBeTruthy();
-  expect(screen.getByText("Loading tags…")).toBeTruthy();
+  expect(
+    screen.getByRole("status", { name: "Loading people" }).querySelector('[data-slot="skeleton"]'),
+  ).toBeTruthy();
+  expect(screen.queryByText("Loading people…")).toBeNull();
+  expect(
+    screen.getByRole("status", { name: "Loading tags" }).querySelector('[data-slot="skeleton"]'),
+  ).toBeTruthy();
+  expect(screen.queryByText("Loading tags…")).toBeNull();
   expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
     "Suggested collaborators",
     "Trending tags",

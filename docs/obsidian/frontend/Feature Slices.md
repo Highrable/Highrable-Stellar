@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-11-27
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
@@ -42,7 +42,11 @@ source_of_truth: repository
 - `StatusText` renders semantic status badges while domain status helpers continue to own label/tone mappings. `FileUploadZone` supplies an accessible drop and browse surface; attachment authorization, validation, upload progress, and retry remain feature-owned. `MilestoneTimeline` displays existing milestone records in order without changing their gates or actions.
 - Disputes (list, detail, composers, timeline, dialog) and admin pages share the same cards, controls, and status tones. Protected admin access and role-specific controls remain unchanged.
 - `TermHint` (`features/common/components/term-hint.tsx`) holds plain-language definitions (`PLAIN_TERMS`) for jargon such as escrow and wallet.
-- Newsfeed showcase uploads accept both file selection and drag-and-drop, then use the same preview, image-edit, removal, progress, cancellation, and retry flow. Post audiences remain informational, and attaching a milestone still requires explicit public confirmation.
+- Newsfeed supports inline text-only posts and opens the full composer to review selected media before publishing. Tags and milestones are optional and behind a disclosure. Attaching a milestone requires explicit public confirmation.
+- Showcases require at least one photo or video, accept file selection or drag-and-drop, and display their public 24-hour lifespan at the top of the composer. Posts and showcases share media previews and show upload errors beside the publish controls.
+- The mobile post and showcase composers fit inside the visual viewport while the software keyboard is open and scroll focused fields within the drawer body. Other responsive dialogs continue to use the shared drawer defaults.
+- Newsfeed uses skeletons for route transitions, feed pagination, post and showcase details, and pending media. Post and showcase attachments use generic preview labels and omit original filenames from the interface. The showcase photo timer starts after the image is ready.
+- Newsfeed creates opaque request IDs from Web Crypto's `getRandomValues()` during user actions so rendering and submission work when the browser lacks `randomUUID()`. Post and showcase drafts, comments, and replies reuse the same request ID on retry until success.
 - Newsfeed post galleries use the existing media download when a video is at least half visible. Playback starts inline with sound when the browser permits it, retries muted when autoplay with sound is blocked, and pauses below the visibility threshold or when another post video starts. Native controls support manual playback and unmuting. Failed downloads can be retried from the media card.
 
 ## Cross-slice rules

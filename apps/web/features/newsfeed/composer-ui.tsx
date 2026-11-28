@@ -1,4 +1,6 @@
-import { ResponsiveDialogClose } from "@repo/ui/responsive-dialog";
+import { Button } from "@repo/ui/components/ui/button";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
+import { ResponsiveDialogClose, ResponsiveDialogContent } from "@repo/ui/responsive-dialog";
 import { X } from "lucide-react";
 
 import type { ReactNode } from "react";
@@ -21,6 +23,180 @@ export function MobileDialogClose() {
       <X aria-hidden="true" className="size-5" />
       <span className="sr-only">Close dialog</span>
     </ResponsiveDialogClose>
+  );
+}
+
+export function ComposerDialogContent({ children }: { children: ReactNode }) {
+  return (
+    <ResponsiveDialogContent
+      ref={fitMobileComposer}
+      className="hr-newsfeed-dialog flex max-h-[min(90dvh,44rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border bg-background p-0 data-[vaul-drawer-direction=bottom]:max-h-[95dvh] md:rounded-2xl"
+    >
+      {children}
+    </ResponsiveDialogContent>
+  );
+}
+
+function fitMobileComposer(drawer: HTMLDivElement | null) {
+  if (!drawer?.hasAttribute("data-vaul-drawer")) return;
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const sheet = drawer;
+  const body = sheet.querySelector<HTMLElement>("[data-composer-scroll]");
+  if (!body) return;
+  const scrollArea = body;
+  const fieldPadding = 8;
+
+  function resetViewportStyles() {
+    sheet.style.removeProperty("bottom");
+    sheet.style.removeProperty("max-height");
+    scrollArea.style.removeProperty("--composer-editor-height");
+  }
+
+  function update() {
+    if (!viewport || viewport.scale !== 1 || viewport.height <= 0) {
+      resetViewportStyles();
+      return;
+    }
+
+    // A mobile keyboard can shrink and pan the visual viewport while fixed positioning
+    // still uses the layout viewport. Fit the drawer to the visible portion.
+    const top = Math.max(0, viewport.offsetTop);
+    const bottom = Math.min(window.innerHeight, top + viewport.height);
+    const inset = window.innerHeight - bottom;
+    if (inset > 0 || top > 0) {
+      sheet.style.bottom = `${inset}px`;
+      sheet.style.maxHeight = `${Math.max(0, bottom - top)}px`;
+    } else {
+      resetViewportStyles();
+    }
+
+    const field = document.activeElement;
+    if (
+      !(field instanceof HTMLElement) ||
+      !scrollArea.contains(field) ||
+      !field.matches("textarea, input:not([type]), input[type=text], select")
+    ) {
+      return;
+    }
+    if (field instanceof HTMLTextAreaElement && scrollArea.clientHeight > 0) {
+      scrollArea.style.setProperty(
+        "--composer-editor-height",
+        `${Math.max(0, scrollArea.clientHeight - 2 * fieldPadding)}px`,
+      );
+    }
+    const areaBounds = scrollArea.getBoundingClientRect();
+    const fieldBounds = field.getBoundingClientRect();
+    const visibleTop = Math.max(top, areaBounds.top) + fieldPadding;
+    const visibleBottom = Math.min(bottom, areaBounds.bottom) - fieldPadding;
+    if (visibleBottom <= visibleTop || fieldBounds.height === 0) return;
+    if (fieldBounds.top < visibleTop || fieldBounds.height > visibleBottom - visibleTop) {
+      scrollArea.scrollTop += fieldBounds.top - visibleTop;
+    } else if (fieldBounds.bottom > visibleBottom) {
+      scrollArea.scrollTop += fieldBounds.bottom - visibleBottom;
+    }
+  }
+
+  update();
+  viewport.addEventListener("resize", update);
+  viewport.addEventListener("scroll", update);
+  window.addEventListener("resize", update);
+  sheet.addEventListener("focusin", update);
+  return () => {
+    viewport.removeEventListener("resize", update);
+    viewport.removeEventListener("scroll", update);
+    window.removeEventListener("resize", update);
+    sheet.removeEventListener("focusin", update);
+    resetViewportStyles();
+  };
+}
+
+type ComposerMediaFile = {
+  key: string;
+  file: File;
+  preview: string;
+  progress: number;
+  id?: string;
+};
+
+export function ComposerMediaList<T extends ComposerMediaFile>({
+  label,
+  files,
+  busy,
+  onEdit,
+  onRemove,
+}: {
+  label: string;
+  files: T[];
+  busy: boolean;
+  onEdit: (key: string) => void;
+  onRemove: (file: T) => void;
+}) {
+  if (!files.length) return null;
+  return (
+    <ul aria-label={label} className="grid grid-cols-2 gap-2 sm:gap-3">
+      {files.map((item, index) => {
+        const image = item.file.type.startsWith("image/");
+        return (
+          <li key={item.key} className="min-w-0 overflow-hidden rounded-xl border bg-card">
+            {image ? (
+              <img
+                src={item.preview}
+                alt={`Attachment preview ${index + 1}`}
+                className="aspect-video w-full bg-muted object-contain"
+              />
+            ) : (
+              <video
+                src={item.preview}
+                controls
+                preload="metadata"
+                aria-label={`Video preview ${index + 1}`}
+                className="aspect-video w-full bg-black object-contain"
+              >
+                <track kind="captions" />
+              </video>
+            )}
+            <div className="space-y-1.5 px-2 py-2 sm:px-3">
+              {busy && (
+                <>
+                  <Skeleton aria-hidden="true" className="h-3 w-3/4" />
+                  <progress
+                    aria-label="Uploading selected media"
+                    max={100}
+                    value={item.progress}
+                    className="block w-full accent-primary"
+                  />
+                </>
+              )}
+              <div className="flex flex-wrap items-center gap-x-1">
+                {image && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy || Boolean(item.id)}
+                    onClick={() => onEdit(item.key)}
+                    className="h-9 px-2"
+                  >
+                    Edit image
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onRemove(item)}
+                  className="h-9 px-2 text-muted-foreground"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

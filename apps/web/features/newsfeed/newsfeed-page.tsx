@@ -1,5 +1,4 @@
 "use client";
-import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
@@ -10,6 +9,7 @@ import { useState } from "react";
 import { Composer } from "./composer";
 import { Feed, PostCard } from "./feed";
 import { FeedBoundary } from "./feed-boundary";
+import { PostListSkeleton } from "./loading-skeletons";
 import { NewsfeedSidebar } from "./newsfeed-sidebar";
 import { SocialSessionStatus, useSocialSession } from "./session";
 import { Stories } from "./stories";
@@ -21,7 +21,7 @@ function Permalink({ id }: { id: string }) {
     ...(token ? { token } : {}),
   });
   return post === undefined ? (
-    <PageLoadingState label="post" />
+    <PostListSkeleton label="Loading post" count={1} />
   ) : post ? (
     <PostCard post={post} variant="detail" />
   ) : (

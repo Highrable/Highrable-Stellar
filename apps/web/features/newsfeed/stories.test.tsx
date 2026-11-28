@@ -10,7 +10,7 @@ import type { FunctionReturnType } from "convex/server";
 import { Stories } from "./stories";
 
 const mock = vi.hoisted(() => ({
-  groups: [] as unknown[],
+  groups: [] as unknown[] | undefined,
   mutate: vi.fn(),
   paginated: vi.fn(),
   preview: "data:image/jpeg;base64,dGh1bWI=",
@@ -118,6 +118,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("uses a circular skeleton tray while showcases are being fetched", () => {
+  mock.groups = undefined;
+  const { rerender } = render(<Stories />);
+  const tray = screen.getByRole("status", { name: "Loading showcases" });
+  expect(tray.querySelectorAll(".rounded-full").length).toBeGreaterThan(1);
+  expect(tray.textContent).toBe("");
+
+  mock.groups = groups;
+  rerender(<Stories />);
+  expect(screen.queryByRole("status", { name: "Loading showcases" })).toBeNull();
+  expect(screen.getByRole("button", { name: "View Ada Builder's showcase" })).toBeTruthy();
+});
+
 it("groups stories by author and navigates through stories", async () => {
   render(<Stories />);
   const createStory = screen.getByRole("button", { name: "Create a showcase" });
@@ -135,12 +148,30 @@ it("groups stories by author and navigates through stories", async () => {
   expect(await screen.findByRole("heading", { name: "Bobby Aleto" })).toBeTruthy();
 });
 
-it("automatically advances after showing a photo story preview", async () => {
+it("keeps the showcase on the loading photo and advances after the image appears", async () => {
   vi.useFakeTimers();
+  vi.stubGlobal(
+    "URL",
+    Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => "blob:story-photo"),
+      revokeObjectURL: vi.fn(),
+    }),
+  );
   try {
-    render(<Stories />);
+    const { baseElement } = render(<Stories />);
     fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's showcase" }));
     expect(screen.getByRole("group", { name: "Showcase item 1 of 2" })).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(screen.getByRole("group", { name: "Showcase item 1 of 2" })).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "Loading media" }).querySelector('[data-slot="skeleton"]'),
+    ).toBeTruthy();
+    const photo = baseElement.querySelector('img[alt="Showcase photo"]')!;
+    fireEvent.load(photo);
+    expect(screen.getByRole("img", { name: "Showcase photo" })).toBeTruthy();
+    expect(screen.queryByText("story.png")).toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
@@ -173,7 +204,7 @@ it("loads and autoplays only the video opened in the story viewer", async () => 
     render(<Stories />);
     fireEvent.click(screen.getByRole("button", { name: "View Ada Builder's showcase" }));
     await waitFor(() => expect(mock.readMedia).toHaveBeenCalled());
-    const video = await screen.findByLabelText("story.mp4");
+    const video = await screen.findByLabelText("Showcase video");
     expect(video.hasAttribute("autoplay")).toBe(true);
     expect((video as HTMLVideoElement).muted).toBe(true);
     expect(video.hasAttribute("controls")).toBe(true);
@@ -234,10 +265,14 @@ it("uploads an edited story image after applying edits to the draft", async () =
   try {
     render(<Stories />);
     fireEvent.click(screen.getByRole("button", { name: "Create a showcase" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Add context or a deliverable note" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Caption (optional)" }), {
       target: { value: "Dashboard prototype WIP" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: /craft tags/i }), {
+    const tags = screen.getByText("Add tags (optional)");
+    expect(tags.closest("details")?.open).toBe(false);
+    fireEvent.click(tags);
+    expect(tags.closest("details")?.open).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: /^Tags/i }), {
       target: { value: "WIP, Figma" },
     });
     fireEvent.change(screen.getByLabelText("Choose showcase photos or videos"), {
@@ -245,7 +280,8 @@ it("uploads an edited story image after applying edits to the draft", async () =
     });
     fireEvent.click(screen.getByRole("button", { name: "Edit image" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply test edits" }));
-    expect(screen.getByText("story-edited.webp")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Attachment preview 1" })).toBeTruthy();
+    expect(screen.queryByText("story-edited.webp")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Share showcase" }));
     await waitFor(() => expect(mock.uploadMedia).toHaveBeenCalled());
     expect(mock.uploadMedia.mock.calls[0]?.[1].file.name).toBe("story-edited.webp");
@@ -278,7 +314,8 @@ it("uploads an edited story image after applying edits to the draft", async () =
   }
 });
 
-it("accepts dropped showcase media and publishes it through the upload flow", async () => {
+it("publishes dropped showcase media when randomUUID is unavailable", async () => {
+  vi.stubGlobal("crypto", { getRandomValues: crypto.getRandomValues.bind(crypto) });
   const originalCreate = URL.createObjectURL;
   const originalRevoke = URL.revokeObjectURL;
   Object.defineProperty(URL, "createObjectURL", {
@@ -294,6 +331,10 @@ it("accepts dropped showcase media and publishes it through the upload flow", as
   try {
     render(<Stories />);
     fireEvent.click(screen.getByRole("button", { name: "Create a showcase" }));
+    expect(screen.getByText("Public for 24 hours")).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Share showcase" }).disabled).toBe(
+      true,
+    );
     const dropzone = await screen.findByRole("button", {
       name: "Add photos or videos to your showcase",
     });
@@ -303,12 +344,67 @@ it("accepts dropped showcase media and publishes it through the upload flow", as
     expect(dropzone.className).toContain("border-primary bg-primary/10");
     fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
 
-    expect(await screen.findByText("dropped-dashboard.png")).toBeTruthy();
+    expect(await screen.findByRole("img", { name: "Attachment preview 1" })).toBeTruthy();
+    expect(screen.queryByText("dropped-dashboard.png")).toBeNull();
+    expect(dropzone.textContent).toContain("Add more photos or videos");
     expect(dropzone.className).not.toContain("border-primary bg-primary/10");
     fireEvent.click(screen.getByRole("button", { name: "Share showcase" }));
     await waitFor(() => expect(mock.uploadMedia).toHaveBeenCalled());
     expect(mock.uploadMedia.mock.calls[0]?.[1].file).toBe(file);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  } finally {
+    cleanup();
+    if (originalCreate) {
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: originalCreate,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "createObjectURL");
+    }
+    if (originalRevoke) {
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: originalRevoke,
+      });
+    } else {
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  }
+});
+
+it("shows a showcase upload skeleton without displaying the filename", async () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: vi.fn(() => "blob:pending-showcase"),
+  });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  mock.mutate.mockImplementation(async (ref: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(ref).endsWith("beginStory") ? "story-draft" : undefined,
+  );
+  mock.uploadMedia.mockImplementation(
+    (_client, input) =>
+      new Promise((_resolve, reject) => {
+        input.signal.addEventListener("abort", () => reject(new Error("Upload cancelled.")), {
+          once: true,
+        });
+      }),
+  );
+  try {
+    render(<Stories />);
+    fireEvent.click(screen.getByRole("button", { name: "Create a showcase" }));
+    fireEvent.change(screen.getByLabelText("Choose showcase photos or videos"), {
+      target: {
+        files: [new File(["video bytes"], "private-showcase.mp4", { type: "video/mp4" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Share showcase" }));
+
+    const progress = await screen.findByRole("progressbar", { name: "Uploading selected media" });
+    expect(progress.closest("li")?.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+    expect(screen.queryByText("private-showcase.mp4")).toBeNull();
   } finally {
     cleanup();
     if (originalCreate) {

@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-11-28
 
+- Added a production release after successful CI on `main`. The workflow builds the Vercel frontend, deploys Convex production, and publishes the frontend for the Stellar Testnet app. See [[operations/Deployment]].
+
 - Excluded the imported agent skill library from CI's changed-file formatting check so its newline-delimited dataset retains its original format. See [[operations/Testing]].
 
 - Restored GitHub Actions CI and its helpers. CI covers branch pushes, including merges, and pull request opens, updates, and reopens. See [[operations/Testing]].

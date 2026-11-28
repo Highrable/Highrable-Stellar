@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
@@ -41,15 +41,20 @@ The older command below uses contract invocation and must not be treated as a re
 
 ## Web/backend release
 
-The web package has `build`, `start`, and `dev` scripts. The backend package has Convex `dev` and dashboard scripts. Hosting/provider deployment configuration is not fully documented in this repository.
+The production release job in `.github/workflows/ci.yml` runs after the `required` CI job succeeds for a push to `main`. GitHub serializes releases and the job skips superseded commits before deploying. It pulls the Vercel production settings and builds the frontend, deploys the Convex backend from `packages/backend`, then publishes the prebuilt frontend to Vercel production. The hosted application uses Stellar Testnet.
+
+### GitHub and Vercel setup
+
+1. Configure the GitHub Actions environment named `production` to allow deployments from `main`. Leave required reviewers off for unattended releases.
+2. Add the environment secrets `CONVEX_DEPLOY_KEY` (a Convex production deployment key) and `VERCEL_TOKEN` (with access to the Vercel project).
+3. Add the environment variables `EXPECTED_CONVEX_URL`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`. Use the canonical `https://<deployment>.convex.cloud` URL for the intended Convex production deployment.
+4. Set the Vercel project's Root Directory to `apps/web` and enable **Include source files outside of the Root Directory** for the shared workspace packages. Configure the Vercel Production environment, including `NEXT_PUBLIC_CONVEX_URL` matching `EXPECTED_CONVEX_URL` and `NEXT_PUBLIC_STELLAR_NETWORK=testnet`. Keep the app's other production values in Vercel and backend values in Convex. Confirm that Vercel's Production Branch is `main`, where `apps/web/vercel.json` disables Vercel's direct Git deployments.
+
+The first push to `main` with the updated workflow can deploy after CI passes. Check the release job's summary for the Convex result and Vercel deployment URL. If Vercel publishing fails after Convex succeeds, the existing frontend may still be serving against the updated backend. Use backward-compatible backend changes and rerun the failed job while its commit is still at the tip of `main`, or ship a corrective commit through CI if `main` has advanced.
 
 `deployments/testnet.json` and `deployments/mainnet.json` are public deployment records, not secrets. The smart-account deployment records are placeholders and do not establish passkey artifact deployment or audit status.
 
 See [[contracts/Deployment Artifacts]], [[stellar/Network Configuration]], and [[stellar/Mainnet Readiness and Relayers]].
-
-## Status
-
-Status: Production hosting/release automation is not documented yet. The repository documents contract deployment scripts and readiness checks, but not a complete application CI/CD or rollback runbook.
 
 ## Multiple dispute admins
 

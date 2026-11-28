@@ -1,3 +1,5 @@
+import { Button } from "@repo/ui/components/ui/button";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { ResponsiveDialogClose } from "@repo/ui/responsive-dialog";
 import { X } from "lucide-react";
 
@@ -21,6 +23,95 @@ export function MobileDialogClose() {
       <X aria-hidden="true" className="size-5" />
       <span className="sr-only">Close dialog</span>
     </ResponsiveDialogClose>
+  );
+}
+
+type ComposerMediaFile = {
+  key: string;
+  file: File;
+  preview: string;
+  progress: number;
+  id?: string;
+};
+
+export function ComposerMediaList<T extends ComposerMediaFile>({
+  label,
+  files,
+  busy,
+  onEdit,
+  onRemove,
+}: {
+  label: string;
+  files: T[];
+  busy: boolean;
+  onEdit: (key: string) => void;
+  onRemove: (file: T) => void;
+}) {
+  if (!files.length) return null;
+  return (
+    <ul aria-label={label} className="grid grid-cols-2 gap-2 sm:gap-3">
+      {files.map((item, index) => {
+        const image = item.file.type.startsWith("image/");
+        return (
+          <li key={item.key} className="min-w-0 overflow-hidden rounded-xl border bg-card">
+            {image ? (
+              <img
+                src={item.preview}
+                alt={`Attachment preview ${index + 1}`}
+                className="aspect-video w-full bg-muted object-contain"
+              />
+            ) : (
+              <video
+                src={item.preview}
+                controls
+                preload="metadata"
+                aria-label={`Video preview ${index + 1}`}
+                className="aspect-video w-full bg-black object-contain"
+              >
+                <track kind="captions" />
+              </video>
+            )}
+            <div className="space-y-1.5 px-2 py-2 sm:px-3">
+              {busy && (
+                <>
+                  <Skeleton aria-hidden="true" className="h-3 w-3/4" />
+                  <progress
+                    aria-label="Uploading selected media"
+                    max={100}
+                    value={item.progress}
+                    className="block w-full accent-primary"
+                  />
+                </>
+              )}
+              <div className="flex flex-wrap items-center gap-x-1">
+                {image && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy || Boolean(item.id)}
+                    onClick={() => onEdit(item.key)}
+                    className="h-9 px-2"
+                  >
+                    Edit image
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onRemove(item)}
+                  className="h-9 px-2 text-muted-foreground"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -484,27 +484,6 @@ body {
     display: none;
   }
 
-  .hr-newsfeed-feed-layout .hr-newsfeed-composer {
-    border-radius: 1.75rem;
-    padding: 1.875rem;
-  }
-
-  .hr-newsfeed-feed-layout .hr-newsfeed-quick-post-toolbar > button:not(.hr-v2-button-primary) {
-    min-width: 2.5rem;
-    border-radius: 9999px;
-    padding-inline: 0.5rem;
-  }
-
-  .hr-newsfeed-feed-layout .hr-newsfeed-quick-post-toolbar > .hr-v2-button-primary {
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 28%),
-      0 8px 14px rgb(255 125 74 / 28%);
-  }
-
-  .hr-newsfeed-feed-layout .hr-newsfeed-quick-post-toolbar > .hr-v2-button-primary:disabled {
-    opacity: 1;
-  }
-
   .hr-newsfeed-feed-layout .hr-newsfeed-showcase {
     border: 0;
     border-radius: 0;

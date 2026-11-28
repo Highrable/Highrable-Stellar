@@ -13,7 +13,7 @@ vi.mock("./session", () => ({
 }));
 vi.mock("./composer", () => ({ Composer: () => null }));
 vi.mock("convex/react", () => ({
-  useConvex: () => ({}),
+  useConvex: () => ({ mutation: mock.mutate }),
   useMutation: () => mock.mutate,
   useQuery: () => null,
   usePaginatedQuery: mock.paginated,
@@ -84,6 +84,24 @@ it("shows failed reaction feedback while retaining the last confirmed value", as
   await screen.findByRole("alert");
   expect(screen.getByRole("button", { name: "Like" })).toBeTruthy();
 });
+it("opens comments and submits a comment without randomUUID", async () => {
+  vi.stubGlobal("crypto", { getRandomValues: crypto.getRandomValues.bind(crypto) });
+  mock.paginated.mockReturnValue({ results: [], status: "Exhausted", loadMore: vi.fn() });
+  mock.mutate.mockResolvedValue("comment-1");
+  render(<PostCard post={post} />);
+  fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+  const input = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  fireEvent.change(input, { target: { value: "Thanks for sharing" } });
+  fireEvent.click(screen.getByRole("button", { name: "Post" }));
+
+  await waitFor(() => expect(input.value).toBe(""));
+  expect(mock.mutate).toHaveBeenCalledWith(api.newsfeed.mutations.comment, {
+    token: "verified",
+    postId: post._id,
+    requestId: expect.any(String),
+    body: "Thanks for sharing",
+  });
+});
 it("uses wallet-free profile links and copies post links from the options menu", async () => {
   render(<Feed authorId={post.authorId} />);
   expect(mock.paginated).toHaveBeenCalledWith(
@@ -105,7 +123,7 @@ it("uses wallet-free profile links and copies post links from the options menu",
   expect((await screen.findByRole("status")).textContent).toBe("Link copied.");
   expect(writeText).toHaveBeenCalledWith("http://localhost:3000/newsfeed/post-1");
 });
-it("renders initial attachment metadata without a query per card", () => {
+it("offers a generic attachment control without querying media for every card", () => {
   render(
     <PostCard
       post={
@@ -117,9 +135,53 @@ it("renders initial attachment metadata without a query per card", () => {
       }
     />,
   );
-  expect(screen.getByText("photo.png")).toBeTruthy();
+  expect(screen.queryByText("photo.png")).toBeNull();
   expect(screen.getByRole("button", { name: "Load photo" })).toBeTruthy();
   expect(mock.paginated).not.toHaveBeenCalled();
+});
+it("uses post skeletons for the first page and keeps loaded posts during pagination", () => {
+  const loadMore = vi.fn();
+  mock.paginated.mockReturnValue({ results: [], status: "LoadingFirstPage", loadMore });
+  const { rerender } = render(<Feed />);
+  const initial = screen.getByRole("status", { name: "Loading posts" });
+  expect(initial.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+  expect(initial.textContent).toBe("");
+
+  mock.paginated.mockReturnValue({ results: [post], status: "CanLoadMore", loadMore });
+  rerender(<Feed />);
+  fireEvent.click(screen.getByRole("button", { name: "Load more posts" }));
+  expect(loadMore).toHaveBeenCalledWith(10);
+  mock.paginated.mockReturnValue({ results: [post], status: "LoadingMore", loadMore });
+  rerender(<Feed />);
+  expect(screen.getByRole("article")).toBeTruthy();
+  expect(screen.getByRole("status", { name: "Loading more posts" }).textContent).toBe("");
+});
+
+it("keeps the skeleton until a photo displays and uses a generic attachment label", async () => {
+  let finishDownload!: (blob: Blob) => void;
+  mock.readMedia.mockReturnValue(
+    new Promise<Blob>((resolve) => {
+      finishDownload = resolve;
+    }),
+  );
+  const { container } = render(
+    <MediaItem
+      media={{ _id: "media-1" as never, name: "private.png", mime: "image/png", size: 10 }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Load photo" }));
+  const pending = screen.getByRole("status", { name: "Loading media" });
+  expect(pending.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+  expect(pending.textContent).toBe("");
+  expect(screen.queryByText("private.png")).toBeNull();
+
+  await act(async () => finishDownload(new Blob(["photo"])));
+  expect(pending.isConnected).toBe(true);
+  expect(screen.queryByRole("img")).toBeNull();
+  fireEvent.load(container.querySelector("img")!);
+  expect(screen.getByRole("img", { name: "Photo attachment" })).toBeTruthy();
+  expect(screen.queryByRole("status", { name: "Loading media" })).toBeNull();
+  expect(container.innerHTML).not.toContain("private.png");
 });
 it("starts media pagination only after opening more attachments", () => {
   mock.paginated.mockReturnValue({ results: [], status: "Exhausted", loadMore: vi.fn() });
@@ -288,11 +350,17 @@ it("pauses the previous post video when another starts playing", async () => {
     </>,
   );
   observers[0]!.reportVisibility(1);
-  fireEvent.play(await screen.findByLabelText("clip.mp4"));
+  const first = await screen.findByLabelText("Video attachment");
+  fireEvent.play(first);
   observers[1]!.reportVisibility(1);
-  fireEvent.play(await screen.findByLabelText("second.mp4"));
+  const second = await waitFor(() => {
+    const videos = screen.getAllByLabelText("Video attachment");
+    expect(videos).toHaveLength(2);
+    return videos[1]!;
+  });
+  fireEvent.play(second);
   expect(pause).toHaveBeenCalledTimes(1);
-  expect(pause.mock.contexts[0]).toBe(screen.getByLabelText("clip.mp4"));
+  expect(pause.mock.contexts[0]).toBe(first);
 });
 
 it("does not start playback after a delayed download finishes offscreen", async () => {
@@ -308,9 +376,12 @@ it("does not start playback after a delayed download finishes offscreen", async 
   render(<MediaItem media={postVideo} playInView />);
   const observer = observers[0]!;
   observer.reportVisibility(1);
+  expect(screen.getByRole("status", { name: "Loading media" }).textContent).toBe("");
+  expect(screen.queryByText("clip.mp4")).toBeNull();
   observer.reportVisibility(0);
   await act(async () => finishDownload(new Blob(["video"])));
   expect(document.querySelector("video")).toBeTruthy();
+  expect(screen.queryByRole("status", { name: "Loading media" })).toBeNull();
   expect(play).not.toHaveBeenCalled();
   observer.reportVisibility(1);
   expect(play).toHaveBeenCalledTimes(1);

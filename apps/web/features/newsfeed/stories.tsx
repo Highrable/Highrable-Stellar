@@ -1,5 +1,4 @@
 "use client";
-import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { api, type TConvexId } from "@repo/convex-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
 import { Button } from "@repo/ui/components/ui/button";
@@ -13,17 +12,24 @@ import {
   ResponsiveDialogTitle as DialogTitle,
 } from "@repo/ui/responsive-dialog";
 import { useConvex, useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import { ChevronLeft, ChevronRight, Clock3, Globe2, ImagePlus, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ImagePlus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 import type { FunctionReturnType } from "convex/server";
 
-import { ComposerSectionLabel, MobileDialogClose, SuggestedTagChips } from "./composer-ui";
+import {
+  ComposerMediaList,
+  ComposerSectionLabel,
+  MobileDialogClose,
+  SuggestedTagChips,
+} from "./composer-ui";
 import { MediaItem } from "./feed";
 import { ImageEditor } from "./image-editor";
+import { MediaSkeleton, ShowcaseTraySkeleton, ShowcaseViewerSkeleton } from "./loading-skeletons";
 import { uploadMedia } from "./media-client";
+import { createNewsfeedRequestId } from "./request-id";
 import { useSocialSession } from "./session";
 
 type Groups = NonNullable<FunctionReturnType<typeof api.newsfeed.queries.activeStories>>;
@@ -168,7 +174,7 @@ function StoryComposer({
       : [...selectedTags, tag].slice(0, 5);
     setTagText(next.join(", "));
   }
-  const requestId = useRef(crypto.randomUUID());
+  const requestId = useRef<string | null>(null);
   const storyId = useRef<TConvexId<"socialStories"> | null>(null);
   const abort = useRef<AbortController | null>(null);
   const previews = useRef(new Set<string>());
@@ -201,7 +207,7 @@ function StoryComposer({
       const preview = URL.createObjectURL(file);
       previews.current.add(preview);
       return {
-        key: crypto.randomUUID(),
+        key: createNewsfeedRequestId(),
         file,
         preview,
         poster: createStoryPoster(file),
@@ -237,14 +243,14 @@ function StoryComposer({
     );
   }
   async function publish() {
-    if (!token || busy) return;
+    if (!token || busy || !files.length) return;
     setBusy(true);
     setError("");
     abort.current = new AbortController();
     try {
       storyId.current ??= await client.mutation(api.newsfeed.mutations.beginStory, {
         token,
-        requestId: requestId.current,
+        requestId: (requestId.current ??= createNewsfeedRequestId()),
         note,
         tags: tagText
           .split(/[\s,]+/)
@@ -282,7 +288,7 @@ function StoryComposer({
       setNote("");
       setTagText("");
       storyId.current = null;
-      requestId.current = crypto.randomUUID();
+      requestId.current = null;
       onOpenChange(false);
     } catch (reason) {
       setError(errorText(reason));
@@ -293,179 +299,107 @@ function StoryComposer({
   if (!viewer) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(94dvh,52rem)] max-w-168 flex-col gap-0 overflow-hidden rounded-[1.75rem] border bg-background p-0">
+      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(90dvh,44rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border bg-background p-0 data-[vaul-drawer-direction=bottom]:max-h-[95dvh] md:rounded-2xl">
         <MobileDialogClose />
-        <DialogHeader className="shrink-0 border-b px-5 py-5 pr-12 text-left sm:px-8 sm:py-6 sm:pr-14">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <DialogTitle className="text-[1.65rem] leading-tight tracking-tight sm:text-[2rem]">
-              Create a showcase
-            </DialogTitle>
-            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
-              WIP
-            </span>
-          </div>
-          <DialogDescription className="max-w-[38rem] text-sm leading-relaxed sm:text-base">
-            Share raw snapshots, design artifacts, or quick work in progress for 24 hours.
-          </DialogDescription>
+        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6 sm:pr-14">
+          <DialogTitle className="text-xl leading-tight">Create a showcase</DialogTitle>
+          <DialogDescription className="text-sm">Public for 24 hours</DialogDescription>
         </DialogHeader>
-        <div className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-[0.7rem] font-bold text-muted-foreground sm:mx-8 sm:px-5">
-          <span className="inline-flex items-center gap-2">
-            <Clock3 aria-hidden="true" className="size-4 text-orange-600" /> Auto-expires in 24
-            hours
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Globe2 aria-hidden="true" className="size-4 text-emerald-600" /> Visible to Network
-            &amp; Clients
-          </span>
-        </div>
-        <div className="min-h-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
-          <section aria-labelledby="newsfeed-showcase-upload-label" className="space-y-2.5">
-            <h3 id="newsfeed-showcase-upload-label">
-              <ComposerSectionLabel>Upload artifacts</ComposerSectionLabel>
-            </h3>
-            <button
-              type="button"
-              aria-label="Add photos or videos to your showcase"
-              aria-describedby="newsfeed-showcase-upload-help"
-              disabled={busy}
-              onClick={() => fileInput.current?.click()}
-              onDragEnter={handleDragOver}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`flex min-h-48 w-full flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed px-5 py-7 text-center transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-52 ${
-                dragActive
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
-              }`}
-            >
-              <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-background text-orange-600 shadow-sm ring-1 ring-border/70">
-                <ImagePlus aria-hidden="true" className="size-7" />
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+          <ComposerMediaList
+            label="Showcase uploads"
+            files={files}
+            busy={busy}
+            onEdit={setEditingImageKey}
+            onRemove={(file) => void remove(file)}
+          />
+          <button
+            type="button"
+            aria-label="Add photos or videos to your showcase"
+            aria-describedby="newsfeed-showcase-upload-help"
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+            onDragEnter={handleDragOver}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed px-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 ${files.length ? "min-h-12 py-2" : "min-h-28 py-4"} ${
+              dragActive
+                ? "border-primary bg-primary/10"
+                : "border-border bg-muted/20 hover:border-primary/60 hover:bg-muted/40"
+            }`}
+          >
+            <ImagePlus aria-hidden="true" className="size-5 shrink-0 text-primary" />
+            <span>
+              <span className="block text-sm font-semibold">
+                {files.length ? "Add more photos or videos" : "Add photos or videos"}
               </span>
-              <span className="text-base font-bold text-foreground">Add photos or videos</span>
               <span
                 id="newsfeed-showcase-upload-help"
-                className="mt-1 text-sm text-muted-foreground"
+                className="block text-xs text-muted-foreground"
               >
-                Drag and drop or click to browse
+                Browse or drag and drop
               </span>
-            </button>
-            <Input
-              ref={fileInput}
-              className="sr-only"
-              type="file"
-              aria-label="Choose showcase photos or videos"
-              multiple
-              accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
-              disabled={busy}
-              onChange={(event) => addFiles(event.target.files)}
-            />
-          </section>
-          {files.length > 0 && (
-            <ul aria-label="Showcase uploads" className="grid gap-3 sm:grid-cols-2">
-              {files.map((file) => (
-                <li
-                  key={file.key}
-                  className="min-w-0 rounded-2xl border border-border/70 bg-muted/20 p-3"
-                >
-                  {file.file.type.startsWith("image/") ? (
-                    <img
-                      src={file.preview}
-                      alt={file.file.name}
-                      className="h-36 w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <video
-                      src={file.preview}
-                      controls
-                      preload="metadata"
-                      className="h-36 w-full rounded-xl bg-black object-contain"
-                    >
-                      <track kind="captions" />
-                    </video>
-                  )}
-                  <p className="mt-2 truncate text-sm font-semibold" title={file.file.name}>
-                    {file.file.name}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {(file.file.size / (1024 * 1024)).toFixed(1)} MB · {file.file.type || "Media"}
-                  </p>
-                  <progress
-                    aria-label={`Uploading ${file.file.name}`}
-                    max={100}
-                    value={file.progress}
-                    className="mt-3 w-full accent-primary"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {file.file.type.startsWith("image/") && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={busy || Boolean(file.id)}
-                        onClick={() => setEditingImageKey(file.key)}
-                        className="rounded-full"
-                      >
-                        Edit image
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void remove(file)}
-                      className="rounded-full text-muted-foreground"
-                    >
-                      <Trash2 aria-hidden="true" className="mr-1.5 size-3.5" /> Remove
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <label htmlFor="newsfeed-spark-note" className="block space-y-2.5">
-            <ComposerSectionLabel>Add context or a deliverable note</ComposerSectionLabel>
+            </span>
+          </button>
+          <input
+            ref={fileInput}
+            hidden
+            type="file"
+            aria-label="Choose showcase photos or videos"
+            multiple
+            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
+            disabled={busy}
+            onChange={(event) => addFiles(event.target.files)}
+          />
+          <label htmlFor="newsfeed-spark-note" className="block space-y-2">
+            <ComposerSectionLabel>Caption (optional)</ComposerSectionLabel>
             <Textarea
               id="newsfeed-spark-note"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               disabled={busy}
               maxLength={500}
-              className="min-h-36 resize-y rounded-[1.5rem] border-transparent bg-muted/35 px-5 py-4 text-base leading-6 placeholder:text-muted-foreground/80 focus-visible:border-primary/30"
-              placeholder="What are you tweaking? For example, iterating on a checkout metrics dashboard before client sign-off…"
+              className="min-h-20 resize-y rounded-xl bg-muted/20 px-3 py-3 text-base leading-6"
+              placeholder="What are you working on?"
             />
           </label>
-          <label htmlFor="newsfeed-spark-tags" className="block space-y-2.5">
-            <ComposerSectionLabel>Suggested craft tags</ComposerSectionLabel>
-            <Input
-              id="newsfeed-spark-tags"
-              value={tagText}
-              onChange={(event) => setTagText(event.target.value)}
-              disabled={busy}
-              placeholder="WIP, Figma, Dashboard"
-              className="h-14 rounded-2xl border-transparent bg-muted/35 px-4 text-base font-medium"
-              aria-describedby="newsfeed-spark-tags-help"
-            />
-            <span id="newsfeed-spark-tags-help" className="block text-xs text-muted-foreground">
-              Add up to five tags, separated by commas or spaces.
-            </span>
-          </label>
-          <SuggestedTagChips
-            tags={
-              suggestedTags
-                ?.flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
-                .slice(0, 5) ?? []
-            }
-            selectedTags={selectedTags}
-            disabled={busy}
-            onToggle={toggleSuggestedTag}
-          />
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
+          <details className="group rounded-xl border px-3 sm:px-4">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 text-sm font-medium focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 text-muted-foreground group-open:rotate-180"
+              />
+              {selectedTags.length ? `Tags (${selectedTags.length})` : "Add tags (optional)"}
+            </summary>
+            <div className="space-y-3 border-t py-3">
+              <label htmlFor="newsfeed-spark-tags" className="block space-y-2">
+                <ComposerSectionLabel>Tags</ComposerSectionLabel>
+                <Input
+                  id="newsfeed-spark-tags"
+                  value={tagText}
+                  onChange={(event) => setTagText(event.target.value)}
+                  disabled={busy}
+                  placeholder="WIP, Figma, Dashboard"
+                  className="h-11 rounded-xl text-base"
+                  aria-describedby="newsfeed-spark-tags-help"
+                />
+                <span id="newsfeed-spark-tags-help" className="block text-xs text-muted-foreground">
+                  Add up to five tags, separated by commas or spaces.
+                </span>
+              </label>
+              <SuggestedTagChips
+                tags={
+                  suggestedTags
+                    ?.flatMap(({ tag }) => (typeof tag === "string" && tag ? [tag] : []))
+                    .slice(0, 5) ?? []
+                }
+                selectedTags={selectedTags}
+                disabled={busy}
+                onToggle={toggleSuggestedTag}
+              />
+            </div>
+          </details>
           <ImageEditor
             file={files.find((file) => file.key === editingImageKey)?.file ?? null}
             onOpenChange={(open) => {
@@ -477,9 +411,13 @@ function StoryComposer({
             }}
           />
         </div>
-        <footer className="flex shrink-0 flex-col gap-3 border-t bg-muted/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p className="text-xs text-muted-foreground">Showcases stay visible for 24 hours.</p>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+        <footer className="shrink-0 space-y-2 border-t px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-2">
             {busy && (
               <Button
                 type="button"
@@ -494,7 +432,7 @@ function StoryComposer({
               type="button"
               disabled={busy || files.length === 0}
               onClick={() => void publish()}
-              className="hr-v2-button-primary min-h-14 flex-1 rounded-full px-6 text-base font-semibold shadow-lg shadow-orange-500/10 sm:w-56 sm:flex-none"
+              className="hr-v2-button-primary min-h-11 flex-1 rounded-xl px-5 sm:flex-none"
             >
               {busy ? "Publishing…" : error ? "Retry publishing" : "Share showcase"}
             </Button>
@@ -520,6 +458,7 @@ function StoryViewer({
   const group = groups[initial.group]!;
   const story = group.stories[initial.story]!;
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [loadedImageId, setLoadedImageId] = useState<string | null>(null);
   const [progressState, setProgressState] = useState({ mediaId: "", percent: 0 });
   const [reactionState, setReactionState] = useState({
     server: story.viewerReaction,
@@ -552,10 +491,12 @@ function StoryViewer({
   const move = useCallback(
     (direction: -1 | 1) => {
       if (direction > 0 && mediaIndex < results.length - 1) {
+        setLoadedImageId(null);
         setMediaIndex((index) => index + 1);
         return;
       }
       if (direction < 0 && mediaIndex > 0) {
+        setLoadedImageId(null);
         setMediaIndex((index) => index - 1);
         return;
       }
@@ -574,7 +515,7 @@ function StoryViewer({
     [flat, flatIndex, loadMore, mediaIndex, onClose, onNavigate, results.length, status],
   );
   useEffect(() => {
-    if (!media || !media.mime.startsWith("image/")) return;
+    if (!media || loadedImageId !== media._id) return;
     const frame = window.requestAnimationFrame(() =>
       setProgressState({ mediaId: media._id, percent: 100 }),
     );
@@ -583,7 +524,7 @@ function StoryViewer({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [media?._id, media?.mime, move]);
+  }, [loadedImageId, media?._id, move]);
   async function reactTo(kind: Story["viewerReaction"]) {
     if (!token || reactionBusy) return;
     setError("");
@@ -707,14 +648,15 @@ function StoryViewer({
                 auto
                 autoPlayVideo
                 storyMode
+                onImageReady={() => setLoadedImageId(media._id)}
                 onVideoEnded={() => move(1)}
                 onVideoProgress={(percent) => setProgressState({ mediaId: media._id, percent })}
               />
+            ) : status === "LoadingFirstPage" ? (
+              <MediaSkeleton label="Loading showcase media" storyMode />
             ) : (
               <p role="status" className="p-4 text-center text-sm text-white/70">
-                {status === "LoadingFirstPage"
-                  ? "Loading showcase…"
-                  : "No showcase media available."}
+                No showcase media available.
               </p>
             )}
             <Button
@@ -819,7 +761,7 @@ export function SparkPermalink({ sparkId }: { sparkId: string }) {
     storyId: sparkId as TConvexId<"socialStories">,
     ...(token ? { token } : {}),
   });
-  if (groups === undefined) return <PageLoadingState label="showcase" />;
+  if (groups === undefined) return <ShowcaseViewerSkeleton />;
   if (!groups?.length) return <p>This showcase is unavailable or has expired.</p>;
   return (
     <StoryViewer
@@ -842,17 +784,7 @@ export function Stories() {
     (group: number, story: number) => setSelection({ group, story }),
     [],
   );
-  if (groups === undefined)
-    return (
-      <section
-        aria-label="Showcase"
-        className="hr-card-surface hr-newsfeed-showcase rounded-2xl p-0 sm:p-4"
-      >
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading showcase…
-        </p>
-      </section>
-    );
+  if (groups === undefined) return <ShowcaseTraySkeleton />;
   const selectedStory = selection ? groups[selection.group]?.stories[selection.story] : null;
   return (
     <>
@@ -877,9 +809,8 @@ export function Stories() {
                   <Plus className="size-6" />
                 </span>
               </span>
-              <span className="w-full truncate text-xs font-medium text-foreground">
-                <span className="sm:hidden">Add Story</span>
-                <span className="hidden sm:inline">Add showcase</span>
+              <span className="w-full text-xs leading-tight font-medium text-foreground">
+                Add showcase
               </span>
             </button>
           )}

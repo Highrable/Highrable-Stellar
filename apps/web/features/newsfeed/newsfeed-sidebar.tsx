@@ -6,11 +6,13 @@ import {
   SectionHeader,
   TagChip,
 } from "@repo/ui/components/highrable/social-primitives";
+import { Skeleton } from "@repo/ui/components/ui/skeleton";
 import { useQuery } from "convex/react";
 import { BriefcaseBusiness, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 
 import { FollowButton } from "./follow-button";
+import { ThreadSkeleton } from "./loading-skeletons";
 import { useSocialSession } from "./session";
 
 export function NewsfeedSidebar({ variant = "search" }: { variant?: "feed" | "search" }) {
@@ -37,9 +39,10 @@ export function NewsfeedSidebar({ variant = "search" }: { variant?: "feed" | "se
         className={isFeed ? "text-slate-500 dark:text-slate-400" : undefined}
       />
       {tags === undefined ? (
-        <p role="status" className="text-xs text-muted-foreground">
-          Loading tags…
-        </p>
+        <div role="status" aria-label="Loading tags" className="space-y-2">
+          <Skeleton aria-hidden="true" className="h-3 w-20" />
+          <Skeleton aria-hidden="true" className="h-4 w-28" />
+        </div>
       ) : tags.length ? (
         isFeed ? (
           <ul className="space-y-3">
@@ -107,9 +110,7 @@ export function NewsfeedSidebar({ variant = "search" }: { variant?: "feed" | "se
         className={isFeed ? "text-slate-500 dark:text-slate-400" : undefined}
       />
       {suggestions === undefined ? (
-        <p role="status" className="text-xs text-muted-foreground">
-          Loading people…
-        </p>
+        <ThreadSkeleton label="Loading people" />
       ) : suggestions.length ? (
         <ul className="space-y-3">
           {suggestions.map((person) => (

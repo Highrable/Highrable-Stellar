@@ -122,3 +122,20 @@ test("excludes generated Convex files while formatting authored backend code", (
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+test("excludes imported agent skills while formatting other agent files", () => {
+  const cwd = createRepo();
+  try {
+    writeFileSync(path.join(cwd, "README.md"), "project\n");
+    const base = commit(cwd, "base");
+    const datasetDir = path.join(cwd, ".agents/skills/data/electric-capital");
+    mkdirSync(datasetDir, { recursive: true });
+    writeFileSync(path.join(datasetDir, "stellar-repos.json"), '{"name":"one"}\n{"name":"two"}\n');
+    writeFileSync(path.join(cwd, ".agents/config.json"), "{}\n");
+    const head = commit(cwd, "agent tools");
+
+    assert.deepEqual(getChangedFormatFiles({ base, head, cwd }), ["./.agents/config.json"]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});

@@ -3,7 +3,11 @@
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminApiError, isAdminAccessError } from "@/features/admin/lib/admin-api";
-import { ADMIN_QUERY_KEY, useAdminSessionQuery } from "@/features/admin/lib/admin-session-query";
+import {
+  ADMIN_QUERY_KEY,
+  isMatchingWallet,
+  useAdminSessionQuery,
+} from "@/features/admin/lib/admin-session-query";
 import { RouteCallout, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,10 +23,6 @@ type TAdminSessionAccessContext = {
 };
 
 const AdminSessionAccessContext = createContext<TAdminSessionAccessContext | null>(null);
-
-function normalizeWalletAddress(walletAddress: string): string {
-  return walletAddress.trim().toUpperCase();
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
@@ -43,10 +43,6 @@ function AdminSessionPanel({
       {children ? <div className="space-y-4 px-5 py-4">{children}</div> : null}
     </RoutePanel>
   );
-}
-
-function isMatchingWallet(adminWallet: string, externalWallet: string): boolean {
-  return normalizeWalletAddress(adminWallet) === normalizeWalletAddress(externalWallet);
 }
 
 export function useAdminSessionAccess(): TAdminSessionAccessContext {
@@ -229,11 +225,7 @@ export function AdminSessionGate({
     );
   }
 
-  // Only block on checks that have no verified result yet. Background re-checks (e.g. the refetch
-  // when focus returns from a wallet signing popup) must keep the page mounted, or in-progress
-  // settlements and unsaved form input are thrown away. A failed re-check still closes the page
-  // through the error branches below.
-  if (sessionQuery.isPending || (sessionQuery.isFetching && !sessionQuery.isSuccess)) {
+  if (sessionQuery.isPending || sessionQuery.isFetching) {
     return (
       <AdminSessionPanel
         title="Checking Admin Access"

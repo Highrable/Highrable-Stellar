@@ -6,8 +6,11 @@ import { ClientTrustActivitySection } from "@/features/client-profile/components
 import { ClientTrustProfileHeader } from "@/features/client-profile/components/client-trust-profile-header";
 import { EditClientProfileForm } from "@/features/client-profile/components/edit-client-profile-form";
 import { getClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
+import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
+import { ProfessionalActivity } from "@/features/newsfeed/profile";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -22,6 +25,10 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
       return walletAddress.trim();
     }
   }, [walletAddress]);
+  const socialProfile = useQuery(
+    api.newsfeed.queries.profile,
+    decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
+  );
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
   const hasWalletAddress = decodedWalletAddress.length > 0;
@@ -31,15 +38,25 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
   ) as TClientTrustProfileResponse | null | undefined;
 
   if (!hasWalletAddress) {
-    return <p className="text-sm text-gray-700">Client profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Client profile not found"
+        description="Check the wallet address and try again."
+      />
+    );
   }
 
   if (profileData === undefined) {
-    return <p className="text-sm text-gray-500">Loading client trust profile...</p>;
+    return <PageLoadingState label="client profile" />;
   }
 
   if (profileData === null) {
-    return <p className="text-sm text-gray-700">Client profile not found.</p>;
+    return (
+      <RouteEmptyState
+        title="Client profile not found"
+        description="This wallet does not have a public client profile yet."
+      />
+    );
   }
 
   const {
@@ -55,12 +72,26 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
 
   return (
     <div className="space-y-8">
+      {socialProfile?.details?.coverUrl && (
+        <img
+          src={socialProfile.details.coverUrl}
+          alt="Profile cover"
+          className="h-40 w-full rounded-xl border border-border object-cover sm:h-56"
+        />
+      )}
       <ClientTrustProfileHeader
-        profile={profile}
+        profile={{
+          ...profile,
+          name: socialProfile?.author.name ?? profile.name,
+          avatarUrl: socialProfile?.author.avatarUrl ?? profile.avatarUrl,
+        }}
         indicator={indicator}
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+      {socialProfile?.details?.headline && (
+        <p className="text-lg">{socialProfile.details.headline}</p>
+      )}
 
       {canEdit ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -71,7 +102,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
 
       {isEditing && canEdit ? (
         <EditClientProfileForm
-          profile={profile}
+          profile={{ ...profile, name: socialProfile?.author.name ?? profile.name }}
           onSaved={() => setIsEditing(false)}
           onCancel={() => setIsEditing(false)}
         />
@@ -84,6 +115,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
         recentCompletedPayments={recentCompletedPayments}
         {...(reportedJobsSummary ? { reportedJobsSummary } : {})}
       />
+      <ProfessionalActivity walletAddress={decodedWalletAddress} />
     </div>
   );
 }

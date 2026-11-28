@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - "**"
   workflow_call:
     inputs:
       source_sha:
@@ -18,10 +18,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: ci-${{ inputs.source_sha || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   prepare:
@@ -118,8 +114,12 @@ jobs:
           pnpm --filter @repo/ui typecheck
           pnpm --filter @repo/convex-client typecheck
 
-      - name: Test CI guard and changed-file selection scripts
-        run: node --test scripts/ci/check-changed-format.test.mjs scripts/ci/select-comparison-base.test.mjs scripts/ci/deploy-production.test.mjs
+      - name: Test changed-file selection scripts
+        run: node --test scripts/ci/check-changed-format.test.mjs scripts/ci/select-comparison-base.test.mjs
+
+      - name: Test production release guard
+        if: hashFiles('scripts/ci/deploy-production.test.mjs') != ''
+        run: node --test scripts/ci/deploy-production.test.mjs
 
   tests:
     name: Web, backend, and deployment identity tests
@@ -160,10 +160,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      # This isolated build has no production environment variables or live services.
+      # Use the local network so the production WalletConnect requirement is not applied here.
+      NEXT_PUBLIC_STELLAR_NETWORK: local
       NEXT_PUBLIC_STELLAR_RPC_URL: http://127.0.0.1:9980
       NEXT_PUBLIC_STELLAR_HORIZON_URL: http://127.0.0.1:9981
-      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: Test SDF Network ; September 2015
+      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: Standalone Network ; February 2017
       NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3210
       NEXT_PUBLIC_APP_DOMAIN: http://127.0.0.1:3000
       NEXT_PUBLIC_WAITLIST_MODE: "false"

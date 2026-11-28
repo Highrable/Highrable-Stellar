@@ -19,7 +19,11 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".yml",
   ".yaml",
 ]);
-const IGNORED_PATH_PREFIXES = ["docs/obsidian/", "packages/backend/convex/_generated/"];
+const IGNORED_PATH_PREFIXES = [
+  ".agents/skills/",
+  "docs/obsidian/",
+  "packages/backend/convex/_generated/",
+];
 
 function runGit(args, cwd) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });

@@ -8,6 +8,7 @@ import {
   validateAttachmentFile,
 } from "@/features/attachments/lib";
 import { showWarningToast, StatCard, StatusText } from "@/features/common";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -1385,8 +1386,7 @@ export function FreelancerAgreementReview({
     );
   }
 
-  if (agreement === undefined)
-    return <p className="text-sm text-muted-foreground">Loading agreement...</p>;
+  if (agreement === undefined) return <PageLoadingState label="agreement" />;
   if (!agreement) return <p className="text-sm text-muted-foreground">Agreement not found.</p>;
 
   const viewOnce = () => {

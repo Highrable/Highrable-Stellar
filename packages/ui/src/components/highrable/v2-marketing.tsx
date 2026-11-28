@@ -270,7 +270,7 @@ export function HighrableV2IconNotice({
             role="img"
             aria-label={label}
             className={cn(
-              "inline-flex h-5 w-5 shrink-0 cursor-default select-none items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+              "inline-flex h-5 w-5 shrink-0 cursor-default items-center justify-center rounded-md border transition-colors select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
               ICON_NOTICE_CLASSES[tone],
               className,
             )}

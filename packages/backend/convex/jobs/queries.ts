@@ -45,7 +45,7 @@ async function hasBlockingConversationForParent(
   return isBlockingMarketplaceConversation(conversation);
 }
 
-async function canShowJobInPublicFeeds(ctx: QueryCtx, job: Doc<"jobs">): Promise<boolean> {
+export async function canShowJobInPublicFeeds(ctx: QueryCtx, job: Doc<"jobs">): Promise<boolean> {
   if (job.selectedFreelancerWallet !== undefined) {
     return false;
   }

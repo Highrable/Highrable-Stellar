@@ -51,11 +51,11 @@ export function JobCard({
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <li className="hr-clickable-card flex flex-col gap-3 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
+    <li className="hr-clickable-card hr-card-surface flex flex-col gap-4 rounded-3xl px-5 py-5 transition-[border-color,box-shadow,transform] hover:border-(--mode-border) hover:shadow-lg motion-safe:hover:-translate-y-0.5 sm:flex-row sm:items-start sm:gap-6 sm:px-7 sm:py-6">
       <div className="min-w-0 flex-1 space-y-1.5">
         <Link
           href={`/marketplace/jobs/${job._id}`}
-          className="hr-card-link hr-text-primary block text-lg leading-snug font-medium sm:text-xl"
+          className="hr-card-link hr-text-primary block text-xl leading-snug font-bold tracking-tight sm:text-2xl"
         >
           {job.title}
         </Link>
@@ -103,7 +103,7 @@ export function JobCard({
 
       <div className="flex shrink-0 items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-3">
         <div className="sm:text-right">
-          <p className="hr-text-primary hr-num flex items-center gap-1 text-base font-semibold sm:justify-end">
+          <p className="hr-text-primary hr-num flex items-center gap-1 text-xl font-bold sm:justify-end">
             {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
             {isNativeXlmJob ? (
               <span className="relative z-[1] inline-flex">
@@ -123,7 +123,7 @@ export function JobCard({
             type="button"
             disabled={isApplying}
             onClick={() => onApply(job._id)}
-            className="hr-v2-button-primary h-8 rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            className="hr-v2-button-primary h-10 rounded-xl px-5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isApplying ? "Applying…" : "Apply"}
           </AppButton>

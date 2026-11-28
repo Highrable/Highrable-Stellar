@@ -19,17 +19,17 @@ authorization boundaries, and generated files are unchanged.
 
 ## Scenario coverage
 
-| Area | Coverage |
-| --- | --- |
-| Marking retry | Hashless failure → retry → success; escrow/micro-gig or milestone mirror; historical failure event and single dispute preserved. |
-| Known-hash recovery | Retry is blocked while a hash is known; conflicting success is rejected without writes; matching late success is accepted after mirror recovery. |
-| Partial bookkeeping | Parent mirror can complete before the callback; success replay and stale failure leave confirmed state and side-effect counts unchanged. |
-| Settlement retry | Failed operation remains recorded with its failed transaction while a new operation succeeds. |
-| Uncertain settlement | Signed hash/expiry survive `submission_unknown`; competing operation is blocked; matching success and replay finalize once. |
-| Parent outcomes | Client refund, freelancer payout, and split settlement cover micro-gigs and milestones, including hashes, terminal status, completion fields, transaction state, audit events, notifications, and messages. |
-| Sibling isolation | Only the selected milestone changes; parent-job aggregation remains `funded`, `disputed`, or `completed` for active, disputed, and terminal siblings. |
-| Sync boundaries | Internal sync records failure metadata, recovers to `disputed`, handles repeated reads, rejects terminal downgrades, and leaves finalization to administrator settlement. |
-| Failure integrity | Unauthorized/conflicting callbacks preserve records; deleting a required milestone proves settlement writes roll back atomically. |
+| Area                 | Coverage                                                                                                                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Marking retry        | Hashless failure → retry → success; escrow/micro-gig or milestone mirror; historical failure event and single dispute preserved.                                                                            |
+| Known-hash recovery  | Retry is blocked while a hash is known; conflicting success is rejected without writes; matching late success is accepted after mirror recovery.                                                            |
+| Partial bookkeeping  | Parent mirror can complete before the callback; success replay and stale failure leave confirmed state and side-effect counts unchanged.                                                                    |
+| Settlement retry     | Failed operation remains recorded with its failed transaction while a new operation succeeds.                                                                                                               |
+| Uncertain settlement | Signed hash/expiry survive `submission_unknown`; competing operation is blocked; matching success and replay finalize once.                                                                                 |
+| Parent outcomes      | Client refund, freelancer payout, and split settlement cover micro-gigs and milestones, including hashes, terminal status, completion fields, transaction state, audit events, notifications, and messages. |
+| Sibling isolation    | Only the selected milestone changes; parent-job aggregation remains `funded`, `disputed`, or `completed` for active, disputed, and terminal siblings.                                                       |
+| Sync boundaries      | Internal sync records failure metadata, recovers to `disputed`, handles repeated reads, rejects terminal downgrades, and leaves finalization to administrator settlement.                                   |
+| Failure integrity    | Unauthorized/conflicting callbacks preserve records; deleting a required milestone proves settlement writes roll back atomically.                                                                           |
 
 ## Commands and results
 

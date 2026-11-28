@@ -247,13 +247,10 @@ function AdminAdminsContent() {
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout>{actionSuccess}</RouteCallout> : null}
 
-      <AdminSection title="Grant or Revoke Dispute Access" variant="card" accent="band">
+      <AdminSection title="Grant or Revoke Dispute Access">
         <div className="flex flex-wrap items-end gap-3">
-          <label
-            htmlFor="dispute-admin-wallet"
-            className="grid w-full gap-1.5 text-sm sm:w-auto sm:min-w-96"
-          >
-            <span className="hr-text-secondary text-xs font-medium">Stellar wallet</span>
+          <label htmlFor="dispute-admin-wallet" className="grid min-w-72 gap-1.5 text-sm">
+            <span className="text-xs tracking-wide text-[#7f7f7f] uppercase">Stellar wallet</span>
             <AppInput
               id="dispute-admin-wallet"
               value={targetWallet}
@@ -280,7 +277,7 @@ function AdminAdminsContent() {
             Revoke Access
           </AppButton>
         </div>
-        <p className="hr-text-muted mt-3 text-xs leading-relaxed">
+        <p className="mt-3 text-xs leading-relaxed text-[#777]">
           Use the owner wallet to sign contract membership changes. The owner remains implicitly
           authorized and cannot be revoked.
         </p>
@@ -288,23 +285,21 @@ function AdminAdminsContent() {
 
       <AdminSection title="Dispute Admins">
         {managementQuery.isPending ? (
-          <p className="hr-text-secondary text-sm">Loading dispute admin membership…</p>
+          <p className="text-sm text-[#777]">Loading dispute admin membership…</p>
         ) : managementQuery.isError ? (
           <RouteCallout tone="danger">{managementQuery.error.message}</RouteCallout>
         ) : (
-          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+          <div className="divide-y divide-[#e8e8e8] border border-[#e8e8e8]">
             <div className="grid gap-3 p-4 md:grid-cols-[1fr_160px_180px]">
-              <span className="font-mono text-xs break-all">
-                {verifiedWallet} <span className="hr-text-muted font-sans">(platform owner)</span>
-              </span>
+              <span className="font-mono text-xs break-all">{verifiedWallet} (platform owner)</span>
               <span className="text-sm">Active</span>
-              <span className="hr-text-muted text-xs">Implicit, non-removable</span>
+              <span className="text-xs text-[#777]">Implicit, non-removable</span>
             </div>
             {managementQuery.data?.admins.map((admin) => (
               <div key={admin.wallet} className="grid gap-3 p-4 md:grid-cols-[1fr_160px_180px]">
                 <span className="font-mono text-xs break-all">{admin.wallet}</span>
                 <span className="text-sm capitalize">{admin.accessState}</span>
-                <span className="hr-text-muted text-xs">
+                <span className="text-xs text-[#777]">
                   {admin.accessState === "active"
                     ? "Can access disputes"
                     : "Cannot access disputes"}
@@ -312,7 +307,7 @@ function AdminAdminsContent() {
               </div>
             ))}
             {managementQuery.data?.admins.length === 0 ? (
-              <p className="hr-text-secondary p-4 text-sm">No additional dispute admins yet.</p>
+              <p className="p-4 text-sm text-[#777]">No additional dispute admins yet.</p>
             ) : null}
           </div>
         )}
@@ -320,7 +315,7 @@ function AdminAdminsContent() {
 
       <AdminSection title="Membership Operations">
         {managementQuery.data?.operations.length ? (
-          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+          <div className="divide-y divide-[#e8e8e8] border border-[#e8e8e8]">
             {managementQuery.data.operations.map((operation) => {
               const membership = membershipByWallet.get(operation.wallet);
               const isBusy = busyOperationId === operation.operationId;
@@ -331,12 +326,12 @@ function AdminAdminsContent() {
                 >
                   <div className="min-w-0">
                     <p className="font-mono text-xs break-all">{operation.wallet}</p>
-                    <p className="hr-text-muted mt-1 text-xs">
+                    <p className="mt-1 text-xs text-[#777]">
                       {operation.action} · app access {membership?.accessState ?? "inactive"}
                     </p>
                     {operation.transactionHash ? (
                       <a
-                        className="hr-mode-text mt-1 inline-flex items-center gap-1 text-xs underline"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-[#b64f00] underline"
                         href={`https://stellar.expert/explorer/${operation.network}/tx/${operation.transactionHash}`}
                         target="_blank"
                         rel="noreferrer"
@@ -348,7 +343,7 @@ function AdminAdminsContent() {
                   <span className="text-sm capitalize">
                     {operation.status.replaceAll("_", " ")}
                   </span>
-                  <span className="hr-text-muted text-xs">
+                  <span className="text-xs text-[#777]">
                     {operation.errorMessage ?? operation.operationId}
                   </span>
                   <div className="flex gap-2">
@@ -377,7 +372,7 @@ function AdminAdminsContent() {
             })}
           </div>
         ) : (
-          <p className="hr-text-secondary text-sm">No membership operations recorded.</p>
+          <p className="text-sm text-[#777]">No membership operations recorded.</p>
         )}
       </AdminSection>
     </div>

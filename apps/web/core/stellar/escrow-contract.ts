@@ -1,6 +1,5 @@
 import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 
-import type { IPasskeyEscrowExecutionReadiness } from "./passkeySmartAccountExecutor";
 import type {
   TConfirmedContractTx,
   TStellarSubmissionIdentity,
@@ -25,10 +24,8 @@ type TBaseEscrowCallParams = {
   escrowContractId: string;
   sourceAddress: string;
   signTransaction?: TSignedTransactionSubmitter;
-  preSignCheck?: () => Promise<void>;
   walletType?: TWalletExecutionMode;
   operationId?: string;
-  passkeyReadiness?: IPasskeyEscrowExecutionReadiness;
   onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   onPhase?: (phase: TStellarExecutionPhase) => void;
   onRecovery?: () => void;
@@ -115,9 +112,7 @@ async function executeEscrowContract(
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     signTransaction: params.signTransaction,
-    preSignCheck: params.preSignCheck,
     operationId: params.operationId,
-    passkeyReadiness: params.passkeyReadiness,
     onSigned: params.onSigned,
     onPhase: params.onPhase,
   });
@@ -636,7 +631,6 @@ export async function fundEscrowOnChain(
     method: "fund_escrow",
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
-    preSignCheck: params.preSignCheck,
     onSigned: params.onSigned,
     walletType: params.walletType,
     operationId: params.operationId,
@@ -766,6 +760,7 @@ export async function resolveDisputeOnChain(
     signTransaction: params.signTransaction,
     walletType: params.walletType,
     operationId: params.operationId,
+    onSigned: params.onSigned,
     onPhase: params.onPhase,
   });
 }

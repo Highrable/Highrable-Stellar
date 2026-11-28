@@ -25,8 +25,11 @@ export function JobList({
     return (
       <div className="flex flex-col gap-3" aria-hidden="true">
         {[0, 1, 2].map((item) => (
-          <div key={item} className="space-y-2 rounded-lg border px-5 py-4">
-            <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+          <div
+            key={item}
+            className="hr-card-surface space-y-3 rounded-3xl px-5 py-5 sm:px-7 sm:py-6"
+          >
+            <div className="h-5 w-1/3 animate-pulse rounded bg-muted" />
             <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
             <div className="h-3 w-1/4 animate-pulse rounded bg-muted" />
           </div>

@@ -31,15 +31,15 @@ The focused suite contains 23 cases. Its matrix verifies:
 
 All final commands were run locally on 2026-10-15 in the repository checkout:
 
-| Check | Result |
-| --- | --- |
-| `pnpm --filter @repo/backend exec vitest run tests/disputes/c18.marking-reconciliation.test.ts` | 23 passed in 1 file |
-| `pnpm --filter @repo/backend test` | 479 passed across 16 files |
-| `pnpm --filter @repo/backend exec tsc --project convex/tsconfig.json --noEmit` | passed |
-| `pnpm --filter @repo/backend exec tsc --project tests/tsconfig.json --noEmit` | passed |
-| `pnpm --filter @repo/backend exec oxlint convex/disputes/mutations.ts tests/disputes/c18.marking-reconciliation.test.ts` | passed |
-| `pnpm --filter @repo/backend exec oxfmt --check convex/disputes/mutations.ts tests/disputes/c18.marking-reconciliation.test.ts` | passed |
-| `git diff --check` | passed |
+| Check                                                                                                                           | Result                     |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `pnpm --filter @repo/backend exec vitest run tests/disputes/c18.marking-reconciliation.test.ts`                                 | 23 passed in 1 file        |
+| `pnpm --filter @repo/backend test`                                                                                              | 479 passed across 16 files |
+| `pnpm --filter @repo/backend exec tsc --project convex/tsconfig.json --noEmit`                                                  | passed                     |
+| `pnpm --filter @repo/backend exec tsc --project tests/tsconfig.json --noEmit`                                                   | passed                     |
+| `pnpm --filter @repo/backend exec oxlint convex/disputes/mutations.ts tests/disputes/c18.marking-reconciliation.test.ts`        | passed                     |
+| `pnpm --filter @repo/backend exec oxfmt --check convex/disputes/mutations.ts tests/disputes/c18.marking-reconciliation.test.ts` | passed                     |
+| `git diff --check`                                                                                                              | passed                     |
 
 The test runner emitted existing Vite CommonJS/native-loader and Node localStorage experimental warnings; they did not fail a test or check.
 

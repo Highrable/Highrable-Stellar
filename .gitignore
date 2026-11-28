@@ -2,8 +2,6 @@
 !docs/passkey-smart-accounts.md
 !docs/mainnet-smart-account-readiness.md
 node_modules*
-.agents/
-.kilo/
 .turbo
 .next
 out
@@ -17,6 +15,7 @@ dist
 .env.test.local
 .env.production.local
 .vscode/mcp.json
+/.agents/skills/
 contracts/target
 apps/web/.env.production
 docs/DESIGN Inspi for higrable.md
@@ -27,6 +26,8 @@ docs/PLAN.md
 docs/README-keyless.md
 docs/passkey-escrow-debug-progress.md
 docs/passkey.md
-docs/obsidian/
+docs/obsidian/.obsidian/workspace.json
+docs/obsidian/.obsidian/workspace-mobile.json
+docs/obsidian/.obsidian/cache/
 docs/instawards/Highrable Instawards SOW Revised.docx.md
 docs/instawards/Highrable-Instawards-SOW.md

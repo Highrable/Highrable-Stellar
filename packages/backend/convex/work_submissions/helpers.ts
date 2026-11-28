@@ -15,11 +15,7 @@ import {
   isRevisionEnabledPolicy,
   resolveRevisionParent,
 } from "../revisions/helpers";
-import {
-  assertAgreementLockedForProofSubmission,
-  getActiveAgreementByJob,
-  isLegacyAgreementExempt,
-} from "../work_agreements/helpers";
+import { assertAgreementAcceptedForProofSubmission } from "../work_agreements/helpers";
 
 const PROOF_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const IMMUTABLE_STATUSES = new Set([
@@ -116,7 +112,7 @@ export async function assertCanCreateSubmission(
   if (!job) {
     throw new NotFoundError("Job not found.");
   }
-  await assertAgreementLockedForProofSubmission(ctx, {
+  await assertAgreementAcceptedForProofSubmission(ctx, {
     job,
     escrowId: escrow._id,
     actorWallet: submittedByWallet,
@@ -145,13 +141,11 @@ export function assertSubmissionIsMutable(submission: { status: string; onChainS
   }
 }
 
-export async function assertCanViewSubmission(
-  ctx: QueryCtx,
+export function assertCanViewSubmission(
   submission: {
     clientWallet: string;
     freelancerWallet: string;
     submittedByWallet: string;
-    jobId?: Id<"jobs">;
   },
   viewerWallet?: string,
 ) {
@@ -165,19 +159,7 @@ export async function assertCanViewSubmission(
     normalizedViewer === submission.freelancerWallet ||
     normalizedViewer === submission.submittedByWallet
   ) {
-    if (!submission.jobId) return;
-
-    const job = await ctx.db.get(submission.jobId);
-    if (!job) {
-      throw new ForbiddenError("You do not have permission to view this proof submission.");
-    }
-
-    const agreement = await getActiveAgreementByJob(ctx, submission.jobId);
-    if (isLegacyAgreementExempt(job) || agreement?.status === "locked") {
-      return;
-    }
-
-    throw new ForbiddenError("Work submissions are not available until the agreement is locked.");
+    return;
   }
 
   throw new ForbiddenError("You do not have permission to view this proof submission.");

@@ -11,4 +11,6 @@ crons.interval(
   {},
 );
 
+crons.interval("clean social uploads", { minutes: 15 }, internal.newsfeed.media.cleanup, {});
+
 export default crons;

@@ -1,12 +1,6 @@
-import {
-  AdminRouteFallbackFrame,
-  AdminRouteLoadingState,
-} from "@/features/admin/admin-route-fallbacks";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
+import React from "react";
 
 export default function AdminDisputesLoading() {
-  return (
-    <AdminRouteFallbackFrame>
-      <AdminRouteLoadingState label="dispute queue" />
-    </AdminRouteFallbackFrame>
-  );
+  return <PageLoadingState label="dispute queue" />;
 }

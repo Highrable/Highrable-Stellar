@@ -9,6 +9,7 @@ import { modules } from "../convexModules";
 
 type TProfileDraftArgs = {
   walletAddress: string;
+  role?: "client" | "freelancer";
   firstName: string;
   lastName: string;
   publicHandle: string;
@@ -56,6 +57,7 @@ describe("registry gated onboarding", () => {
   beforeEach(() => {
     process.env.STELLAR_NETWORK = "testnet";
     process.env.REGISTRY_CONTRACT_ID = CONTRACT_ID;
+    delete process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS;
   });
 
   it("saves a sanitized profile draft without completing onboarding", async () => {
@@ -76,15 +78,93 @@ describe("registry gated onboarding", () => {
     expect(user?.onboardingCompletedAt).toBeUndefined();
   });
 
+  it("allows signup drafts with no skills and preserves the selected initial role", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await t.mutation(saveProfileDraftRef, {
+      walletAddress: FIRST_WALLET,
+      role: "client",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      publicHandle: "ada-client",
+      coreSkills: [],
+    });
+    const user = await t.run((ctx) => ctx.db.get(userId));
+
+    expect(user).toMatchObject({
+      role: "client",
+      coreSkills: [],
+      skills: [],
+    });
+
+    await t.mutation(saveProfileDraftRef, {
+      walletAddress: FIRST_WALLET,
+      role: "freelancer",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      publicHandle: "ada-client",
+      coreSkills: [],
+    });
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toMatchObject({
+      role: "freelancer",
+    });
+
+    await expect(
+      t.mutation(saveProfileDraftRef, {
+        walletAddress: SECOND_WALLET,
+        role: "admin",
+        firstName: "Grace",
+        lastName: "Hopper",
+        publicHandle: "grace-admin",
+        coreSkills: [],
+      } as unknown as TProfileDraftArgs),
+    ).rejects.toThrow();
+  });
+
+  it("keeps the configured admin role regardless of the initial mode choice", async () => {
+    const t = convexTest(schema, modules);
+    process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS = FIRST_WALLET;
+    const userId = await t.mutation(saveProfileDraftRef, {
+      walletAddress: FIRST_WALLET,
+      role: "client",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      publicHandle: "configured-admin",
+      coreSkills: [],
+    });
+
+    await expect(t.run((ctx) => ctx.db.get(userId))).resolves.toMatchObject({ role: "admin" });
+  });
+
+  it("requires a private email for a new completion", async () => {
+    const t = convexTest(schema, modules);
+    await t.mutation(saveProfileDraftRef, {
+      walletAddress: FIRST_WALLET,
+      firstName: "Ada",
+      lastName: "Lovelace",
+      publicHandle: "ada-no-email",
+      coreSkills: [],
+    });
+    await t.mutation(applyVerifiedRegistrationRef, {
+      network: "testnet",
+      registryContractId: CONTRACT_ID,
+      walletAddress: FIRST_WALLET,
+      registeredAt: 1_700_000_000,
+      verifiedAt: 1_700_000_100,
+    });
+
+    await expect(
+      t.mutation(completeOnboardingRef, { walletAddress: FIRST_WALLET }),
+    ).rejects.toThrow("Add a valid email address");
+  });
+
   it("rejects invalid drafts and duplicate public handles", async () => {
     const t = convexTest(schema, modules);
 
     await expect(
       t.mutation(saveProfileDraftRef, {
-        ...profileDraft(FIRST_WALLET, "first-user"),
-        coreSkills: [],
+        ...profileDraft(FIRST_WALLET, "bad username"),
       }),
-    ).rejects.toThrow("Add at least one core skill");
+    ).rejects.toThrow("Public handle may only include");
 
     await t.mutation(saveProfileDraftRef, profileDraft(FIRST_WALLET, "same-handle"));
     await expect(
@@ -95,6 +175,13 @@ describe("registry gated onboarding", () => {
   it("requires a verified registration before completing a new profile", async () => {
     const t = convexTest(schema, modules);
     await t.mutation(saveProfileDraftRef, profileDraft(FIRST_WALLET, "new-user"));
+    await t.run((ctx) =>
+      ctx.db.insert("privateEmails", {
+        walletAddress: FIRST_WALLET,
+        email: "ada@example.com",
+        updatedAt: Date.now(),
+      }),
+    );
 
     await expect(
       t.mutation(completeOnboardingRef, { walletAddress: FIRST_WALLET }),

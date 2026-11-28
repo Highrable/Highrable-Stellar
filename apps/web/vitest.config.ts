@@ -10,5 +10,11 @@ export default defineConfig({
   },
   test: {
     include: ["**/*.test.ts", "**/*.test.tsx"],
+    server: {
+      deps: {
+        // The SDK ships extensionless ESM imports that Vite needs to resolve.
+        inline: ["smart-account-kit"],
+      },
+    },
   },
 });

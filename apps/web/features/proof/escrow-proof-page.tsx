@@ -2,6 +2,8 @@
 
 import { ESCROW_CONTRACT_ID, STELLAR_NETWORK_PASSPHRASE } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { PageLoadingState } from "@/features/common/components/layout/page-loading-state";
+import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import {
@@ -154,11 +156,7 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
   }
 
   if (proof === undefined) {
-    return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading proof receipt...
-      </p>
-    );
+    return <PageLoadingState label="payment proof" />;
   }
 
   if (proof === null) {
@@ -210,5 +208,10 @@ function ProofAdvancedDetails({ children }: { readonly children: ReactNode }) {
 }
 
 function ProofNotFound() {
-  return <p className="hr-text-secondary text-sm">Proof receipt not found.</p>;
+  return (
+    <RouteEmptyState
+      title="Proof receipt not found"
+      description="Check the escrow link and try again."
+    />
+  );
 }

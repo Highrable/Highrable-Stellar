@@ -13,8 +13,8 @@ function HeroLaunchActions() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col justify-center gap-3 sm:flex-row">
       <Link
-        href={withModeHref("/jobs", "freelancer")}
-        className="hr-button-hover-shadow flex min-h-11 items-center justify-center gap-2 rounded-lg bg-linear-to-r from-[#FF8703] to-[#FE6002] px-6 py-3 font-mono text-xs font-bold tracking-widest text-white uppercase transition-opacity hover:opacity-90"
+        href={withModeHref("/marketplace", "freelancer")}
+        className="hr-v2-button-primary hr-button-hover-shadow flex min-h-11 items-center justify-center gap-2 rounded-xl px-6 py-3 font-mono text-xs font-bold tracking-widest uppercase transition-opacity hover:opacity-90"
       >
         Find Work
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -41,7 +41,7 @@ export function V2Hero() {
       <GradientWaves
         horizonColor={isDarkMode ? "#171717" : "#FFF8F1"}
         waveColor={isDarkMode ? "#332113" : "#FFE0C2"}
-        crestColor={isDarkMode ? "#A95008" : "#FF8703"}
+        crestColor={isDarkMode ? "#A95008" : "#FF8C42"}
         speed={0.25}
         amplitude={5}
         swell={40}
@@ -66,7 +66,7 @@ export function V2Hero() {
         >
           Get Funded. Do the Work.
           <br />
-          <span className="bg-linear-to-r from-[#FF8703] to-[#FE6002] bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-highrable-orange-1 to-highrable-orange-2 bg-clip-text text-transparent">
             Get Paid.
           </span>
         </V2Reveal>
@@ -90,12 +90,12 @@ export function V2Hero() {
           <div className="flex" aria-hidden="true">
             <span className="h-8 w-8 rounded-full border-2 border-background bg-[#FFD9B0] shadow-sm" />
             <span className="-ml-2.5 h-8 w-8 rounded-full border-2 border-background bg-[#FFB877] shadow-sm" />
-            <span className="-ml-2.5 h-8 w-8 rounded-full border-2 border-background bg-[#FE6002] shadow-sm" />
+            <span className="-ml-2.5 h-8 w-8 rounded-full border-2 border-background bg-highrable-orange-2 shadow-sm" />
             <span className="-ml-2.5 h-8 w-8 rounded-full border-2 border-background bg-[#27221F] shadow-sm" />
           </div>
           <div className="text-left">
             <p
-              className="font-sans text-sm tracking-[0.12em] text-[#FF8703]"
+              className="font-sans text-sm tracking-[0.12em] text-highrable-orange-4"
               aria-label="5 out of 5 stars"
             >
               ★★★★★

@@ -38,14 +38,14 @@ No participant, backend, Convex schema/generated file, contract, wallet, deploym
 
 Executed locally on 2026-10-14 from the repository workspace:
 
-| Command | Result |
-| --- | --- |
-| `pnpm --filter web test features/admin` | PASS — 8 files, 250 tests. |
-| `pnpm --filter web exec tsc --noEmit` | PASS. |
-| Scoped `pnpm --filter web exec oxlint ...` on the four changed administrator files | PASS — 0 warnings, 0 errors. |
-| Scoped `pnpm --filter web exec oxfmt --check ...` on the four changed administrator files | PASS. |
-| `pnpm --filter web test` | 26 of 27 files passed; 427 of 429 tests passed. The two failures are the historical participant integration assertions that still expect `Escrow dispute marking is confirmed on Stellar.` while current participant UI states are `Outcome Pending` / `Recording Confirmation`; no participant files changed. |
-| `pnpm --filter web build` | PASS — Next.js 16.1.6 production build and static generation completed, including administrator routes. |
+| Command                                                                                   | Result                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter web test features/admin`                                                   | PASS — 8 files, 250 tests.                                                                                                                                                                                                                                                                                     |
+| `pnpm --filter web exec tsc --noEmit`                                                     | PASS.                                                                                                                                                                                                                                                                                                          |
+| Scoped `pnpm --filter web exec oxlint ...` on the four changed administrator files        | PASS — 0 warnings, 0 errors.                                                                                                                                                                                                                                                                                   |
+| Scoped `pnpm --filter web exec oxfmt --check ...` on the four changed administrator files | PASS.                                                                                                                                                                                                                                                                                                          |
+| `pnpm --filter web test`                                                                  | 26 of 27 files passed; 427 of 429 tests passed. The two failures are the historical participant integration assertions that still expect `Escrow dispute marking is confirmed on Stellar.` while current participant UI states are `Outcome Pending` / `Recording Confirmation`; no participant files changed. |
+| `pnpm --filter web build`                                                                 | PASS — Next.js 16.1.6 production build and static generation completed, including administrator routes.                                                                                                                                                                                                        |
 
 ## Boundaries and limitations
 

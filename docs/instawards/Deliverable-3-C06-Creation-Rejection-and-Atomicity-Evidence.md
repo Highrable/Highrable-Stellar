@@ -29,11 +29,11 @@ files. The focused command measured 143 passing tests across the three C05,
 C08, and C09 files immediately before this change and 143 after it. The full
 backend run measured 364 passing tests across 13 files after the change.
 
-| Area | Regression coverage strengthened |
-| --- | --- |
-| C05 authorization | Existing eligibility, canonical parent/participant selection, parent graph, assignment/ownership, escrow-status, duplicate, alias, and conflict matrices now use the shared complete snapshot. |
-| C08 evidence | Raw attachment and related-record limits, wrong-table/ownership/association errors, revision-linked submission failures, hidden messages, conversation parent/participant mismatches, deadline isolation, terminal writes, and mixed valid/invalid writes assert exact errors and unchanged complete documents. |
-| C09 creation | Direct-conversation rejection, missing/wrong-table submissions, participant and escrow-link conflicts, raw limits, hidden messages, and deadline isolation seed valid attachment/agreement context, snapshot after the invalid condition, and compare the complete graph before and after `createDispute`. |
+| Area              | Regression coverage strengthened                                                                                                                                                                                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C05 authorization | Existing eligibility, canonical parent/participant selection, parent graph, assignment/ownership, escrow-status, duplicate, alias, and conflict matrices now use the shared complete snapshot.                                                                                                                  |
+| C08 evidence      | Raw attachment and related-record limits, wrong-table/ownership/association errors, revision-linked submission failures, hidden messages, conversation parent/participant mismatches, deadline isolation, terminal writes, and mixed valid/invalid writes assert exact errors and unchanged complete documents. |
+| C09 creation      | Direct-conversation rejection, missing/wrong-table submissions, participant and escrow-link conflicts, raw limits, hidden messages, and deadline isolation seed valid attachment/agreement context, snapshot after the invalid condition, and compare the complete graph before and after `createDispute`.      |
 
 Successful creation and eligibility matrices remain in their existing suites;
 no duplicate C06 test file or production helper was added.

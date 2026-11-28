@@ -18,7 +18,7 @@ export function WalletAccountButton({ className }: IWalletAccountButtonProps) {
 
   const accountToneClassName =
     walletIdentity.walletType === "passkey_smart_account"
-      ? "border-highrable-orange-2/30 bg-highrable-surface-accent text-highrable-orange-4"
+      ? "hr-v2-button-primary border-transparent"
       : "border-border bg-background text-foreground";
 
   return (

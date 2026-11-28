@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { RouteEmptyState } from "@/features/common/components/layout/route-surface";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import Link from "next/link";
@@ -22,22 +23,28 @@ export function DisputeList() {
   );
 
   if (!walletIdentity.walletAddress) {
-    return <p className="hr-text-secondary text-sm">Connect your wallet to view disputes.</p>;
+    return (
+      <RouteEmptyState
+        title="Wallet required"
+        description="Connect your wallet to view disputes."
+      />
+    );
   }
 
   if (visibleDisputes === undefined) {
     return (
-      <p className="hr-text-secondary text-sm" role="status">
-        Loading disputes...
-      </p>
+      <RouteEmptyState
+        title="Loading disputes"
+        description="Loading disputes…"
+        role="status"
+        aria-busy="true"
+      />
     );
   }
 
   if (visibleDisputes.length === 0) {
     return (
-      <p className="hr-text-secondary rounded-lg border border-dashed px-4 py-5 text-sm">
-        No disputes found for this wallet.
-      </p>
+      <RouteEmptyState title="No disputes found" description="No disputes found for this wallet." />
     );
   }
 
@@ -50,7 +57,7 @@ export function DisputeList() {
         return (
           <li
             key={dispute._id}
-            className="hr-clickable-card grid gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:px-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+            className="hr-clickable-card hr-card-surface grid gap-x-6 gap-y-2 px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:px-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
           >
             <div className="min-w-0 space-y-1">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">

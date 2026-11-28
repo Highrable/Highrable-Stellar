@@ -20,12 +20,12 @@ Contract events are not automatically ingested into Convex. These Rust tests est
 
 ## Validation
 
-| Command | Result |
-| --- | --- |
-| `cargo test -p highrable-escrow c07_` | Passed: 2 C07 tests. |
-| `cargo test -p highrable-escrow dispute` | Passed: 24 matching dispute tests. |
-| `cargo test --workspace --locked` | Passed: 69 escrow tests and 9 reputation tests. |
-| `cargo fmt --all -- --check` | Passed. |
-| `git diff --check` | Passed. |
+| Command                                  | Result                                          |
+| ---------------------------------------- | ----------------------------------------------- |
+| `cargo test -p highrable-escrow c07_`    | Passed: 2 C07 tests.                            |
+| `cargo test -p highrable-escrow dispute` | Passed: 24 matching dispute tests.              |
+| `cargo test --workspace --locked`        | Passed: 69 escrow tests and 9 reputation tests. |
+| `cargo fmt --all -- --check`             | Passed.                                         |
+| `git diff --check`                       | Passed.                                         |
 
 The test suite is local; no Testnet transaction or deployment verification is performed for C07.

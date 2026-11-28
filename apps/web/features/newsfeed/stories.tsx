@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import type { FunctionReturnType } from "convex/server";
 
 import {
+  ComposerDialogContent,
   ComposerMediaList,
   ComposerSectionLabel,
   MobileDialogClose,
@@ -298,14 +299,17 @@ function StoryComposer({
   }
   if (!viewer) return null;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="hr-newsfeed-dialog flex max-h-[min(90dvh,44rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border bg-background p-0 data-[vaul-drawer-direction=bottom]:max-h-[95dvh] md:rounded-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange} repositionDrawerInputs={false}>
+      <ComposerDialogContent>
         <MobileDialogClose />
         <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6 sm:pr-14">
           <DialogTitle className="text-xl leading-tight">Create a showcase</DialogTitle>
           <DialogDescription className="text-sm">Public for 24 hours</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+        <div
+          data-composer-scroll
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"
+        >
           <ComposerMediaList
             label="Showcase uploads"
             files={files}
@@ -360,7 +364,7 @@ function StoryComposer({
               onChange={(event) => setNote(event.target.value)}
               disabled={busy}
               maxLength={500}
-              className="min-h-20 resize-y rounded-xl bg-muted/20 px-3 py-3 text-base leading-6"
+              className="max-h-[var(--composer-editor-height,none)] min-h-[min(5rem,var(--composer-editor-height,5rem))] resize-y rounded-xl bg-muted/20 px-3 py-3 text-base leading-6"
               placeholder="What are you working on?"
             />
           </label>
@@ -438,7 +442,7 @@ function StoryComposer({
             </Button>
           </div>
         </footer>
-      </DialogContent>
+      </ComposerDialogContent>
     </Dialog>
   );
 }

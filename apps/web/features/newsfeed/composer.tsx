@@ -6,7 +6,6 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import {
   ResponsiveDialog as Dialog,
-  ResponsiveDialogContent as DialogContent,
   ResponsiveDialogDescription as DialogDescription,
   ResponsiveDialogHeader as DialogHeader,
   ResponsiveDialogTitle as DialogTitle,
@@ -16,6 +15,7 @@ import { ChevronDown, ImagePlus, SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  ComposerDialogContent,
   ComposerMediaList,
   ComposerSectionLabel,
   MobileDialogClose,
@@ -222,14 +222,17 @@ export function Composer({
       .slice(0, 5) ?? [];
   const form = (
     <>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+      <div
+        data-composer-scroll
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6"
+      >
         <label className="block space-y-2.5" htmlFor="newsfeed-post-text">
           <ComposerSectionLabel>
             {originalId ? "Add your perspective" : "Share an update"}
           </ComposerSectionLabel>
           <Textarea
             id="newsfeed-post-text"
-            className="min-h-28 resize-y rounded-xl bg-muted/20 px-3 py-3 text-base leading-6 sm:min-h-36"
+            className="max-h-[var(--composer-editor-height,none)] min-h-[min(7rem,var(--composer-editor-height,7rem))] resize-y rounded-xl bg-muted/20 px-3 py-3 text-base leading-6 md:min-h-36"
             value={body}
             disabled={busy}
             onChange={(event) => setBody(event.target.value)}
@@ -495,12 +498,13 @@ export function Composer({
       )}
       <Dialog
         open={open}
+        repositionDrawerInputs={false}
         onOpenChange={(next) => {
           setOpen(next);
           if (!next && originalId) onDone?.();
         }}
       >
-        <DialogContent className="hr-newsfeed-dialog flex max-h-[min(90dvh,44rem)] flex-col gap-0 overflow-hidden rounded-t-2xl border bg-background p-0 data-[vaul-drawer-direction=bottom]:max-h-[95dvh] md:rounded-2xl">
+        <ComposerDialogContent>
           <MobileDialogClose />
           <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6 sm:pr-14">
             <DialogTitle className="text-xl leading-tight">
@@ -509,7 +513,7 @@ export function Composer({
             <DialogDescription className="text-sm">Public · Freelance Network</DialogDescription>
           </DialogHeader>
           {form}
-        </DialogContent>
+        </ComposerDialogContent>
       </Dialog>
     </>
   );

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 // @vitest-environment jsdom
 import React from "react";
@@ -146,6 +146,40 @@ it("shows the public audience once and preserves a draft when closing the dialog
   expect(
     (screen.getByRole("textbox", { name: "Share an update" }) as HTMLTextAreaElement).value,
   ).toBe("A draft to keep");
+});
+it("fits the mobile drawer to the visible viewport and scrolls just its body to the focused field", () => {
+  const viewport = Object.assign(new EventTarget(), { height: 780, offsetTop: 0, scale: 1 });
+  vi.stubGlobal("innerHeight", 780);
+  vi.stubGlobal("visualViewport", viewport);
+  render(<Composer />);
+  openComposer();
+
+  const dialog = screen.getByRole("dialog", { name: "Create a post" });
+  const field = screen.getByRole("textbox", { name: "Share an update" });
+  const body = field.closest<HTMLElement>("[data-composer-scroll]")!;
+  act(() => field.focus());
+  fireEvent.change(field, { target: { value: "A draft above the keyboard" } });
+  vi.spyOn(body, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 220, 390, 130));
+  vi.spyOn(field, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 295, 350, 80));
+
+  viewport.height = 300;
+  viewport.offsetTop = 130;
+  viewport.dispatchEvent(new Event("resize"));
+  expect(dialog.style.bottom).toBe("350px");
+  expect(dialog.style.maxHeight).toBe("300px");
+  expect(body.scrollTop).toBe(33);
+  expect(document.activeElement).toBe(field);
+
+  viewport.offsetTop = 150;
+  viewport.dispatchEvent(new Event("scroll"));
+  expect(dialog.style.bottom).toBe("330px");
+
+  viewport.height = 780;
+  viewport.offsetTop = 0;
+  viewport.dispatchEvent(new Event("resize"));
+  expect(dialog.style.bottom).toBe("");
+  expect(dialog.style.maxHeight).toBe("");
+  expect((field as HTMLTextAreaElement).value).toBe("A draft above the keyboard");
 });
 it("requires public milestone confirmation and submits normalized tags", async () => {
   mocks.milestones = [

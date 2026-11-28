@@ -2,11 +2,17 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-13
+last_updated: 2026-11-28
 source_of_truth: repository
 ---
 
 # Testing
+
+## GitHub Actions CI
+
+`.github/workflows/ci.yml` runs on pushes to every branch, including merge commits on the target branch, and when pull requests are opened, reopened, or updated. Updating an open pull request by pushing to its branch can create both a push run and a pull request run. Each event can finish independently when commits arrive close together.
+
+CI checks changed-file formatting, runs package lint and type checks, executes the web, backend, and deployment identity tests, builds the web app with isolated configuration, and tests and builds all three Soroban contracts. The `required` job reports the combined result. Branches receive this workflow when the change lands on them.
 
 ## Test layers
 

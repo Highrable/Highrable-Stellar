@@ -14,6 +14,8 @@ source_of_truth: repository
 
 CI checks changed-file formatting, runs package lint and type checks, executes the web, backend, and deployment identity tests, builds the web app with isolated configuration, and tests and builds all three Soroban contracts. The `required` job reports the combined result. Branches receive this workflow when the change lands on them.
 
+The changed-file formatting check skips the imported `.agents/skills/` library, Obsidian vault notes, and generated Convex files. The skill library includes a newline-delimited dataset stored with a `.json` extension.
+
 ## Test layers
 
 The Deliverable 2 C19–C24 final local run passes 346 web tests, 361 backend tests, and 49 deployment-verifier tests. Administrator and participant acceptance use real components with controlled external seams, paired with separate actual backend/domain tests. See [the C24 final evidence map](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md). Production contract build provenance and live deployment identity are still unavailable.
